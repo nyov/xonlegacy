@@ -1,15 +1,13 @@
 
 void Teleport_Touch (void)
 {
-	entity	dest;
-	
 	if (other.health < 1)
 		return;
 	if (other.classname != "player")	// FIXME: Make missiles firable through the teleport too
 		return;
 
 	// Make teleport effect where the player left
-	sound (other, CHAN_ITEM, "misc/Teleport.wav", 1, ATTN_NORM);
+	sound (other, CHAN_ITEM, "misc/teleport.wav", 1, ATTN_NORM);
 	te_teleport (other.origin);
 	
 	dest = find (world, targetname, self.target);
@@ -17,12 +15,13 @@ void Teleport_Touch (void)
 		objerror ("Teleporter with nonexistant target");
 
 	// Make teleport effect where the player arrived
-	sound (other, CHAN_ITEM, "misc/Teleport.wav", 1, ATTN_NORM);
+	sound (other, CHAN_ITEM, "misc/teleport.wav", 1, ATTN_NORM);
 	makevectors (dest.mangle);
-	te_teleport (dest.origin + '0 0 27' + v_forward * 32);
+	te_teleport (dest.origin + v_forward * 32);
 
 	// Relocate the player
-	setorigin (other, dest.origin + '0 0 27');
+	//setorigin (other, dest.origin);
+	setorigin (other, dest.origin + '0 0 1' * (1 - other.mins_z - 24));
 	other.angles = dest.mangle;
 	other.fixangle = TRUE;
 	
@@ -36,8 +35,16 @@ void info_teleport_destination (void)
 	self.mangle = self.angles;
 	self.angles = '0 0 0';
 
+	//setorigin (self, self.origin + '0 0 27');	// To fix a mappers' habit as old as Quake
+	setorigin (self, self.origin);
+
 	if (!self.targetname)
 		objerror ("Teleport destination without a targetname");
+}
+
+void misc_teleporter_dest (void)
+{
+	info_teleport_destination();
 }
 
 void trigger_teleport (void)

@@ -88,7 +88,8 @@ ClientDisconnected(); // FrikBot
 void() bot_map_load =
 {
 	// place your qc loaded waypoints here
-	map_mattrye2();
+	if (mapname == "mattrye1_nex")
+		map_mattrye1_nex();
 };
 
 /*
@@ -116,7 +117,7 @@ for all variable in the bot...
 .entity	_next, _last;
 .entity	current_way;
 .vector	b_angle, b_dest, mouse_emu, obs_dir;
-.vector	movevect, b_dir;
+.vector	movement, b_dir;
 .vector dyn_dest;
 
 .float search_time;
@@ -159,6 +160,7 @@ float AI_AMBUSH		= 16384; // point type
 float AI_DOOR_NO_OPEN	= 32768; // read ahead
 float AI_DIFFICULT	= 65536; // route test
 float AI_TRACE_TEST	= 131072; // route test
+float AI_CARELESS	= 262144; // Electro - jumppads, bot doesn't have to touch this entity, only get close
 
 // these are flags for bots/players (dynamic/editor flags)
 float AI_OBSTRUCTED	= 1;
@@ -747,8 +749,8 @@ void() BotInit =
 		numents = numents + 1;
 		ent = nextent(ent);
 	}
-	//precache_model("progs/s_light.spr");
-	//precache_model("progs/s_bubble.spr");
+	precache_model("progs/s_light.spr");
+	precache_model("progs/s_bubble.spr");
 	// the bots return!
 	b_options = cvar("saved1");
 	if (coop || (b_options & OPT_SAVEBOTS))

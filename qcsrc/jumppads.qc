@@ -4,10 +4,32 @@ float PUSH_SILENT		= 2;
 // TODO: add sounds
 void() trigger_push_touch =
 {
-	if (other.health > 0)
-	{
-		other.velocity = self.movedir;
-	}
+	local float flighttime, dist, grav;
+	local vector org;
+
+	if (!other.health)
+		return;
+
+	org = other.origin;
+
+	// figure out how long it will take to hit the point considering gravity
+	grav = cvar("sv_gravity");
+	flighttime = sqrt((self.enemy.origin_z - org_z) / (0.5 * grav));
+	if (!flighttime)
+		return;
+
+	// how far in X and Y to move
+	self.movedir = (self.enemy.origin - org);
+	self.movedir_z = 0;
+	dist = vlen(self.movedir);
+
+	// finally calculate the velocity
+	self.movedir = normalize(self.movedir) * (dist / flighttime);
+	self.movedir_z = flighttime * grav;
+
+	other.velocity = self.movedir;
+	other.flags = other.flags - (other.flags & FL_ONGROUND);
+
 	if (self.spawnflags & PUSH_ONCE)
 	{
 		self.touch = SUB_Null;
@@ -18,34 +40,10 @@ void() trigger_push_touch =
 
 void() trigger_push_findtarget =
 {
-	local float flighttime, dist, grav;
-	local vector org;
-
 	// find the target
 	self.enemy = find(world, targetname, self.target);
 	if (!self.enemy)
 		objerror("trigger_push: target not found\n");
-
-	// where the center is
-	org = (self.absmin + self.absmax) * 0.5;
-
-	// figure out how long it will take to hit the point considering gravity
-	grav = cvar("sv_gravity");
-	flighttime = sqrt((self.enemy.origin_z - org_z) / (0.5 * grav));
-	if (!flighttime)
-	{
-		remove(self);
-		return;
-	}
-
-	// how far in X and Y to move
-	self.movedir = (self.enemy.origin - org);
-	self.movedir_z = 0;
-	dist = vlen(self.movedir);
-
-	// finally calculate the velocity
-	self.movedir = normalize(self.movedir) * (dist / flighttime);
-	self.movedir_z = flighttime * grav;
 };
 
 /*QUAKED trigger_push (.5 .5 .5) ? PUSH_ONCE SILENT
@@ -62,7 +60,7 @@ Flags:
 "SILENT" - no 'windtunnel' noise
 Keys:
 "target" - acts as jump pad, hits this entity
-*/
+
 
 void() SetMovedir =
 {
@@ -78,7 +76,7 @@ void() SetMovedir =
 	
 	self.angles = '0 0 0';
 };
-
+*/
 void() trigger_push =
 {
 	if (self.angles != '0 0 0')
@@ -90,11 +88,6 @@ void() trigger_push =
 	self.modelindex = 0;
 	self.model = "";
 
-	// normal push setup
-	if (!self.speed)
-		self.speed = 1000;
-	self.movedir = self.movedir * self.speed * 10;
-
 	self.touch = trigger_push_touch;
 
 	// check if this is a jump pad
@@ -103,4 +96,15 @@ void() trigger_push =
 		self.think = trigger_push_findtarget;
 		self.nextthink = time + 0.2;
 	}
+	else
+	{
+		// normal push setup
+		if (!self.speed)
+			self.speed = 1000;
+		self.movedir = self.movedir * self.speed * 10;
+	}
 };
+
+void() target_push = { trigger_push(); };
+void() info_notnull = {};
+void() target_position = {};

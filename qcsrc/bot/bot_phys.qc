@@ -65,21 +65,21 @@ void() CL_KeyMove = // CL_BaseMove + CL_AdjustAngles
 	local vector view;
 	if (self.keys != self.oldkeys)
 	{
-		self.movevect = '0 0 0';
-		self.movevect_y = self.movevect_y + (350 * CL_KeyState(KEY_MOVERIGHT)); 
+		self.movement = '0 0 0';
+		self.movement_y = self.movement_y + (350 * CL_KeyState(KEY_MOVERIGHT)); 
 		// 350 is the default cl_sidespeed
-		self.movevect_y = self.movevect_y - (350 * CL_KeyState(KEY_MOVELEFT)); 
+		self.movement_y = self.movement_y - (350 * CL_KeyState(KEY_MOVELEFT)); 
 		// 350 is the default cl_sidespeed
-		self.movevect_x = self.movevect_x + (200 * CL_KeyState(KEY_MOVEFORWARD)); 
+		self.movement_x = self.movement_x + (200 * CL_KeyState(KEY_MOVEFORWARD)); 
 		// 200 is the default cl_forwardspeed
-		self.movevect_x = self.movevect_x - (200 * CL_KeyState(KEY_MOVEBACK)); 
+		self.movement_x = self.movement_x - (200 * CL_KeyState(KEY_MOVEBACK)); 
 		// 200 is the default cl_backspeed
-		self.movevect_z = self.movevect_z + (200 * CL_KeyState(KEY_MOVEUP)); 
+		self.movement_z = self.movement_z + (200 * CL_KeyState(KEY_MOVEUP)); 
 		// 200 is the default cl_upspeed
-		self.movevect_z = self.movevect_z - (200 * CL_KeyState(KEY_MOVEDOWN)); 
+		self.movement_z = self.movement_z - (200 * CL_KeyState(KEY_MOVEDOWN)); 
 		// 200 is the default cl_upspeed
 		if (!self.b_aiflags & AI_PRECISION)
-			self.movevect = self.movevect * 2; 
+			self.movement = self.movement * 2; 
 		// 2 is the default cl_movespeedkey & bot always has +speed
 	}
 	self.oldkeys = self.keys;
@@ -235,12 +235,12 @@ void() SV_WaterMove =
         local vector wishvel;
         local float wishspeed, addspeed, cspeed, newspeed;
 	makevectors(self.v_angle);
-	wishvel = v_right * self.movevect_y + v_forward * self.movevect_x;
+	wishvel = v_right * self.movement_y + v_forward * self.movement_x;
 	
-	if (self.movevect == '0 0 0')
+	if (self.movement == '0 0 0')
                 wishvel_z = wishvel_z - 60;
 	else
-                wishvel_z = wishvel_z + self.movevect_z;
+                wishvel_z = wishvel_z + self.movement_z;
 	wishspeed = vlen(wishvel);
 
 	if (wishspeed > sv_maxspeed)
@@ -279,13 +279,13 @@ void() SV_AirMove =
 	vangle = self.v_angle;
 	vangle_x = vangle_z = 0;
 	makevectors(vangle);
-	if (time < self.teleport_time && (self.movevect_x < 0))
-		self.movevect_x = 0;
-	wishvel = v_right * self.movevect_y + v_forward * self.movevect_x;
+	if (time < self.teleport_time && (self.movement_x < 0))
+		self.movement_x = 0;
+	wishvel = v_right * self.movement_y + v_forward * self.movement_x;
 
 
 	if (self.movetype != MOVETYPE_WALK)
-		wishvel_z = self.movevect_z;
+		wishvel_z = self.movement_z;
 	else
 		wishvel_z = 0;
         if (vlen(wishvel) > sv_maxspeed)
