@@ -1,0 +1,11 @@
+Starship (lms_nexdm06)
+maps/nexdm06
+
+A sprawling complex.
+
+Players: 4-6
+
+Gametype: Last Man Standing
+
+Author:
+Chris Matz
