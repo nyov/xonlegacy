@@ -1,11 +1,13 @@
-// NG-Menu
-// base/timer.qh
+// xMenu
+// * NG-Menu
+// base/time.qh
+// * base/timer.qh
 
 // timer
-float Timer_Time; 	// current time
-float Timer_Delta;	// time difference to the last cycle
+float Time_Current; // current time
+float Time_Delta;	// time difference to the last cycle
 
-void() Timer_Init;
-void() Timer_Update;
-void() Timer_Quit;
+void() Time_Init;
+void() Time_Update;
+void() Time_Quit;
 

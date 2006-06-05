@@ -1,22 +1,24 @@
-// NG-Menu
-// base/timer.qc
+// xMenu
+// * NG-Menu
+// base/time.qc
+// * base/timer.qc
 
-float _Timer_LastTime;
+float _Time_Last;
 
-void() Timer_Init =
+void() Time_Init =
 {
-	Timer_Time = gettime();
-	Timer_Delta = 0.0;
+	Time_Current = gettime();
+	Time_Delta = 0.0;
 };
 
-void() Timer_Update =
+void() Time_Update =
 {
-	_Timer_LastTime = Timer_Time;
-	Timer_Time = gettime();
-	Timer_Delta = Timer_Time - _Timer_LastTime;
+	_Time_Last = Time_Current;
+	Time_Time = gettime();
+	Time_Delta = Time_Current - _Time_Last;
 };
 
-void() Timer_Quit =
+void() Time_Quit =
 {
 };
 
