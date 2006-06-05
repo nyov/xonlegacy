@@ -21,7 +21,7 @@ string( float pNum ) Util_GetUIDName =
 	return lName;
 };
 
-float( string pUid ) Util_GetUIDNum =
+float( string pUid ) Util_GetUIDNumber =
 {
 	local string lNum;
 

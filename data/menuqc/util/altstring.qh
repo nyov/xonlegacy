@@ -1,6 +1,11 @@
 // NG Menu
 // util/altstring.qh
 
+// new altstring format:
+// "first;second;ha\;ha;"
+// "value:1.0;name:hallo welt;"
+// "value//1.0//name//
+
 // used to extract 'string' strings from a normal string
 // INFO: the index into the altstring is the same like in a C array
 float( string s)	     			 Util_GetAltStringCount;

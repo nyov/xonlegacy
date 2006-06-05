@@ -19,7 +19,7 @@ typedef float bool;
 // global vars
 
 //float time; 		// important for animations, etc.
-bool Menu_Active;	// is set when the menu is active
+bool menuActive;	// is set when the menu is active
 
 // updated every time toggle is called
 float gamestatus;
