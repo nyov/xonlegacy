@@ -7,16 +7,20 @@
 // "value//1.0//name//
 
 // used to extract 'string' strings from a normal string
-// INFO: the index into the altstring is the same like in a C array
-float( string s)	     			 Util_GetAltStringCount;
-string( string s, float c )  			 Util_GetAltStringItem;
-string( string pAlt, float pIndex, string pSet ) Util_SetAltStringItem;
-string( string pAlt, float pIndex )		 Util_DelAltStringItem;
+// INFO: the index into the altstring is the same like in C array
+float( zoned pAlt )	     			Util_GetAltStringCount;
+float( zoned pAlt, float pIndex )	Util_GetAltStringItemStart;
+zoned( zoned pAlt, float pIndex )  	Util_GetAltStringItem;
+zoned( zoned pAlt, float pIndex, string pSet ) Util_SetAltStringItem;
+zoned( zoned pAlt, float pIndex )	Util_DelAltStringItem;
 // insert a new item after the indexed (to insert an item at the front use -1)
-string( string pAlt, float pIndex, string pSet ) Util_InsAltStringItem;
+zoned( zoned pAlt, float pIndex, string pSet ) Util_InsAltStringItem;
 
-string( string pString ) 		Util_AltStringPrepare;
-string( string pAlt, string pPush ) 	Util_AltStringPush; // strzone
-string( string pAlt, string pPush ) 	Util_AltStringPushBack; // strzone
-string( string pAlt ) 			Util_GetAltStringTop;
-string( string pAlt ) 			Util_AltStringPop;	// strzone
+zoned( string pString ) 		Util_AltStringPrepare;
+zoned( string pString ) 		Util_AltStringUnprepare;
+zoned( zoned pAlt, string pPush ) 	Util_AltStringPush; // strzone
+zoned( zoned pAlt, string pPush ) 	Util_AltStringPushBack; // strzone
+zoned( zoned pAlt ) 			Util_GetAltStringTop;
+zoned( zoned pAlt ) 			Util_AltStringPop;	// strzone
+
+void() Util_AltString_UnitTest;

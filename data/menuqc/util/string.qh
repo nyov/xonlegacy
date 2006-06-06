@@ -7,17 +7,17 @@
 // INFO: You should know that the VM has 16 temp string buffers, so if you could count how many it takes
 // INFO: before you have to strzone something
 // TODO: convert altstring and property
-string() 				String_Create;
-string( string pStr ) 			String_Zone;	// use this for constants
-string( string pStr ) 			String_Normal;	// strunzones pStr and returns a temp buffer version of it
-string( string pStr, string pSet ) 	String_Set;	// copies pSet to a new strzoned string
-string( string pStr ) String_Free;
+zoned() 				String_Create;
+zoned( string pStr ) 	String_Zone;	// use this for constants
+string( zoned pStr ) 	String_Normal;	// strunzones pStr and returns a temp buffer version of it
+zoned( zoned pStr, string pSet ) 	String_Set;	// copies pSet to a new strzoned string
+string( zoned pStr ) String_Free;
 
-string( string pStr, string pApp ) 			String_Append;
-string( string pStr, float pStart, float pLength ) 	String_Substring;
+zoned( zoned pStr, string pApp ) 			String_Append;
+zoned( string pStr, float pStart, float pLength ) 	String_Substring;
 
 void( entity pEntity, .string pField ) 			String_EntityCreate;
 void( entity pEntity, .string pField ) 			String_EntityZone;
-void( entity pEntity, .string pField, string pSet ) 	String_EntitySet;
+void( entity pEntity, .string pField, zoned pSet ) 	String_EntitySet;
 void( entity pEntity, .string pField ) 			String_EntityFree;
 

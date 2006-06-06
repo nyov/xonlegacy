@@ -13,15 +13,24 @@ bool( vector pPoint, vector pPos, vector pSize ) Util_InRect =
 	return true;
 };
 
-bool( vector pPos1, vector pSize1, vector pPos2, vector pSize2 ) Util_RectInRect =
+/*
+===================
+Util_RectOverlapsRect
+===================
+*/
+bool( vector pPos1, vector pSize1, vector pPos2, vector pSize2 ) Util_RectOverlapsRect =
 {
-	local vector lFPos1, lFPos2;
+	local vector lEndPos1, lEndPos2;
 
-	lFPos1 = pPos1 + pSize1;
-	lFPos2 = pPos2 + pSize2;
+	lEndPos1 = pPos1 + pSize1;
+	lEndPos2 = pPos2 + pSize2;
 
-	if( pPos1_x <= lFPos2_x && pPos2_x <= lFPos1_x && pPos1_y <= lFPos2_y && pPos2_y <= lFPos1_y )
+	// test whether the two rects dont overlap (this can be done easier)
+	// test for 1 not in 2
+	if( lEndPos1_x < pPos2_x || pPos1_x > lEndPos2_x ||
+		lEndPos1_y < pPos2_y || pPos1_y > lEndPos2_y ) {
 		return false;
+	}
 	return true;
 };
 

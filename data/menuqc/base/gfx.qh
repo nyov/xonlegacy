@@ -1,13 +1,18 @@
 // NG-Menu
 // base/gfx.h
 
+// TODO: make the menu support widescreen-modes, too!
+// use clipping, etc. for this
+// allow it to specify a background color or similar stuff for this
+// maybe use layout controls for this?
+
 const float GFX_MENU_DEFAULT_WIDTH = 1024;
 const float GFX_MENU_DEFAULT_HEIGHT = 768;
 
 const string CVAR_SCMENU_MENU_WIDTH = "scmenu_menu_width";
 const string CVAR_SCMENU_MENU_HEIGHT = "scmenu_menu_height";
 
-// measurement block duration in seconds
+// measurement duration in seconds
 const float GFX_SHOWFPS_DURATION = 1.000;
 
 const float GFX_SHOWFPS_DEFAULT = 0;
@@ -25,6 +30,10 @@ void() Gfx_Hide;
 void() Gfx_Update;
 void() Gfx_Draw;
 
+// TODO: implement!
+void() Gfx_Begin;
+void() Gfx_End;
+
 bool( string pPic )	Gfx_IsCached;
 bool( string pPic )	Gfx_Precache;
 void( string pPic )	Gfx_Free;
@@ -32,8 +41,6 @@ vector( string pPic ) 	Gfx_GetImageSize;
 
 vector( vector pPos )  Gfx_ConToMen;
 vector( vector pPos )  Gfx_MenToCon;
-
-void() Gfx_ResetClipArea;
 
 float( vector pPosition, float pCharacter, vector pScale, vector pRGB, float pAlpha, float pFlag )
 Gfx_DrawCharacter;
@@ -49,3 +56,5 @@ Gfx_Fill;
 
 void( float pX, float pY, float pWidth, float pHeight )
 Gfx_SetClipArea;
+
+void() Gfx_ResetClipArea;

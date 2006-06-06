@@ -6,7 +6,7 @@
 String_Create
 ===================
 */
-string() String_Create =
+zoned() String_Create =
 {
 	//return strzone( strcat( "Static, ", self.name ) );
 	return strzone( "" );
@@ -14,10 +14,10 @@ string() String_Create =
 
 /*
 ===================
-String_Make
+String_Zone
 ===================
 */
-string( string pStr ) String_Zone =
+zoned( string pStr ) String_Zone =
 {
 	return strzone( pStr );
 };
@@ -27,7 +27,7 @@ string( string pStr ) String_Zone =
 String_Normal
 ===================
 */
-string( string pStr ) String_Normal =
+string( zoned pStr ) String_Normal =
 {
 	local string lResult;
 
@@ -42,7 +42,7 @@ string( string pStr ) String_Normal =
 String_Free
 ===================
 */
-string( string pStr ) String_Free =
+string( zoned pStr ) String_Free =
 {
 	strunzone( pStr );
 	return "";
@@ -102,7 +102,7 @@ void( entity pEntity, .string pField ) String_EntityFree =
 String_Append
 ===================
 */
-string( string pStr, string pApp ) String_Append =
+zoned( zoned pStr, string pApp ) String_Append =
 {
 	return String_Set( pStr, strcat( pStr, pApp ) );
 };
@@ -112,7 +112,7 @@ string( string pStr, string pApp ) String_Append =
 String_Substring
 ===================
 */
-string( string pStr, float pStart, float pLength ) String_Substring =
+zoned( string pStr, float pStart, float pLength ) String_Substring =
 {
 	return strzone( substring( pStr, pStart, pLength ) );
 };
@@ -122,7 +122,7 @@ string( string pStr, float pStart, float pLength ) String_Substring =
 String_Set
 ===================
 */
-string( string pStr, string pSet ) String_Set =
+zoned( zoned pStr, string pSet ) String_Set =
 {
 #ifdef AVOIDSTRZONES
 	if( pStr == pSet ) {

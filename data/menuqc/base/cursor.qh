@@ -1,7 +1,7 @@
 // NG Menu
 // cursor qh
 
-const string	CURSOR_PATH		= "gfx/cursor"; //"ui/mousepointer.tga";
+const string CURSOR_DEFAULT	= "gfx/cursor"; //"ui/mousepointer.tga";
 
 string Cursor_Current;
 var void() Cursor_Animation = __NULL__;
@@ -10,14 +10,12 @@ vector Cursor_Relative;
 vector Cursor_Position;
 vector Cursor_Speed	= '1 1 0';
 
-vector Cursor_Position; // will be adjusted to be in the current origin
-
-float 	Cursor_Transparency 	= 1.0;
-vector  Cursor_Color		= '1.0 1.0 1.0';
-float	Cursor_Scale		= 1.0;
-float 	Cursor_Flag		= 0;
+float 	Cursor_Transparency = 1.0;
+vector  Cursor_Color = '1.0 1.0 1.0';
+float	Cursor_Scale = 1.0;
+float 	Cursor_Flag	= 0;
 // center of the cursor
-vector 	Cursor_Offset		= '0 0 0';
+vector 	Cursor_Offset = '0 0 0';
 
 void() Cursor_Init;
 void() Cursor_Quit;

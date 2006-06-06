@@ -15,11 +15,12 @@ const float INFINITY  = 10000000.0;
 // prototypes
 
 typedef float bool;
+typedef string zoned;
 
 // global vars
 
 //float time; 		// important for animations, etc.
-bool menuActive;	// is set when the menu is active
+bool menu_active;	// is set when the menu is active
 
 // updated every time toggle is called
 float gamestatus;

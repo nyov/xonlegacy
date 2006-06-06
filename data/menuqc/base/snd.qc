@@ -3,7 +3,7 @@
 
 void( string pText ) _Sound_DPrint =
 {
-	if( sys_debug_sound )
+	//if( sys_debug_sound )
 		print( pText );
 };
 

@@ -9,7 +9,7 @@ vector( vector pPoint, vector pClipPos, vector pClipSize ) Util_GetClipDelta;
 // clips the rect [pPos, pSize] against [pClipPos, pClipSize] retuns the clipped size
 vector( vector pPos, vector pSize, vector pClipPos, vector pClipSize ) Util_ClipRect;
 
-bool( vector pPos1, vector pSize1, vector pPos2, vector pSize2 ) Util_RectInRect;
+bool( vector pPos1, vector pSize1, vector pPos2, vector pSize2 ) Util_RectOverlapsRect;
 
 // clip stack functions
 string( string pStack ) Util_ClipStack_Reset;

@@ -19,6 +19,10 @@ void() m_updategamestate =
 
 void() m_init =
 {
+	Util_AltString_UnitTest();
+
+	Time_Init();
+
 	// init graphic
 	Gfx_Init();
 
@@ -30,22 +34,22 @@ void() m_init =
 	HostCache_Init();
 
 	// init menu
-	Menu_Init();
+	//Menu_Init();
 };
 
 // required menu functions
 void( float pKey, float pAscii ) m_keydown =
 {
-	if( !Menu_Active )
+	if( !menu_active )
 		return;
 
 	// actually the menu is the only system that needs to react on key events
-	Menu_Key( pKey, pAscii );
+	//Menu_Key( pKey, pAscii );
 };
 
 void() m_frame =
 {
-	Timer_Update();
+	Time_Update();
 
 	HostCache_Update();
 
@@ -58,7 +62,7 @@ void() m_frame =
 	Cursor_Update();
 
 	// menu frame
-	Menu_Frame();
+	//Menu_Frame();
 };
 
 void() m_draw =
@@ -66,7 +70,7 @@ void() m_draw =
 	m_updategamestate();
 
 
-	if( !Menu_Active ) {
+	if( !menu_active ) {
 		// test whether we want to force it to be displayed
 		if( !(gamestatus & GAME_CONNECTED) && !(gamestatus & GAME_DEVELOPER) && cvar_string( "menu_directmenu" ) != "" ) {
 			m_display();
@@ -80,7 +84,7 @@ void() m_draw =
 	m_frame();
 
 	// now the drawing code
-	Menu_Draw();
+	//Menu_Draw();
 
 	// draw the cursor on top of the menu
 	Cursor_Draw();
@@ -91,7 +95,7 @@ void() m_draw =
 
 void() m_display =
 {
-	Menu_Active = true;
+	menu_active = true;
 
 	m_updategamestate();
 
@@ -101,7 +105,7 @@ void() m_display =
 	Key_Display();
 
 	// let the menu manager know
-	Menu_PerformReinit();
+	//Menu_PerformReinit();
 };
 
 void() m_hide =
@@ -111,16 +115,16 @@ void() m_hide =
 	Key_Hide();
 
 	// let the menu manager know
-	Menu_Hide();
+	//Menu_Hide();
 
-	Menu_Active = false;
+	menu_active = false;
 };
 
 void() m_toggle =
 {
-	Timer_Update();
+	Time_Update();
 
-	if( Menu_Active )
+	if( menu_active )
 		m_hide();
 	else
 		m_display();
@@ -128,13 +132,13 @@ void() m_toggle =
 
 void() m_shutdown =
 {
-	Timer_Update();
+	Time_Update();
 
 	// shutdown menu
-	Menu_Shutdown();
+	//Menu_Shutdown();
 
 	// shutdown timer
-	Timer_Quit();
+	Time_Quit();
 
 	// shutdown key system
 	Key_Quit();

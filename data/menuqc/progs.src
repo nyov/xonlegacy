@@ -35,7 +35,7 @@ util/rect.qh
 util/string.qh
 util/text.qh
 util/uid.qh
-util/property.qh
+//util/property.qh
 
 // main system
 
@@ -52,7 +52,7 @@ util/property.qh
 // main system
 
 // util functions
-util/property.qc
+//util/property.qc
 util/text.qc
 util/uid.qc
 util/string.qc

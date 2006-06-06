@@ -4,8 +4,8 @@
 void() Cursor_Init =
 {
 	// default cursor (embedded into DP): ui/mousepointer.tga
-	if( Gfx_Precache( CURSOR_PATH ) )
-		Cursor_Current = CURSOR_PATH;
+	if( Gfx_Precache( CURSOR_DEFAULT ) )
+		Cursor_Current = CURSOR_DEFAULT;
 	else {
 		Cursor_Current = "ui/mousepointer.tga";
 		Gfx_Precache( Cursor_Current );

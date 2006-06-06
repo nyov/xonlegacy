@@ -1,5 +1,4 @@
-// xMenu
-// * NG-Menu
+// NG-Menu
 // base/time.qc
 // * base/timer.qc
 
@@ -14,7 +13,7 @@ void() Time_Init =
 void() Time_Update =
 {
 	_Time_Last = Time_Current;
-	Time_Time = gettime();
+	Time_Current = gettime();
 	Time_Delta = Time_Current - _Time_Last;
 };
 

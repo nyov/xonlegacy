@@ -11,10 +11,10 @@ void() _Gfx_UpdateFPS =
 
 	_Gfx_FrameCount = _Gfx_FrameCount + 1;
 
-	lDeltaTime = Timer_Time - _Gfx_LastTime;
+	lDeltaTime = Time_Current - _Gfx_LastTime;
 	if( GFX_SHOWFPS_DURATION < lDeltaTime ) {
 		_Gfx_FPS = _Gfx_FrameCount / lDeltaTime;
-		_Gfx_LastTime = Timer_Time;
+		_Gfx_LastTime = Time_Current;
 		_Gfx_FrameCount = 0;
 	}
 };
