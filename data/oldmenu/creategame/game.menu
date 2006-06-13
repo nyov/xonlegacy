@@ -55,11 +55,11 @@ Item Layout Game
 		size	'900 800'
 		reinit	Nex_Action_MakeFirstVisible
 
-		#include "menu/creategame/gamemodes/gamemisc.menu"
-		#include "menu/creategame/gamemodes/teamplay.menu"
-		#include "menu/creategame/gamemodes/ctf.menu"
-		#include "menu/creategame/gamemodes/domination.menu"
-		#include "menu/creategame/gamemodes/runematch.menu"
-		#include "menu/creategame/gamemodes/lms.menu"
+		#include "oldmenu/creategame/gamemodes/gamemisc.menu"
+		#include "oldmenu/creategame/gamemodes/teamplay.menu"
+		#include "oldmenu/creategame/gamemodes/ctf.menu"
+		#include "oldmenu/creategame/gamemodes/domination.menu"
+		#include "oldmenu/creategame/gamemodes/runematch.menu"
+		#include "oldmenu/creategame/gamemodes/lms.menu"
 	}
 }

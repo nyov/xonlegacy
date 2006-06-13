@@ -9,7 +9,7 @@ Item Task_Job WelcomeSound
 Item Window Normal
 {
 	key	Nex_Global_Key
-	size	'1024 768'
+	//size	'1024 768'
 
 	Derive Rect Modulate
 	{
@@ -55,7 +55,7 @@ Ignore
 	}
 
 	// Include the main menu as first sub window
-	#include "menu/main.menu"
+	#include "oldmenu/main.menu"
 
 	Item Task_Job PanelReinit
 	{
@@ -74,7 +74,7 @@ Ignore
 	//}
 
 // global floating windows
-#include "menu/credits.menu"
-#include "menu/messagebox.menu"
-#include "menu/quit.menu"
+#include "oldmenu/credits.menu"
+#include "oldmenu/messagebox.menu"
+#include "oldmenu/quit.menu"
 }

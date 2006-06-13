@@ -3,7 +3,8 @@
 
 #ifndef OLDFUNCTIONSET
 
-#define ALTSTRING_SEPERATOR ";"
+#define ALTSTRING_SEPERATOR1 ";"
+#define ALTSTRING_SEPERATOR2 ":"
 #define ALTSTRING_ESCAPE "\\"
 
 void() Util_AltString_UnitTest =
@@ -56,7 +57,7 @@ void() Util_AltString_UnitTest =
 		}
 
 		for( lIndex = 0 ; lIndex <= lCount ; lIndex = lIndex + 1 ) {
-			lTest = Util_DelAltStringItem( lTest, lIndex, ftos( lIndex ) );
+			lTest = Util_DelAltStringItem( lTest, lIndex );
 			print( lTestCount, "\n" );
 		}
 	}
@@ -73,6 +74,8 @@ void() Util_AltString_UnitTest =
 		print( "\n->'", lTest, "'\n" );
 		String_Free( lTest );
 	}
+
+	// TODO: add stack unit test
 };
 
 float( zoned pAlt ) Util_GetAltStringCount =
@@ -84,7 +87,7 @@ float( zoned pAlt ) Util_GetAltStringCount =
 	for( lPosition = 0, lLength = strlen( pAlt ) ; lPosition < lLength ; lPosition++ ) {
 		local string lChar;
 		lChar = substring( pAlt, lPosition, 1 );
-		if( lChar == ALTSTRING_SEPERATOR ) {
+		if( lChar == ALTSTRING_SEPERATOR1 || lChar == ALTSTRING_SEPERATOR2 ) {
 			lCount++;
 		} else if( lChar == ALTSTRING_ESCAPE ) {
 			lPosition++;
@@ -103,7 +106,7 @@ float( zoned pAlt, float pIndex ) Util_GetAltStringItemStart =
 	for( lPosition = 0, lLength = strlen( pAlt ) ; lPosition < lLength && lCount < pIndex ; lPosition++ ) {
 		local string lChar;
 		lChar = substring( pAlt, lPosition, 1 );
-		if( lChar == ALTSTRING_SEPERATOR ) {
+		if( lChar == ALTSTRING_SEPERATOR1 || lChar == ALTSTRING_SEPERATOR2 ) {
 			lCount++;
 		} else if( lChar == ALTSTRING_ESCAPE ) {
 			lPosition++;
@@ -196,7 +199,7 @@ zoned( string pString ) Util_AltStringPrepare =
 		local string lChar;
 		lChar = substring( lIn, lPosition, 1 );
 
-		if( lChar == ALTSTRING_SEPERATOR || lChar == ALTSTRING_ESCAPE ) {
+		if( lChar == ALTSTRING_SEPERATOR1 || lChar == ALTSTRING_SEPERATOR2 || lChar == ALTSTRING_ESCAPE ) {
 			lOut = strcat( lOut, "\\", lChar );
 		} else {
 			lOut = strcat( lOut, lChar );

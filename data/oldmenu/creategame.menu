@@ -57,10 +57,10 @@ Item Layout CreateGame
 	{
 		reinit	Nex_Action_MakeFirstVisible
 
-		#include "menu/creategame/basic.menu"
-		#include "menu/creategame/maplist.menu"
-		#include "menu/creategame/game.menu"
-		#include "menu/creategame/weapon.menu"
-		#include "menu/creategame/management.menu"
+		#include "oldmenu/creategame/basic.menu"
+		#include "oldmenu/creategame/maplist.menu"
+		#include "oldmenu/creategame/game.menu"
+		#include "oldmenu/creategame/weapon.menu"
+		#include "oldmenu/creategame/management.menu"
 	}
 }

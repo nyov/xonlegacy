@@ -8,19 +8,19 @@ Item DataContainer Data
 #define DataLink_Setting	Derive "::DataLink_SettingValue" Value {} \
 				Derive "::DataLink_SettingText" Text {}
 
-	#include "menu/data/player.menu"
-	#include "menu/data/color.menu"
-	#include "menu/data/video.menu"
-	#include "menu/data/effects.menu"
-	#include "menu/data/input.menu"
-	#include "menu/data/key.menu"
-	#include "menu/data/sound.menu"
+	#include "oldmenu/data/player.menu"
+	#include "oldmenu/data/color.menu"
+	#include "oldmenu/data/video.menu"
+	#include "oldmenu/data/effects.menu"
+	#include "oldmenu/data/input.menu"
+	#include "oldmenu/data/key.menu"
+	#include "oldmenu/data/sound.menu"
 
-	#include "menu/data/serverlist.menu"
+	#include "oldmenu/data/serverlist.menu"
 
-	#include "menu/data/server.menu"
-	#include "menu/data/game.menu"
-	#include "menu/data/weapon.menu"
-	#include "menu/data/management.menu"
+	#include "oldmenu/data/server.menu"
+	#include "oldmenu/data/game.menu"
+	#include "oldmenu/data/weapon.menu"
+	#include "oldmenu/data/management.menu"
 
 }

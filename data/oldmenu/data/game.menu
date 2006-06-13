@@ -5,10 +5,10 @@
 Item DataContainer Game
 {
 	// game modes
-	#include "menu/data/gamemodes/gamemisc.menu"
-	#include "menu/data/gamemodes/teamplay.menu"
-	#include "menu/data/gamemodes/ctf.menu"
-	#include "menu/data/gamemodes/domination.menu"
-	#include "menu/data/gamemodes/runematch.menu"
-	#include "menu/data/gamemodes/lms.menu"
+	#include "oldmenu/data/gamemodes/gamemisc.menu"
+	#include "oldmenu/data/gamemodes/teamplay.menu"
+	#include "oldmenu/data/gamemodes/ctf.menu"
+	#include "oldmenu/data/gamemodes/domination.menu"
+	#include "oldmenu/data/gamemodes/runematch.menu"
+	#include "oldmenu/data/gamemodes/lms.menu"
 }

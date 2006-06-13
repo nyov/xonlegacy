@@ -91,13 +91,13 @@ Item Layout Options
 		{
 			reinit	Nex_Action_MakeFirstVisible
 
-			#include "menu/options/player.menu"
-			#include "menu/options/key.menu"
-			#include "menu/options/sound.menu"
-			#include "menu/options/video.menu"
-			#include "menu/options/color.menu"
-			#include "menu/options/effects.menu"
-			#include "menu/options/input.menu"
+			#include "oldmenu/options/player.menu"
+			#include "oldmenu/options/key.menu"
+			#include "oldmenu/options/sound.menu"
+			#include "oldmenu/options/video.menu"
+			#include "oldmenu/options/color.menu"
+			#include "oldmenu/options/effects.menu"
+			#include "oldmenu/options/input.menu"
 		}
 	}
 }

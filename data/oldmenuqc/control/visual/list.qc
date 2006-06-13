@@ -1,6 +1,12 @@
 // DP/Nex Menu
 // control/visual/list.qc
 
+void() _IL_CreateScrollbar =
+{
+
+
+};
+
 float() _IL_GetItemUnderCursor =
 {
 	local float lItem;

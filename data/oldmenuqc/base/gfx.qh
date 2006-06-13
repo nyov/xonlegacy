@@ -15,6 +15,7 @@ const string CVAR_SCMENU_SHOWFPS = "scmenu_showfps";
 
 float Gfx_Menu_Width;
 float Gfx_Menu_Height;
+vector Gfx_Real_Offset; // used to center the menu in wide-screen-resolutions
 float Gfx_Real_Width;
 float Gfx_Real_Height;
 
