@@ -1,7 +1,7 @@
 // NG-Menu
 // util/altstring.qc
 
-#ifndef OLDFUNCTIONSET
+#ifndef USEOLDALSTRINGFUNCTIONS
 
 #define ALTSTRING_SEPERATOR1 ";"
 #define ALTSTRING_SEPERATOR2 ":"

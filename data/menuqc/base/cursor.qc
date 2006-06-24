@@ -12,8 +12,6 @@ void() Cursor_Init =
 	}
 
 	Cursor_Position = Cursor_Relative = '0 0 0';
-
-	Cursor_Animation = Cursor_DefaultAnimation;
 };
 
 void() Cursor_Quit =
@@ -59,12 +57,6 @@ void() Cursor_Update =
 	Cursor_Position_x = Cursor_Position_x + Cursor_Relative_x;
 	Cursor_Position_y = Cursor_Position_y + Cursor_Relative_y;
 	Cursor_Position_z = 0.0;
-
-	Cursor_Animation();
-};
-
-void() Cursor_DefaultAnimation =
-{
 };
 
 void( vector pRelPos, string pText, vector pScale, vector pColor, float pAlpha, float pDrawFlag ) Cursor_PrintInfo =

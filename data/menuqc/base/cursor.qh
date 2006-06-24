@@ -4,7 +4,6 @@
 const string CURSOR_DEFAULT	= "gfx/cursor"; //"ui/mousepointer.tga";
 
 string Cursor_Current;
-var void() Cursor_Animation = __NULL__;
 
 vector Cursor_Relative;
 vector Cursor_Position;
@@ -25,7 +24,5 @@ void() Cursor_Hide;
 
 void() Cursor_Draw;
 void() Cursor_Update;
-
-void() Cursor_DefaultAnimation;
 
 void( vector pRelPos, string pText, vector pScale, vector pColor, float pAlpha, float pDrawFlag ) Cursor_PrintInfo;
