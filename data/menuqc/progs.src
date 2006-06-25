@@ -20,6 +20,8 @@ mbuiltin.qc
 
 menu.qh
 
+object.qh
+
 // base system
 base/time.qh
 base/gfx.qh
@@ -35,6 +37,7 @@ util/rect.qh
 util/string.qh
 util/text.qh
 util/uid.qh
+util/tokenizer.qh
 //util/property.qh
 
 // main system
@@ -52,6 +55,7 @@ util/uid.qh
 // main system
 
 // util functions
+util/tokenizer.qc
 //util/property.qc
 util/text.qc
 util/uid.qc

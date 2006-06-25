@@ -1,0 +1,17 @@
+// NG-Menu
+// util/tokenizer.qh
+
+#define TOKENIZER_STACK_DEPTH 8
+
+float Tokenizer_LexStaticString( zoned pText );
+float Tokenizer_LexTempString( string pText );
+void Tokenizer_Finished();
+
+float Tokenizer_QuickLex( string pText );
+void Tokenizer_QuickLexFinished();
+
+float Tokenizer_GetFreeSlotCount();
+
+string Tokenizer_Get( float pIndex );
+zoned Tokenizer_GetZoned( float pIndex );
+float Tokenizer_GetTokenCount();
