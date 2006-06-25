@@ -1,10 +1,12 @@
 // NG-Menu
 // [object.qh]
 
-#define ABSTRACT( name ) typedef entity name;
+#define ABSTRACT( className ) typedef entity className;
 #define ENDABSTRACT()
 
-#define CLASS( name ) typedef entity name;
+#define INHERITFROM( baseClass );
+
+#define CLASS( className ) typedef entity className;
 #define ENDCLASS()
 
 #define MAX_NAMESPACE_ID 4
@@ -14,7 +16,7 @@ entity namespaceRoot[ MAX_NAMESPACE_ID ];
 
 typedef float NamespaceID;
 
-ABSTRACT( Object, "" )
+ABSTRACT( Object )
 	.NamespaceID namespace;
 	.zoned name;
 	// namespace ID":"path+name
