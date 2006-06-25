@@ -11,4 +11,5 @@ case "$(uname -m)" in
   *)		nexuiz="nexuiz-linux-686-sdl" ;;
 esac
 
+
 exec ./$nexuiz "${@}"
