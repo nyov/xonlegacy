@@ -1,3 +1,4 @@
+void(float imp) W_SwitchWeapon;
 
 void W_Laser_Touch (void)
 {
