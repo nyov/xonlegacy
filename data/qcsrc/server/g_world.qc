@@ -918,6 +918,10 @@ float() WinningCondition_LMS =
 	if((player_count == 1 && lms_dead_count == 1))
 	  	return WINNING_YES; // All dead... (n:n is handled by the test above)
 
+	dprint("player count = "); dprint(ftos(player_count));
+	dprint(", dead count = "); dprint(ftos(lms_dead_count));
+	dprint("\n");
+
 	// When we get here, we have at least two players who are actually LIVING,
 	// or one player who is still waiting for a victim to join the server. Now
 	// check if the top two players have equal score.
@@ -1093,6 +1097,55 @@ float(float fraglimit) WinningCondition_MaxTeamMax =
 	return WinningConditionBase_Teamplay(fraglimit);
 }
 
+void PrintScoreboardFor(string name, string colorcode, float whichteam)
+{
+	entity head;
+	float fragtotal;
+	string s;
+	float found;
+	found = FALSE;
+	head = find(world, classname, "player");
+	while(head)
+	{
+		if(!whichteam || head.team == whichteam)
+		{
+			if(name != "")
+				if(!found)
+					ServerConsoleEcho(strcat(" ", colorcode, name, ":"), FALSE);
+			found = TRUE;
+			fragtotal = fragtotal + head.frags;
+			s = ftos(head.frags);
+			s = strcat(s, "/", ftos(head.deaths));
+			s = strcat(s, " @ ", ftos(head.ping));
+			if(clienttype(head) == CLIENTTYPE_BOT)
+				s = strcat(s, "botms");
+			else
+				s = strcat(s, "ms");
+			ServerConsoleEcho(strcat("  ", colorcode, head.netname, colorcode, " (", s, ")"), TRUE);
+		}
+		head = find(head, classname, "player");
+	}
+	if(whichteam && found)
+		ServerConsoleEcho(strcat(colorcode, "  (total: ", ftos(fragtotal), ")"), FALSE);
+}
+
+void PrintScoreboard()
+{
+	ServerConsoleEcho("Scoreboard:", FALSE);
+	if(teams_matter)
+	{
+		PrintScoreboardFor("Red", "^1", COLOR_TEAM1);
+		PrintScoreboardFor("Blue", "^4", COLOR_TEAM2);
+		PrintScoreboardFor("Pink", "^6", COLOR_TEAM3);
+		PrintScoreboardFor("Yellow", "^3", COLOR_TEAM4);
+	}
+	else
+	{
+		PrintScoreboardFor("", "^7", 0);
+	}
+	ServerConsoleEcho(".", FALSE);
+}
+
 
 /*
 ============
@@ -1122,6 +1175,12 @@ void() CheckRules_World =
 		return;
 
 	DumpStats();
+
+	if(cvar("_scoreboard"))
+	{
+		cvar_set("_scoreboard", "0");
+		PrintScoreboard();
+	}
 
 	timelimit = cvar("timelimit") * 60;
 	fraglimit = cvar("fraglimit");
