@@ -1706,7 +1706,7 @@ void() bot_relinkplayerlist =
 		}
 		e = e.chain;
 	}
-	dprint(strcat("relink - ", ftos(currentbots), " bots seen.\n"));
+	dprint(strcat("relink: ", ftos(currentbots), " bots seen.\n"));
 	bot_strategytoken = bot_list;
 };
 
