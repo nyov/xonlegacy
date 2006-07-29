@@ -230,6 +230,8 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 	vector org;
 	org = self.origin;
 
+	startitem_failed = FALSE;
+
 	if (self.classname != "droppedweapon" && !self.noalign)
 	{
 		vector z_offset;
@@ -257,6 +259,7 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 	if (!(cvar("g_pickup_items") && !cvar("g_nixnex")) && !cvar("g_minstagib") &&
 			itemid != IT_STRENGTH && itemid != IT_INVINCIBLE && itemid != IT_HEALTH)
 	{
+		startitem_failed = TRUE;
 		remove (self);
 		return;
 	}
@@ -267,6 +270,7 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 		if (self.classname != "droppedweapon" &&
 		    self.classname != "minstagib")
 		{
+			startitem_failed = TRUE;
 			remove (self);
 			return;
 		}
@@ -274,12 +278,14 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 
 	if(cvar("g_lms") && (self.classname != "droppedweapon"))
 	{
+		startitem_failed = TRUE;
 		remove(self);
 		return;
 	}
 
 	if(cvar("g_instagib") || cvar("g_rocketarena"))
 	{
+		startitem_failed = TRUE;
 		remove(self);
 		return;
 	}
@@ -290,6 +296,7 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 		traceline(self.origin, self.origin, MOVE_NORMAL, self);
 		if (trace_dpstartcontents & DPCONTENTS_NODROP)
 		{
+			startitem_failed = TRUE;
 			remove(self);
 			return;
 		}
