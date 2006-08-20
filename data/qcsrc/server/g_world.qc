@@ -517,7 +517,8 @@ void() GotoNextMap =
 			temp = strzone(temp);
 			dprint("g_maplist is ", temp, "\n");
 			lSize = tokenize( temp );
-			lCurrent = bound(0, floor(GetMaplistPosition()), lSize - 1);
+			lCurrent = GetMaplistPosition();
+			lCurrent = max(0, min(floor(lCurrent), lSize - 1));
 			lOldCurrent = lCurrent;
 			dprint(ftos(lOldCurrent), " / ", ftos(lSize), " (start)\n");
 
