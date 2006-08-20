@@ -290,6 +290,8 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 
 		// become fully visible
 		self.alpha = 1;
+		// clear selected player display
+		ClearSelectedPlayer();
 		// throw a weapon
 		SpawnThrownWeapon (self.origin + (self.mins + self.maxs) * 0.5, self.switchweapon);
 		// print an obituary message
@@ -353,3 +355,146 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 	}
 }
 
+float UpdateSelectedPlayer_countvalue(float v)
+{
+	return max(0, (v - 1.0) / 0.5);
+}
+
+// returns: -2 if no hit, otherwise cos of the angle
+// uses the global v_angle
+float UpdateSelectedPlayer_canSee(entity p, float mincosangle, float maxdist)
+{
+	vector so, d;
+	float c;
+
+	if(p == self)
+		return -2;
+
+	if(p.deadflag)
+		return -2;
+
+	so = self.origin + self.view_ofs;
+	d = p.origin - so;
+
+	// misaimed?
+	if(dist_point_line(d, '0 0 0', v_forward) > maxdist)
+		return -2;
+
+	// now find the cos of the angle...
+	c = normalize(d) * v_forward;
+
+	if(c <= mincosangle)
+		return -2;
+
+	traceline(so, p.origin, MOVE_NOMONSTERS, self);
+	if(trace_fraction < 1)
+		return -2;
+
+	return c;
+}
+
+void ClearSelectedPlayer()
+{
+	if(self.selected_player)
+	{
+		centerprint_expire(self, CENTERPRIO_POINT);
+		self.selected_player = world;
+		self.selected_player_display_needs_update = FALSE;
+	}
+}
+
+void UpdateSelectedPlayer()
+{
+	entity selected;
+	float selected_score;
+	selected = world;
+	selected_score = 0.95; // 18 degrees
+
+	if(clienttype(self) != CLIENTTYPE_REAL)
+		return;
+
+	if(self.cvar_cl_shownames == 0)
+		return;
+
+	if(self.cvar_cl_shownames == 1 && !teams_matter)
+		return;
+
+	makevectors(self.v_angle); // sets v_forward
+
+	// 1. cursor trace is always right
+	if(self.cursor_trace_ent && self.cursor_trace_ent.classname == "player" && !self.cursor_trace_ent.deadflag)
+	{
+		selected = self.cursor_trace_ent;
+	}
+	else
+	{
+		// 2. if we don't have a cursor trace, find the player which is least
+		//    mis-aimed at
+		entity p;
+		for(p = find(world, classname, "player"); p; p = find(p, classname, "player"))
+		{
+			float c;
+			c = UpdateSelectedPlayer_canSee(p, selected_score, 100); // 100 = 2.5 meters
+			if(c >= -1)
+			{
+				selected = p;
+				selected_score = c;
+			}
+		}
+	}
+
+	if(selected)
+	{
+		self.selected_player_display_timeout = time + self.cvar_scr_centertime;
+	}
+	else
+	{
+		if(time < self.selected_player_display_timeout)
+			if(UpdateSelectedPlayer_canSee(self.selected_player, 0.7, 200) >= -1) // 5 meters, 45 degrees
+				selected = self.selected_player;
+	}
+
+	if(selected)
+	{
+		if(selected == self.selected_player)
+		{
+			float save;
+			save = UpdateSelectedPlayer_countvalue(self.selected_player_count);
+			self.selected_player_count = self.selected_player_count + frametime;
+			if(save != UpdateSelectedPlayer_countvalue(self.selected_player_count))
+			{
+				string namestr, healthstr;
+				if(teams_matter)
+				{
+					namestr = decolorize(selected.netname);
+					healthstr = ftos(floor(selected.health));
+					if(self.team == selected.team)
+					{
+						namestr = strcat(Team_ColorCode(selected.team), namestr, " (", healthstr, "%)");
+						self.selected_player_display_needs_update = TRUE;
+					}
+					else
+						namestr = strcat(Team_ColorCode(selected.team), namestr);
+				}
+				else
+				{
+					namestr = selected.netname;
+				}
+				centerprint_atprio(self, CENTERPRIO_POINT, namestr);
+			}
+		}
+		else
+		{
+			ClearSelectedPlayer();
+			self.selected_player = selected;
+			self.selected_player_time = time;
+			self.selected_player_count = 0;
+			self.selected_player_display_needs_update = FALSE;
+			// dprint("Selected: ", selected.netname, "\n");
+		}
+	}
+	else
+	{
+		ClearSelectedPlayer();
+	}
+}

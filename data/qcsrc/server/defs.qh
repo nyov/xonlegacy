@@ -154,7 +154,7 @@ void(entity e, float chan, string samp, float vol, float atten) sound = #8;
 void(entity client, string s)	stuffcmd = #21;
 void(entity client, string s)	sprint = #24;
 vector(entity e, float sped)	aim = #44;
-void(entity client, string s)	centerprint = #73;
+void(entity client, string s)	centerprint_builtin = #73;
 void(entity e)			setspawnparms = #78;
 void(float to, float f)		WriteByte = #52;
 void(float to, float f)		WriteChar = #53;
@@ -256,6 +256,8 @@ float default_player_alpha;
 .float() customizeentityforclient;
 .float cvar_cl_playerdetailreduction;
 .float cvar_cl_nogibs;
+.float cvar_scr_centertime;
+.float cvar_cl_shownames;
 
 #ifdef ALLOW_VARIABLE_LOD
 .float modelindex_lod0;
@@ -283,3 +285,15 @@ spawnfunc Item_SpawnFunc(float it);
 float W_AmmoItemCode(float wpn);
 float W_ItemCode(float wpn);
 string W_Name(float weaponid);
+
+void UpdateSelectedPlayer();
+void ClearSelectedPlayer();
+.entity selected_player;
+.float selected_player_time; // when this player has been selected
+.float selected_player_count; // how long this player has been directly pointed to
+.float selected_player_display_needs_update; // are regular updates necessary? (health)
+.float selected_player_display_timeout; // when the selection will time out
+
+void centerprint_atprio(entity e, float prio, string s);
+void centerprint_expire(entity e, float prio);
+void centerprint(entity e, string s);

@@ -393,6 +393,8 @@ void GetCvars(float f)
 {
 	GetCvars_handleFloat(f, cvar_cl_playerdetailreduction, "cl_playerdetailreduction");
 	GetCvars_handleFloat(f, cvar_cl_nogibs, "cl_nogibs");
+	GetCvars_handleFloat(f, cvar_scr_centertime, "scr_centertime");
+	GetCvars_handleFloat(f, cvar_cl_shownames, "cl_shownames");
 }
 
 float fexists(string f)
@@ -474,3 +476,96 @@ void DistributeFragsAmongTeam(entity p, float targetteam, float factor)
 		error(strcat("There were ", ftos(f), " frags left. BAD!"));
 }
 
+string Team_ColorCode(float teamid)
+{
+	if(teamid == COLOR_TEAM1)
+		return "^1";
+	else if(teamid == COLOR_TEAM2)
+		return "^4";
+	else if(teamid == COLOR_TEAM3)
+		return "^6";
+	else if(teamid == COLOR_TEAM4)
+		return "^3";
+	else
+		return "^7";
+}
+
+string decolorize(string s)
+{
+	string out;
+	out = "";
+	while(s != "")
+	{
+		float n;
+		string ch1, ch2;
+		n = 1;
+		ch1 = substring(s, 0, 1);
+		ch2 = substring(s, 1, 2);
+		if(ch1 == "^")
+		{
+			n = 2;
+			if(ch2 == "^")
+				out = strcat(out, "^");
+			else if(ch2 == "0")
+				out = strcat(out);
+			else if(ch2 == "1")
+				out = strcat(out);
+			else if(ch2 == "2")
+				out = strcat(out);
+			else if(ch2 == "3")
+				out = strcat(out);
+			else if(ch2 == "4")
+				out = strcat(out);
+			else if(ch2 == "5")
+				out = strcat(out);
+			else if(ch2 == "6")
+				out = strcat(out);
+			else if(ch2 == "7")
+				out = strcat(out);
+			else if(ch2 == "8")
+				out = strcat(out);
+			else if(ch2 == "9")
+				out = strcat(out);
+			else
+			{
+				n = 1;
+				out = strcat(out, "^");
+			}
+			s = substring(s, n, strlen(s) - n);
+		}
+		else
+		{
+			s = substring(s, 1, strlen(s) - 1);
+			out = strcat(out, ch1);
+		}
+	}
+	return out;
+}
+
+#define CENTERPRIO_POINT 1
+#define CENTERPRIO_NORMAL 5
+.float centerprint_priority;
+.float centerprint_expires;
+void centerprint_atprio(entity e, float prio, string s)
+{
+	if(time > e.centerprint_expires)
+		e.centerprint_priority = 0;
+	if(prio >= e.centerprint_priority)
+	{
+		e.centerprint_priority = prio;
+		e.centerprint_expires = time + e.cvar_scr_centertime;
+		centerprint_builtin(e, s);
+	}
+}
+void centerprint_expire(entity e, float prio)
+{
+	if(prio == e.centerprint_priority)
+	{
+		e.centerprint_priority = 0;
+		centerprint_builtin(e, "");
+	}
+}
+void centerprint(entity e, string s)
+{
+	centerprint_atprio(e, CENTERPRIO_NORMAL, s);
+}
