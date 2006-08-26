@@ -712,18 +712,9 @@ void ClientConnect (void)
 	self.welcomemessage_time = time + cvar("welcome_message_time");
 	self.welcomemessage_time2 = 0;
 
-	//stuffcmd(self, strcat("exec maps/", mapname, ".cfg\n"));
-	// the client might not have that file yet!
-	fh = fopen(strcat("maps/", mapname, ".cfg"), FILE_READ);
-	if(fh >= 0)
-	{
-		while((s = fgets(fh)))
-			stuffcmd(self, strcat(s, "\n"));
-		fclose(fh);
-	}
+	stuffcmd(self, strcat("exec maps/", mapname, ".cfg\n"));
 	// TODO: is this being used for anything else than cd tracks?
 	// Remember: SVC_CDTRACK exists. Maybe it should be used.
-	
 	
 	// send prediction settings to the client
 	stuffcmd(self, strcat("cl_movement_accelerate ", ftos(cvar("sv_accelerate")), "\n"));
