@@ -361,12 +361,11 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		    (deathtype == DEATH_SLIME) ||
 		    (deathtype == DEATH_LAVA))
 			return;
-		if (targ.extralives && (deathtype == IT_NEX) && damage)
+		if (targ.armorvalue && (deathtype == IT_NEX) && damage)
 		{
-			targ.extralives -= 1;
-			centerprint(targ, strcat("^3Remaining extra lives: ",ftos(targ.extralives),"\n"));
+			targ.armorvalue -= 1;
+			centerprint(targ, strcat("^3Remaining extra lives: ",ftos(targ.armorvalue),"\n"));
 			damage = 0;
-			targ.armorvalue = targ.extralives;
 			if(clienttype(targ) == CLIENTTYPE_REAL) stuffcmd(targ, "play2 misc/hit.wav\n");
 			//stuffcmd(attacker, "play2 misc/hit.wav\n");
 		}
