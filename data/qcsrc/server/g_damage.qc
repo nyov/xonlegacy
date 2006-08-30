@@ -128,6 +128,8 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				centerprint(targ, strcat("^1You were killed for running out of ammo...\n\n\n"));
 			else if (deathtype == DEATH_ROT)
 				centerprint(targ, strcat("^1You grew too old without taking your medcine\n\n\n"));
+			else if (deathtype == DEATH_MIRRORDAMAGE)
+				centerprint(targ, strcat("^1Don't shoot your team mates!\n\n\n"));
 			else
 				centerprint(targ, strcat("^1You killed your own dumb self!\n\n\n"));
 
@@ -148,6 +150,8 @@ void Obituary (entity attacker, entity targ, float deathtype)
 			}
 			else if (deathtype == DEATH_CAMP)
 				bprint ("^1",s, "^1 thought he found a nice camping ground\n");
+			else if (deathtype == DEATH_MIRRORDAMAGE)
+				bprint ("^1",s, "^1 didn't become friends with the Lord of Teamplay\n");
 			else if (deathtype != DEATH_TEAMCHANGE)
 				bprint ("^1",s, "^1 couldn't resist the urge to self-destruct\n");
 
@@ -316,6 +320,12 @@ entity damage_attacker;
 
 void Damage (entity targ, entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
+	float mirrordamage;
+	float mirrorforce;
+	entity attacker_save;
+	mirrordamage = 0;
+	mirrorforce = 0;
+
 	if (gameover || targ.killcount == -666)
 		return;
 
@@ -325,18 +335,41 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
         damage_targ = targ;
         damage_inflictor = inflictor;
         damage_attacker = attacker;
-	// nullify damage if teamplay is on
-	if (teamplay)
-	if (attacker.team)
-	if (attacker.team == targ.team)
-	if (teamplay == 1 || (teamplay == 3 && attacker != targ))
-		damage = 0;
+		attacker_save = attacker;
 
 	if (targ.classname == "player")
 	if (attacker.classname == "player")
 	if (!targ.isbot)
 	if (attacker.isbot)
 		damage = damage * bound(0.1, (skill + 5) * 0.1, 1);
+
+	// nullify damage if teamplay is on
+	if(teamplay == 1)
+		if(attacker.team)
+			if(attacker.team == targ.team)
+				damage = 0;
+	if(teamplay == 3)
+		if(attacker != targ)
+			if(attacker.team)
+				if(attacker.team == targ.team)
+					damage = 0;
+	if(teamplay == 4)
+		if(attacker != targ)
+			if(attacker.team == targ.team)
+				if(attacker.classname == "player")
+					if(targ.classname == "player")
+					{
+						mirrordamage = cvar("g_mirrordamage") * damage;
+						mirrorforce = cvar("g_mirrordamage") * vlen(force);
+						if(cvar("g_minstagib"))
+						{
+							if(cvar("g_friendlyfire") == 0)
+								damage = 0;
+						}
+						else
+							damage = cvar("g_friendlyfire") * damage;
+						// mirrordamage will be used LATER
+					}
 
 	if(cvar("g_lms"))
 	if(targ.classname == "player")
@@ -381,7 +414,9 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				if (targ.classname == "player")
 					centerprint(attacker, "Secondary fire inflicts no damage!\n");
 				damage = 0;
+				mirrordamage = 0;
 				force = '0 0 0';
+				// keep mirrorforce
 				attacker = targ;
 			}
 		}
@@ -487,6 +522,26 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 					attacker.health);
 			}
 		}
+	}
+
+	// apply mirror damage if any
+	if(mirrordamage > 0 || mirrorforce > 0)
+	{
+		attacker = attacker_save;
+		if(cvar("g_minstagib"))
+			if(mirrordamage > 0)
+			{
+				// just lose extra LIVES, don't kill the player for mirror damage
+				if(attacker.armorvalue > 0)
+				{
+					attacker.armorvalue = attacker.armorvalue - 1;
+					centerprint(attacker, strcat("^3Remaining extra lives: ",ftos(attacker.armorvalue),"\n"));
+					if(clienttype(attacker) == CLIENTTYPE_REAL) stuffcmd(attacker, "play2 misc/hit.wav\n");
+				}
+				mirrordamage = 0;
+			}
+		force = normalize(attacker.origin + attacker.view_ofs - hitloc) * mirrorforce;
+		Damage(attacker, inflictor, attacker, mirrordamage, DEATH_MIRRORDAMAGE, attacker.origin, force);
 	}
 }
 
