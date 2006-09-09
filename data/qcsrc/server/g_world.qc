@@ -477,7 +477,7 @@ void() GotoNextMap =
 	if(exit_cfg != "")
 		localcmd(strcat("exec \"", exit_cfg, "\"\n"));
 
-	ResetGameCvars();
+	localcmd("exec game_reset.cfg\n");
 
 
 	if (cvar("lastlevel"))
