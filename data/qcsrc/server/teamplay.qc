@@ -1057,6 +1057,7 @@ void ShufflePlayerOutOfTeam (float source_team)
 	}
 
 	// move the player to the new team
+	TeamchangeFrags(selected);
 	SetPlayerTeam(selected, smallestteam, source_team, FALSE);
 
 	if(selected.deadflag == DEAD_NO)
