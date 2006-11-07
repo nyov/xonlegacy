@@ -1,8 +1,8 @@
 #--- AFT (Almost Free Text) source file for Nexuiz FAQ
 #--- use AFT v5.096 or later (http://www.maplefish.com/todd/aft.html)
 
-#---SET nexversion=2.1
-#---SET zipname=nexuiz21.zip
+#---SET nexversion=2.1.1
+#---SET zipname=nexuiz211.zip
 
 *Title: Nexuiz %nexversion% FAQ
 			http://nexuiz.com	http://alientrap.org
