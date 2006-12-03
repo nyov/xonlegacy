@@ -1237,7 +1237,7 @@ void ShuffleMaplist()
 
 		litems = tokenize(result);
 
-		dprint(result, "\n");
+		//dprint(result, "\n");
 	}
 
 	cvar_set("g_maplist", result);
