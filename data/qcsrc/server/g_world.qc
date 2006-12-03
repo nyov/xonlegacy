@@ -519,20 +519,23 @@ float(float exponent) MaplistMethod_Shuffle = // more clever shuffling
 
 	imax = 42;
 
+	if(Map_Count <= 1)
+		return 0; // only one map, then always play this one
+
 	for(i = 0; i <= imax; ++i)
 	{
 		string newlist;
 
 		// now reinsert this at another position
-		insertpos = pow(Map_Count, exponent);
-		insertpos = random() * insertpos;              // ]0, (Map_Count)^exponent]
-		insertpos = pow(insertpos, 1 / exponent);      // ]0, Map_Count]
-		insertpos = ceil(insertpos);                   // {1, 2, 3, ..., Map_Count}
+		insertpos = pow(Map_Count - 1, exponent);
+		insertpos = random() * insertpos;              // ]0, (Map_Count - 1)^exponent]
+		insertpos = pow(insertpos, 1 / exponent);      // ]0, Map_Count - 1]
+		insertpos = ceil(insertpos) + 1;               // {2, 3, 4, ..., Map_Count}
 		dprint("SHUFFLE: insert pos = ", ftos(insertpos), "\n");
 
 		// insert the current map there
 		newlist = "";
-		for(j = 1; j < insertpos; ++j)                 // i == 1: no loop, will be inserted as first
+		for(j = 1; j < insertpos; ++j)                 // i == 1: no loop, will be inserted as first; however, i == 1 has been excluded above
 			newlist = strcat(newlist, "'", argv(j), "'");
 		newlist = strcat(newlist, "'", argv(0), "'");  // now insert the just selected map
 		for(j = insertpos; j < Map_Count; ++j)         // i == Map_Count: no loop, has just been inserted as last
@@ -1206,6 +1209,39 @@ void PrintScoreboard()
 	ServerConsoleEcho(".", FALSE);
 }
 
+void ShuffleMaplist()
+{
+	string result;
+	float start;
+	float items;
+	float selected;
+	float i;
+
+	result = cvar_string("g_maplist");
+	items = tokenize(result);
+
+	for(start = 0; start < items - 1; ++start)
+	{
+		result = "";
+
+		// select a random item
+		selected = ceil(random() * (items - start) + start) - 1;
+
+		// shift this item to the place start
+		for(i = 0; i < start; ++i)
+			result = strcat(result, "'", argv(i), "'");
+		result = strcat(result, "'", argv(selected), "'");
+		for(i = start; i < items; ++i)
+			if(i != selected)
+				result = strcat(result, "'", argv(i), "'");
+
+		items = tokenize(result);
+
+		dprint(result, "\n");
+	}
+
+	cvar_set("g_maplist", result);
+}
 
 /*
 ============
@@ -1240,6 +1276,12 @@ void() CheckRules_World =
 	{
 		cvar_set("_scoreboard", "0");
 		PrintScoreboard();
+	}
+
+	if(cvar("_g_maplist_shufflenow"))
+	{
+		cvar_set("_g_maplist_shufflenow", "0");
+		ShuffleMaplist();
 	}
 
 	timelimit = cvar("timelimit") * 60;
