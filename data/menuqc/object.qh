@@ -17,9 +17,12 @@ entity namespaceRoot[ MAX_NAMESPACE_ID ];
 typedef float NamespaceID;
 
 ABSTRACT( Object )
+	// type information/reflexion stuff
+	.string type;
+
 	.NamespaceID namespace;
 	.zoned name;
-	// namespace ID":"path+name
+	// namespace ID":"path+name"
 	.zoned fullName;
 
 	// structural stuff
@@ -29,6 +32,20 @@ ABSTRACT( Object )
 	.Object _next;
 ENDABSTRACT()
 
+CLASS( ObjectList )
+	.zoned objectList;
+	.float objectCount;
+
+	void ObjectList_Add( ObjectList this, Object pObject );
+	void ObjectList_Remove( ObjectList this, Object pObject );
+
+	float ObjectList_GetCount( ObjectList this, Object pObject );
+	Object ObjectList_GetOne( ObjectList this, float pIndex );
+
+	void ObjectList_PrepareIteration( ObjectList this );
+	void ObjectList_FinishIteration( ObjectList this );
+	Object ObjectList_Iterate( ObjectList this );
+ENDCLASS()
 
 
 
