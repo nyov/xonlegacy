@@ -1530,7 +1530,7 @@ float(vector v, float maxfiredeviation) bot_aimdir =
 
 	// turn
 	local float r, fixedrate, blendrate;
-	fixedrate = cvar("bot_ai_aimskill_fixedrate") / dist;
+	fixedrate = cvar("bot_ai_aimskill_fixedrate") / max(1, dist);
 	blendrate = cvar("bot_ai_aimskill_blendrate");
 	r = max(fixedrate, blendrate);
 	self.v_angle = self.v_angle + diffang * bound(0, r * frametime * (skill * 0.5 + 2), 1);
