@@ -3,16 +3,49 @@ void GotoNextMap();
 
 void SetDefaultAlpha()
 {
-	if(cvar("g_cloaked"))
+	if(cvar("g_running_guns"))
+	{
+		default_player_alpha = -1;
+		default_weapon_alpha = +1;
+	}
+	else if(cvar("g_cloaked"))
 	{
 		default_player_alpha = cvar("g_balance_cloaked_alpha");
+		default_weapon_alpha = default_player_alpha;
 	}
 	else
 	{
 		default_player_alpha = cvar("g_player_alpha");
 		if(default_player_alpha <= 0)
 			default_player_alpha = 1;
+		default_weapon_alpha = default_player_alpha;
 	}
+}
+
+void fteqcc_testbugs()
+{
+	float a, b;
+
+	if(!cvar("developer_fteqccbugs"))
+		return;
+
+	dprint("*** fteqcc test: checking for bugs...\n");
+
+	a = 1;
+	b = 5;
+	if(sqrt(a) - sqrt(b - a) == 0)
+		dprint("*** fteqcc test: found same-function-twice bug\n");
+	else
+		dprint("*** fteqcc test: same-function-twice bug got FINALLY FIXED! HOORAY!\n");
+
+	world.frags = -10;
+	world.enemy = world;
+	world.enemy.frags += 10;
+	if(world.frags > 0.2 || world.frags < -0.2) // don't error out if it's just roundoff errors
+		dprint("*** fteqcc test: found += bug\n");
+	else
+		dprint("*** fteqcc test: += bug got FINALLY FIXED! HOORAY!\n");
+	world.frags = 0;
 }
 
 void GotoFirstMap()
@@ -364,6 +397,8 @@ void worldspawn (void)
 
 	if(cvar("g_campaign"))
 		CampaignPostInit();
+
+	// fteqcc_testbugs();
 }
 
 void light (void)
