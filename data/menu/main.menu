@@ -88,4 +88,11 @@ Item Arrangement InstantBar
 		target	"Demos"
 		init	Nex_Action_SetNormalPanelLink
 	}
+	Item Nex_ExtResponseSystem UpdateMessage
+	{
+		color		'1.0 0.9 0.1'
+		alpha		[DefaultTextAlpha]
+		drawFlag	[DefaultTextDrawFlag]
+		fontSize	'12 18'
+	}
 }
