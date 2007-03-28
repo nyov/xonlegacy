@@ -1,6 +1,7 @@
 void ReadyCount();
 float ValidateMap(string vote);
 void(entity e) DropFlag;
+string MapVote_Suggest(string m);
 
 void Say(entity source, float teamsay, string msgin)
 {
@@ -15,6 +16,9 @@ void Say(entity source, float teamsay, string msgin)
 	colorstr = Team_ColorCode(source.team);
 
 	if(!teams_matter)
+		teamsay = FALSE;
+
+	if(intermission_running)
 		teamsay = FALSE;
 
 	if(source.classname != "player") // observers can't
@@ -36,43 +40,21 @@ void Say(entity source, float teamsay, string msgin)
 	else
 		msgstr = strzone(strcat("\{1}^3", source.netname, "^7: ", msgin, "\n"));
 
-	head = find(world, classname, "player");
-	while(head)
+	if(teamsay)
 	{
-		if(clienttype(head) == CLIENTTYPE_REAL)
-			if(!teamsay || (head.team == source.team))
+		FOR_EACH_REALPLAYER(head)
+		{
+			if(head.team == source.team)
 			{
 				sprint(head, msgstr);
-				if(teamsay)
-					centerprint(head, cmsgstr);
-				//stuffcmd(head, "play2 misc/talk.wav\n");
+				centerprint(head, cmsgstr);
 			}
-		head = find(head, classname, "player");
+		}
 	}
-
-	if(!teamsay)
+	else
 	{
-		head = find(world, classname, "observer");
-		while(head)
-		{
-			if(clienttype(head) == CLIENTTYPE_REAL)
-			{
-				sprint(head, msgstr);
-				//stuffcmd(head, "play2 misc/talk.wav\n");
-			}
-			head = find(head, classname, "observer");
-		}
-		head = find(world, classname, "spectator");
-		while(head)
-		{
-			if(clienttype(head) == CLIENTTYPE_REAL)
-			{
-				sprint(head, msgstr);
-				//stuffcmd(head, "play2 misc/talk.wav\n");
-			}
-			head = find(head, classname, "spectator");
-		}
-		ServerConsoleEcho(substring(msgstr, 1, strlen(msgstr) - 2), TRUE);
+		bprint(msgstr);
+		//ServerConsoleEcho(substring(msgstr, 1, strlen(msgstr) - 2), TRUE);
 	}
 
 	strunzone(msgstr);
@@ -330,6 +312,8 @@ void SV_ParseClientCommand(string s) {
 			sprint(self, strcat(col, argv(i), " "));
 		}
 		sprint(self, "\n");
+	} else if(argv(0) == "teamstatus") {
+		PrintScoreboard(self);
 	} else if(argv(0) == "say") {
 		Say(self, FALSE, substring(s, 4, strlen(s) - 4));
 		//clientcommand(self, formatmessage(s));
@@ -342,6 +326,8 @@ void SV_ParseClientCommand(string s) {
 			sprint(self, "ERROR: unsupported info command\n");
 		else
 			wordwrap_sprint(cmd, 1111);
+	} else if(argv(0) == "suggestmap") {
+		sprint(self, strcat(MapVote_Suggest(argv(1)), "\n"));
 	} else {
 		cmd = argv(0);
 		/* checks not needed any more since DP has separated clientcommands and regular commands
@@ -453,26 +439,12 @@ float VoteAllowed(string votecommand) {
 }
 
 void VoteReset() {
-	local string searchclass;
-	searchclass = "player";
+	local entity player;
 
-	while (TRUE)
+	FOR_EACH_CLIENT(player)
 	{
-		local entity player;
-		player = find(player, classname, searchclass);
-		while(player)
-		{
-			player.vote_vote = 0;
-			player = find(player, classname, searchclass);
-		}
-
-		if("player" == searchclass) {
-			searchclass = "observer";
-		} else if("observer" == searchclass) {
-			searchclass = "spectator";
-		} else {
-			break;
-		}
+		player.vote_vote = 0;
+		centerprint_expire(player, CENTERPRIO_VOTE);
 	}
 
 	votecalled = FALSE;
@@ -511,6 +483,12 @@ void VoteStop(entity stopper) {
 	VoteReset();
 }
 
+void VoteNag() {
+	if(votecalled)
+		if(self.vote_vote == 0)
+			centerprint_atprio(self, CENTERPRIO_VOTE, strcat("^7^3", votecaller.netname, "^2 called a vote for:\n^1", votecalledvote, "\n\n^2You have not voted yet!\n^2HINT: By default, F1 is yes and F2 is no."));
+}
+
 void VoteCount() {
 	local float playercount;
 	playercount = 0;
@@ -518,34 +496,16 @@ void VoteCount() {
 	yescount = 0;
 	local float nocount;
 	nocount = 0;
-	local string searchclass;
-	searchclass = "player";
+	local entity player;
 
-	while (TRUE)
+	FOR_EACH_REALCLIENT(player)
 	{
-		local entity player;
-		player = find(player, classname, searchclass);
-
-		while(player)
-		{
-			if(clienttype(player) != CLIENTTYPE_BOT) {
-				if(player.vote_vote < 0) {
-					nocount++;
-				} else if(player.vote_vote > 0) {
-					yescount++;
-				}
-				playercount++;
-			}
-			player = find(player, classname, searchclass);
+		if(player.vote_vote < 0) {
+			nocount++;
+		} else if(player.vote_vote > 0) {
+			yescount++;
 		}
-
-		if("player" == searchclass) {
-			searchclass = "observer";
-		} else if("observer" == searchclass) {
-			searchclass = "specator";
-		} else {
-			break;
-		}
+		playercount++;
 	}
 
 	if((playercount == 1) && votecalledmaster) {
@@ -563,7 +523,15 @@ void VoteCount() {
 	} else if((playercount / 2) < nocount) { // vote rejected
 		VoteReject();
 	} else if(time > votefinished) { // vote timedout
-		VoteTimeout();
+		if(cvar("sv_vote_simple_majority"))
+			if(yescount > nocount)
+				VoteAccept();
+			else if(nocount > yescount)
+				VoteReject();
+			else
+				VoteTimeout();
+		else
+			VoteTimeout();
 	} // else still running
 }
 
@@ -573,16 +541,11 @@ void ReadyCount()
 	local entity e;
 	local float r, p;
 
-	e = find(world, classname, "player");
-
-	while(e)
+	FOR_EACH_REALPLAYER(e)
 	{
-		if(clienttype(e) == CLIENTTYPE_REAL)
-		{
-			p += 1;
-			if(e.ready) r += 1;
-		}
-		e = find(e, classname, "player");
+		p += 1;
+		if(e.ready)
+			r += 1;
 	}
 
 	if(p && r == p)
