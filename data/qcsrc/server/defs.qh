@@ -252,11 +252,16 @@ float playerid_last;
 float default_player_alpha;
 float default_weapon_alpha;
 
+.float has_zoomed;
+
 .float() customizeentityforclient;
+.float cvar_cl_zoomfactor;
+.float cvar_cl_zoomspeed;
 .float cvar_cl_playerdetailreduction;
 .float cvar_cl_nogibs;
 .float cvar_scr_centertime;
 .float cvar_cl_shownames;
+.float cvar_cl_hidewaypoints;
 .string cvar_g_nexuizversion;
 
 .float version_nagtime;
