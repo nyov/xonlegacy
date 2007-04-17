@@ -51,10 +51,15 @@ void WaypointSprite_Disown(entity wp, float fadetime)
 		return;
 	if(wp.owner)
 	{
-		if(wp.aiment == wp.owner)
+		if(wp.exteriormodeltoclient == wp.owner)
 		{
-			wp.view_ofs = wp.view_ofs + wp.aiment.origin;
-			wp.aiment = world;
+			setattachment(wp, world, "");
+#ifdef ATTACHMENT_WORKS_WITH_EF_NODEPTHTEST
+			setorigin(wp, wp.origin + wp.exteriormodeltoclient.origin);
+#else
+			setorigin(wp, wp.view_ofs + wp.exteriormodeltoclient.origin);
+#endif
+			wp.exteriormodeltoclient = world;
 		}
 		wp.owner.(wp.owned_by_field) = world;
 		wp.owner = world;
@@ -121,18 +126,33 @@ float WaypointSprite_CustomizeEntityForClient()
 			return FALSE;
 	}
 
-	// do not draw to yourself when attached
-	if(self.aiment)
-		if(other == self.aiment)
-			return FALSE;
-
 	if(self.currentammo) // hidable?
 		if(other.cvar_cl_hidewaypoints) // wants to hide;
 			return FALSE;
 
 	porigin = other.origin + other.view_ofs_z * '0 0 1';
-	realorigin = self.aiment.origin + self.view_ofs;
-	self.origin = realorigin;
+
+#ifdef ATTACHMENT_WORKS_WITH_EF_NODEPTHTEST
+	realorigin = self.exteriormodeltoclient.origin + self.origin;
+#else
+	if(self.exteriormodeltoclient)
+	{
+		if(self.exteriormodeltoclient == other)
+		{
+			setattachment(self, other, "");
+			setorigin(self, self.view_ofs);
+			realorigin = other.origin + self.origin;
+		}
+		else
+		{
+			setattachment(self, world, "");
+			setorigin(self, self.exteriormodeltoclient.origin + self.view_ofs);
+			realorigin = self.origin;
+		}
+	}
+	else
+		realorigin = self.origin;
+#endif
 
 	distance = vlen(realorigin - porigin);
 
@@ -180,8 +200,18 @@ entity WaypointSprite_Spawn(
 	wp.classname = "sprite_waypoint";
 	wp.teleport_time = time + lifetime;
 	wp.health = lifetime;
-	wp.view_ofs = ofs;
-	wp.aiment = ref;
+	wp.exteriormodeltoclient = ref;
+	if(ref)
+	{
+#ifdef ATTACHMENT_WORKS_WITH_EF_NODEPTHTEST
+		setattachment(wp, ref, "");
+		setorigin(wp, ofs);
+#else
+		wp.view_ofs = ofs;
+#endif
+	}
+	else
+		setorigin(wp, ofs);
 	wp.enemy = showto;
 	wp.team = t;
 	wp.owner = own;
@@ -270,7 +300,7 @@ entity WaypointSprite_AttachCarrier(
 
 void WaypointSprite_DetachCarrier(entity carrier)
 {
-	WaypointSprite_Disown(carrier.waypointsprite_attachedforcarrier, 1);
+	WaypointSprite_Disown(carrier.waypointsprite_attachedforcarrier, waypointsprite_deadlifetime);
 }
 
 void WaypointSprite_ClearPersonal()

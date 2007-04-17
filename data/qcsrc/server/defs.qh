@@ -93,6 +93,7 @@ string newlines = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
 .float		dmgtime;
 
 .float		killcount;
+.float hitsound;
 
 .float watersound_finished;
 .float iscreature;
@@ -286,10 +287,9 @@ void DropAllRunes(entity pl);
 
 
 typedef .float floatfield;
-typedef void(void) spawnfunc;
 floatfield Item_CounterField(float it);
 float Item_WeaponCode(float it);
-spawnfunc Item_SpawnFunc(float it);
+void Item_SpawnByItemCode(float it);
 
 float W_AmmoItemCode(float wpn);
 float W_ItemCode(float wpn);
