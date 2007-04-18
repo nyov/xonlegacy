@@ -28,7 +28,7 @@ void W_Uzi_Attack (void)
 	// muzzle flash for 1st person view
 	flash = spawn();
 	setorigin(flash, '53 5 -1');
-	setmodel(flash, "models/uziflash.md3");
+	setmodel(flash, "models/uziflash.md3"); flash.effects = EF_LOWPRECISION;
 	setattachment(flash, self.weaponentity, "bone01");
 	flash.viewmodelforclient = self;
 	flash.scale = 1.2;
@@ -37,7 +37,7 @@ void W_Uzi_Attack (void)
 	// muzzle flash for 3rd person view
 	flash2 = spawn();
 	setorigin(flash2, '51 1 8');
-	setmodel(flash2, "models/uziflash.md3");
+	setmodel(flash2, "models/uziflash.md3"); flash2.effects = EF_LOWPRECISION;
 	setattachment(flash2, self.exteriorweaponentity, "");
 	SUB_SetFade(flash2, time, 0.2);
 	
