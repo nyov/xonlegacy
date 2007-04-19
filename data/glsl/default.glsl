@@ -131,50 +131,55 @@ uniform myhalf DiffuseScale;
 uniform myhalf SpecularScale;
 uniform myhalf SpecularPower;
 
+#ifdef USEOFFSETMAPPING
 vec2 OffsetMapping(vec2 TexCoord)
 {
-	vec3 eyedir = vec3(normalize(EyeVector));
-	float depthbias = 1.0 - eyedir.z; // should this be a -?
-	depthbias = 1.0 - depthbias * depthbias;
-
 #ifdef USEOFFSETMAPPING_RELIEFMAPPING
 	// 14 sample relief mapping: linear search and then binary search
-	//vec3 OffsetVector = vec3(EyeVector.xy * (1.0 / EyeVector.z) * depthbias * OffsetMapping_Scale * vec2(-0.1, 0.1), -0.1);
-	//vec3 OffsetVector = vec3(normalize(EyeVector.xy) * OffsetMapping_Scale * vec2(-0.1, 0.1), -0.1);
-	vec3 OffsetVector = vec3(eyedir.xy * OffsetMapping_Scale * vec2(-0.1, 0.1), -0.1);
-	vec3 RT = vec3(TexCoord - OffsetVector.xy * 10.0, 1.0) + OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
-	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
-	TexCoord = RT.xy;
+	// this basically steps forward a small amount repeatedly until it finds
+	// itself inside solid, then jitters forward and back using decreasing
+	// amounts to find the impact
+	//vec3 OffsetVector = vec3(EyeVector.xy * ((1.0 / EyeVector.z) * OffsetMapping_Scale) * vec2(-1, 1), -1);
+	//vec3 OffsetVector = vec3(normalize(EyeVector.xy) * OffsetMapping_Scale * vec2(-1, 1), -1);
+	vec3 OffsetVector = vec3(normalize(EyeVector).xy * OffsetMapping_Scale * vec2(-1, 1), -1);
+	vec3 RT = vec3(TexCoord, 1);
+	OffsetVector *= 0.1;
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector *  step(texture2D(Texture_Normal, RT.xy).a, RT.z);
+	RT += OffsetVector * (step(texture2D(Texture_Normal, RT.xy).a, RT.z)          - 0.5);
+	RT += OffsetVector * (step(texture2D(Texture_Normal, RT.xy).a, RT.z) * 0.5    - 0.25);
+	RT += OffsetVector * (step(texture2D(Texture_Normal, RT.xy).a, RT.z) * 0.25   - 0.125);
+	RT += OffsetVector * (step(texture2D(Texture_Normal, RT.xy).a, RT.z) * 0.125  - 0.0625);
+	RT += OffsetVector * (step(texture2D(Texture_Normal, RT.xy).a, RT.z) * 0.0625 - 0.03125);
+	return RT.xy;
 #else
 	// 3 sample offset mapping (only 3 samples because of ATI Radeon 9500-9800/X300 limits)
-	//vec2 OffsetVector = vec2(EyeVector.xy * (1.0 / EyeVector.z) * depthbias) * OffsetMapping_Scale * vec2(-0.333, 0.333);
-	//vec2 OffsetVector = vec2(normalize(EyeVector.xy)) * OffsetMapping_Scale * vec2(-0.333, 0.333);
-	vec2 OffsetVector = vec2(eyedir.xy) * OffsetMapping_Scale * vec2(-0.333, 0.333);
-	//TexCoord += OffsetVector * 3.0;
+	// this basically moves forward the full distance, and then backs up based
+	// on height of samples
+	//vec2 OffsetVector = vec2(EyeVector.xy * ((1.0 / EyeVector.z) * OffsetMapping_Scale) * vec2(-1, 1));
+	//vec2 OffsetVector = vec2(normalize(EyeVector.xy) * OffsetMapping_Scale * vec2(-1, 1));
+	vec2 OffsetVector = vec2(normalize(EyeVector).xy * OffsetMapping_Scale * vec2(-1, 1));
+	TexCoord += OffsetVector;
+	OffsetVector *= 0.333;
 	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
 	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
 	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-#endif
 	return TexCoord;
+#endif
 }
+#endif
 
 void main(void)
 {
-	// apply offsetmapping
 #ifdef USEOFFSETMAPPING
+	// apply offsetmapping
 	vec2 TexCoordOffset = OffsetMapping(TexCoord);
 #define TexCoord TexCoordOffset
 #endif
@@ -208,7 +213,7 @@ void main(void)
 	myhvec3 diffusenormal = myhvec3(normalize(LightVector));
 
 	// calculate directional shading
-	color.rgb = LightColor * myhalf(texture2D(Texture_Attenuation, vec2(length(CubeVector), 0.0))) * color.rgb * (AmbientScale + DiffuseScale * myhalf(max(float(dot(surfacenormal, diffusenormal)), 0.0)));
+	color.rgb = color.rgb * LightColor * (myhalf(texture2D(Texture_Attenuation, vec2(length(CubeVector), 0.0))) * (AmbientScale + DiffuseScale * myhalf(max(float(dot(surfacenormal, diffusenormal)), 0.0))));
 #else
 	// calculate directionless shading
 	color.rgb = color.rgb * LightColor * myhalf(texture2D(Texture_Attenuation, vec2(length(CubeVector), 0.0)));
@@ -277,8 +282,7 @@ void main(void)
 
 #ifdef USEFOG
 	// apply fog
-	myhalf fog = myhalf(texture2D(Texture_FogMask, myhvec2(length(EyeVectorModelSpace)*FogRangeRecip, 0.0)).x);
-	color.rgb = color.rgb * fog + FogColor * (1.0 - fog);
+	color.rgb = mix(FogColor, color.rgb, myhalf(texture2D(Texture_FogMask, myhvec2(length(EyeVectorModelSpace)*FogRangeRecip, 0.0))));
 #endif
 
 	color.rgb *= SceneBrightness;
