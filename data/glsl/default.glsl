@@ -98,10 +98,12 @@ void main(void)
 // fragment shader specific:
 #ifdef FRAGMENT_SHADER
 
+// 11 textures, we can only use up to 16 on DX9-class hardware
 uniform sampler2D Texture_Normal;
 uniform sampler2D Texture_Color;
 uniform sampler2D Texture_Gloss;
 uniform samplerCube Texture_Cube;
+uniform sampler2D Texture_Attenuation;
 uniform sampler2D Texture_FogMask;
 uniform sampler2D Texture_Pants;
 uniform sampler2D Texture_Shirt;
@@ -129,13 +131,8 @@ uniform myhalf DiffuseScale;
 uniform myhalf SpecularScale;
 uniform myhalf SpecularPower;
 
-void main(void)
+vec2 OffsetMapping(vec2 TexCoord)
 {
-	// apply offsetmapping
-#ifdef USEOFFSETMAPPING
-	vec2 TexCoordOffset = TexCoord;
-#define TexCoord TexCoordOffset
-
 	vec3 eyedir = vec3(normalize(EyeVector));
 	float depthbias = 1.0 - eyedir.z; // should this be a -?
 	depthbias = 1.0 - depthbias * depthbias;
@@ -161,7 +158,7 @@ void main(void)
 	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
 	if (RT.z > texture2D(Texture_Normal, RT.xy).a) RT += OffsetVector;OffsetVector *= 0.5;RT -= OffsetVector;
 	TexCoord = RT.xy;
-#elif 1
+#else
 	// 3 sample offset mapping (only 3 samples because of ATI Radeon 9500-9800/X300 limits)
 	//vec2 OffsetVector = vec2(EyeVector.xy * (1.0 / EyeVector.z) * depthbias) * OffsetMapping_Scale * vec2(-0.333, 0.333);
 	//vec2 OffsetVector = vec2(normalize(EyeVector.xy)) * OffsetMapping_Scale * vec2(-0.333, 0.333);
@@ -170,39 +167,16 @@ void main(void)
 	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
 	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
 	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-#elif 0
-	// 10 sample offset mapping
-	//vec2 OffsetVector = vec2(EyeVector.xy * (1.0 / EyeVector.z) * depthbias) * OffsetMapping_Scale * vec2(-0.333, 0.333);
-	//vec2 OffsetVector = vec2(normalize(EyeVector.xy)) * OffsetMapping_Scale * vec2(-0.333, 0.333);
-	vec2 OffsetVector = vec2(eyedir.xy) * OffsetMapping_Scale * vec2(-0.1, 0.1);
-	//TexCoord += OffsetVector * 3.0;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-	TexCoord -= OffsetVector * texture2D(Texture_Normal, TexCoord).a;
-#elif 1
-	// parallax mapping as described in the paper
-	// "Parallax Mapping with Offset Limiting: A Per-Pixel Approximation of Uneven Surfaces" by Terry Welsh
-	// The paper provides code in the ARB fragment program assembly language
-	// I translated it to GLSL but may have done something wrong - SavageX
-	// LordHavoc: removed bias and simplified to one line
-	// LordHavoc: this is just a single sample offsetmapping...
-	TexCoordOffset += vec2(eyedir.x, -1.0 * eyedir.y) * OffsetMapping_Scale * texture2D(Texture_Normal, TexCoord).a;
-#else
-	// parallax mapping as described in the paper
-	// "Parallax Mapping with Offset Limiting: A Per-Pixel Approximation of Uneven Surfaces" by Terry Welsh
-	// The paper provides code in the ARB fragment program assembly language
-	// I translated it to GLSL but may have done something wrong - SavageX
-	float height = texture2D(Texture_Normal, TexCoord).a;
-	height = (height - 0.5) * OffsetMapping_Scale; // bias and scale
-	TexCoordOffset += height * vec2(eyedir.x, -1.0 * eyedir.y);
 #endif
+	return TexCoord;
+}
+
+void main(void)
+{
+	// apply offsetmapping
+#ifdef USEOFFSETMAPPING
+	vec2 TexCoordOffset = OffsetMapping(TexCoord);
+#define TexCoord TexCoordOffset
 #endif
 
 	// combine the diffuse textures (base, pants, shirt)
@@ -217,15 +191,28 @@ void main(void)
 #ifdef MODE_LIGHTSOURCE
 	// light source
 
-	// get the surface normal and light normal
+	// calculate surface normal, light normal, and specular normal
+	// compute color intensity for the two textures (colormap and glossmap)
+	// scale by light color and attenuation as efficiently as possible
+	// (do as much scalar math as possible rather than vector math)
+#ifdef USESPECULAR
+	myhvec3 surfacenormal = normalize(myhvec3(texture2D(Texture_Normal, TexCoord)) - myhvec3(0.5));
+	myhvec3 diffusenormal = myhvec3(normalize(LightVector));
+	myhvec3 specularnormal = normalize(diffusenormal + myhvec3(normalize(EyeVector)));
+
+	// calculate directional shading
+	color.rgb = LightColor * myhalf(texture2D(Texture_Attenuation, vec2(length(CubeVector), 0.0))) * (color.rgb * (AmbientScale + DiffuseScale * myhalf(max(float(dot(surfacenormal, diffusenormal)), 0.0))) + (SpecularScale * pow(myhalf(max(float(dot(surfacenormal, specularnormal)), 0.0)), SpecularPower)) * myhvec3(texture2D(Texture_Gloss, TexCoord)));
+#else
+#ifdef USEDIFFUSE
 	myhvec3 surfacenormal = normalize(myhvec3(texture2D(Texture_Normal, TexCoord)) - myhvec3(0.5));
 	myhvec3 diffusenormal = myhvec3(normalize(LightVector));
 
 	// calculate directional shading
-	color.rgb *= AmbientScale + DiffuseScale * myhalf(max(float(dot(surfacenormal, diffusenormal)), 0.0));
-#ifdef USESPECULAR
-	myhvec3 specularnormal = normalize(diffusenormal + myhvec3(normalize(EyeVector)));
-	color.rgb += myhvec3(texture2D(Texture_Gloss, TexCoord)) * SpecularScale * pow(myhalf(max(float(dot(surfacenormal, specularnormal)), 0.0)), SpecularPower);
+	color.rgb = LightColor * myhalf(texture2D(Texture_Attenuation, vec2(length(CubeVector), 0.0))) * color.rgb * (AmbientScale + DiffuseScale * myhalf(max(float(dot(surfacenormal, diffusenormal)), 0.0)));
+#else
+	// calculate directionless shading
+	color.rgb = color.rgb * LightColor * myhalf(texture2D(Texture_Attenuation, vec2(length(CubeVector), 0.0)));
+#endif
 #endif
 
 #ifdef USECUBEFILTER
@@ -233,19 +220,6 @@ void main(void)
 	//color.rgb *= normalize(CubeVector) * 0.5 + 0.5;//vec3(textureCube(Texture_Cube, CubeVector));
 	color.rgb *= myhvec3(textureCube(Texture_Cube, CubeVector));
 #endif
-
-	// apply light color
-	color.rgb *= LightColor;
-
-	// apply attenuation
-	//
-	// the attenuation is (1-(x*x+y*y+z*z)) which gives a large bright
-	// center and sharp falloff at the edge, this is about the most efficient
-	// we can get away with as far as providing illumination.
-	//
-	// pow(1-(x*x+y*y+z*z), 4) is far more realistic but needs large lights to
-	// provide significant illumination, large = slow = pain.
-	color.rgb *= myhalf(max(1.0 - dot(CubeVector, CubeVector), 0.0));
 
 
 
