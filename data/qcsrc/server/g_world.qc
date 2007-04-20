@@ -413,7 +413,9 @@ void worldspawn (void)
 	if(cvar("g_campaign"))
 		CampaignPostInit();
 
-	// fteqcc_testbugs();
+	fteqcc_testbugs();
+
+	readlevelcvars();
 }
 
 void light (void)
@@ -622,7 +624,7 @@ float() MaplistMethod_Random = // random map selection
 
 float(float exponent) MaplistMethod_Shuffle = // more clever shuffling
 // the exponent sets a bias on the map selection:
-// the higher the exponent, the 
+// the higher the exponent, the less likely "shortly repeated" same maps are
 {
 	float i, j, imax, insertpos;
 
@@ -1894,7 +1896,7 @@ void MapVote_Think()
 {
 	if(alreadychangedlevel)
 		return;
-	
+
 	if(time < mapvote_nextthink)
 		return;
 	//dprint("tick\n");

@@ -21,9 +21,9 @@ void W_Uzi_Attack (void)
 	self.attack_finished = time + cvar("g_balance_uzi_first_refire");
 
 	if (self.uzi_bulletcounter == 1)
-		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_first_spread"), cvar("g_balance_uzi_first_damage"), IT_UZI, TRUE);
+		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_first_spread"), cvar("g_balance_uzi_first_damage"), cvar("g_balance_uzi_first_force"), IT_UZI, TRUE);
 	else
-		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_sustained_spread"), cvar("g_balance_uzi_sustained_damage"), IT_UZI, (self.uzi_bulletcounter & 3) == 0);
+		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_sustained_spread"), cvar("g_balance_uzi_sustained_damage"), cvar("g_balance_uzi_sustained_force"), IT_UZI, (self.uzi_bulletcounter & 3) == 0);
 
 	// muzzle flash for 1st person view
 	flash = spawn();
@@ -42,7 +42,7 @@ void W_Uzi_Attack (void)
 	setmodel(flash2, "models/uziflash.md3"); // precision set below
 	setattachment(flash2, self.exteriorweaponentity, "");
 	SUB_SetFade(flash2, time, 0.2);
-	
+
 	// common properties
 	flash.angles_z = flash2.angles_z = flash.v_angle_z + random() * 180;
 	flash.alpha = flash2.alpha = 0.5;
@@ -83,7 +83,12 @@ void()	uzi_fire1_02 =
 float(float req) w_uzi =
 {
 	if (req == WR_AIM)
-		self.button0 = bot_aim(1000000, 0, 0.001, FALSE);
+		if(vlen(self.origin-self.enemy.origin)<750)
+			self.button0 = bot_aim(1000000, 0, 0.001, FALSE);
+		else
+		{
+			self.button3 = bot_aim(1000000, 0, 0.001, FALSE);
+		}
 	else if (req == WR_THINK)
 	{
 		if (self.button0)
