@@ -580,7 +580,60 @@ entity(vector m1, vector m2, float f) waypoint_spawn =
 	w.classname = "waypoint";
 	w.wpflags = f;
 	setorigin(w, org);
+	setsize(w, PL_MIN + m1, PL_MAX + m2);
+
+	if(!(f & WAYPOINTFLAG_GENERATED))
+	{
+		org = w.origin + '0 0 2';
+		tracebox(org, w.mins, w.maxs, w.origin, MOVE_WORLDONLY, w);
+		if(trace_startsolid)
+		{
+			org = w.origin + '2 2 2';
+			tracebox(org, w.mins, w.maxs, w.origin, MOVE_WORLDONLY, w);
+			if(trace_startsolid)
+			{
+				org = w.origin + '-2 -2 2';
+				tracebox(org, w.mins, w.maxs, w.origin, MOVE_WORLDONLY, w);
+				if(trace_startsolid)
+				{
+					org = w.origin + '-2 2 2';
+					tracebox(org, w.mins, w.maxs, w.origin, MOVE_WORLDONLY, w);
+					if(trace_startsolid)
+					{
+						org = w.origin + '2 -2 2';
+						tracebox(org, w.mins, w.maxs, w.origin, MOVE_WORLDONLY, w);
+						if(trace_startsolid)
+						{
+							// this WP is in solid, refuse it
+							dprint("Killed a waypoint that was stuck in solid at ", vtos(org), "\n");
+							remove(w);
+							return world;
+						}
+					}
+				}
+			}
+		}
+
+		org = org * 0.05 + trace_endpos * 0.95; // don't trust the trace fully
+		tracebox(org, w.mins, w.maxs, org - '0 0 128', MOVE_WORLDONLY, w);
+
+		if(trace_fraction == 1 || trace_startsolid)
+		{
+			// this WP is in air, refuse it
+			dprint("Killed a waypoint that was stuck in air/ceiling at ", vtos(w.origin), "\n");
+			remove(w);
+			return world;
+		}
+		trace_endpos_z += 0.1; // don't trust the trace fully
+
+//		dprint("Moved waypoint at ", vtos(w.origin), " by ", ftos(vlen(w.origin - trace_endpos)));
+//		dprint(" direction: ", vtos((trace_endpos - w.origin)), "\n");
+
+		setorigin(w, trace_endpos);
+	}
+
 	setsize(w, m1, m2);
+
 	waypoint_clearlinks(w);
 	//waypoint_schedulerelink(w);
 	return w;
@@ -935,6 +988,8 @@ entity(entity player, float walkfromwp) navigation_findnearestwaypoint =
 	local float dist, bestdist;
 	local vector v, org;
 	org = player.origin + (player.mins_z - PL_MIN_z) * '0 0 1';
+	if(player.tag_entity)
+		org = org + player.tag_entity.origin;
 	if (navigation_testtracewalk)
 		te_plasmaburn(org);
 	best = world;
