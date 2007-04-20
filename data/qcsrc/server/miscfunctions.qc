@@ -187,11 +187,6 @@ float math_mod(float a, float b)
 
 void relocate_spawnpoint()
 {
-	vector o;
-	o = self.origin;
-
-	setsize(self, PL_MIN, PL_MAX);
-
 	// nudge off the floor
 	setorigin(self, self.origin + '0 0 1');
 
@@ -202,9 +197,11 @@ void relocate_spawnpoint()
 		return;
 	}
 
-	// drop the spawn point onto the floor
-	// NOTE: a later version might not do this any more
-	droptofloor();
+	if(cvar("g_spawnpoints_autodrop"))
+	{
+		setsize(self, PL_MIN, PL_MAX);
+		droptofloor();
+	}
 }
 
 // NOTE: DO NOT USE THIS FUNCTION TOO OFTEN.
