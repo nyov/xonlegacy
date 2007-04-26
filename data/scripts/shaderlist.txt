@@ -13,6 +13,7 @@ evil6_support
 evil6_trims
 evil6_walls
 evil8_base
+eX
 harlequin_sky
 kaznexctf2
 liquids
