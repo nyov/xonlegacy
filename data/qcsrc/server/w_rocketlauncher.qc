@@ -158,7 +158,6 @@ void W_Rocket_Think (void)
 				olddir = normalize(self.velocity);					// get my current direction
 				newdir = normalize((olddir + desireddir * turnrate) * 0.5);	// take the average of the 2 directions; not the best method but simple & easy
 				self.velocity = newdir * velspeed;					// make me fly in the new direction at my flight speed
-				self.angles = vectoangles(self.velocity);			// turn model in the new flight direction
 
 				self.owner.attack_finished = time + 0.2;
 			}
@@ -170,6 +169,7 @@ void W_Rocket_Think (void)
 				  W_Rocket_Explode ();
 		}
 	}
+	self.angles = vectoangles(self.velocity);			// turn model in the new flight direction
 }
 
 void W_Rocket_Touch (void)
