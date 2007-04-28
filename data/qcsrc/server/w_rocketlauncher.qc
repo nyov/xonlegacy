@@ -169,7 +169,6 @@ void W_Rocket_Think (void)
 				  W_Rocket_Explode ();
 		}
 	}
-	self.angles = vectoangles(self.velocity);			// turn model in the new flight direction
 }
 
 void W_Rocket_Touch (void)
@@ -188,6 +187,7 @@ void W_Rocket_Touch (void)
 void W_Rocket_Damage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
 	self.health = self.health - damage;
+	self.angles = vectoangles(self.velocity);
 	if (self.health <= 0)
 	{
 		self.owner = attacker;
