@@ -59,7 +59,7 @@ void(entity ent, vector vecs, float antilag, float recoil, string snd) W_SetupSh
 
 	if (self.items & IT_STRENGTH)
 	if (!cvar("g_minstagib"))
-		sound (self, CHAN_AUTO, "weapons/strength_fire.ogg", 1, ATTN_NORM);
+		sound (self, CHAN_AUTO, "weapons/strength_fire.wav", 1, ATTN_NORM);
 };
 
 void LaserTarget_Think()
@@ -279,7 +279,14 @@ float(entity cl, float wpn, float andammo, float complain) client_hasweapon =
 		return TRUE;
 	}
 	if (complain)
-		sprint(self, "You don't own that weapon\n");
+	{
+		// DRESK - 3/16/07
+		// Report Proper Weapon Status / Modified Weapon Ownership Message
+		if(itemsInMap & itemcode)
+			sprint(self, strcat("You do not have the ^2", W_Name(wpn), "\n") );
+		else
+			sprint(self, strcat("The ^2", W_Name(wpn), "^7 is ^1NOT AVAILABLE^7 in this map\n") );
+	}
 	return FALSE;
 };
 
