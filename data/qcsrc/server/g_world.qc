@@ -76,6 +76,16 @@ void worldspawn (void)
 	if(world_already_spawned)
 		error("world already spawned - you may have EXACTLY ONE worldspawn!");
 	world_already_spawned = TRUE;
+
+	/*
+	TODO sound pack system
+	// initialize sound pack system
+	soundpack = cvar_string("g_soundpack");
+	if(soundpack != "")
+		soundpack = strcat(soundpack, "/");
+	soundpack = strzone(soundpack);
+	*/
+
 	// Precache all player models
 	// Workaround for "invisible players"
 	precache_model("models/player/carni.zym");
@@ -455,6 +465,8 @@ string GetGametype()
 		return "rune";
 	else if (game == GAME_LMS)
 		return "lms";
+	else if (game == GAME_KEYHUNT)
+		return "kh";
 	return "dm";
 }
 
@@ -1438,8 +1450,8 @@ void PrintScoreboard(entity e)
 	{
 		PrintScoreboardFor(e, "Red", "^1", COLOR_TEAM1);
 		PrintScoreboardFor(e, "Blue", "^4", COLOR_TEAM2);
-		PrintScoreboardFor(e, "Pink", "^6", COLOR_TEAM3);
-		PrintScoreboardFor(e, "Yellow", "^3", COLOR_TEAM4);
+		PrintScoreboardFor(e, "Yellow", "^3", COLOR_TEAM3);
+		PrintScoreboardFor(e, "Pink", "^6", COLOR_TEAM4);
 	}
 	else
 	{
@@ -1549,7 +1561,7 @@ void() CheckRules_World =
 	{
 		if(teams_matter)
 		{
-			if(cvar("g_tdm") || cvar("g_runematch") || cvar("g_ctf") || cvar("g_domination"))
+			if(cvar("g_tdm") || cvar("g_runematch") || cvar("g_ctf") || cvar("g_domination") || cvar("g_keyhunt"))
 				status = WinningCondition_MaxTeamSum(fraglimit);
 			//else if()
 			//	status = WinningCondition_MaxTeamMax(fraglimit);
@@ -1845,7 +1857,7 @@ void MapVote_Tick()
 
 		// notify about keep-two
 		if(keeptwo != 0 && mapvote_keeptwotime == 0)
-			stuffcmd(other, "\nplay2 misc/invshot.wav\n");
+			play2(other, "misc/invshot.wav");
 
 		// clear possibly invalid votes
 		if(mapvote_maps[other.mapvote - 1] == "")
@@ -1932,12 +1944,12 @@ void EndFrame()
 		if(self.classname == "spectator")
 		{
 			if(self.enemy.hitsound)
-				stuffcmd(self, "play2 misc/hit.wav\n");
+				play2(self, "misc/hit.wav");
 		}
 		else
 		{
 			if(self.hitsound)
-				stuffcmd(self, "play2 misc/hit.wav\n");
+				play2(self, "misc/hit.wav");
 		}
 	}
 	FOR_EACH_CLIENT(self)

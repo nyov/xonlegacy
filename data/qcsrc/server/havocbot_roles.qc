@@ -126,7 +126,7 @@ void(float ratingscale, vector org, float sradius) havocbot_goalrating_ctf_carri
 void(float ratingscale) havocbot_goalrating_ctf_ourflag =
 {
 	local entity head;
-	if (self.team == 5) // red
+	if (self.team == COLOR_TEAM1) // red
 		head = find(world, classname, "item_flag_team1"); // red flag
 	else // blue
 		head = find(world, classname, "item_flag_team2"); // blue flag
@@ -136,7 +136,7 @@ void(float ratingscale) havocbot_goalrating_ctf_ourflag =
 void(float ratingscale) havocbot_goalrating_ctf_enemyflag =
 {
 	local entity head;
-	if (self.team == 5) // red
+	if (self.team == COLOR_TEAM1) // red
 		head = find(world, classname, "item_flag_team2"); // blue flag
 	else // blue
 		head = find(world, classname, "item_flag_team1"); // red flag
@@ -151,7 +151,7 @@ void(float ratingscale) havocbot_goalrating_ctf_enemybase =
 void(float ratingscale) havocbot_goalrating_ctf_ourstolenflag =
 {
 	local entity head;
-	if (self.team == 5) // red
+	if (self.team == COLOR_TEAM1) // red
 		head = find(world, classname, "item_flag_team1"); // red flag
 	else // blue
 		head = find(world, classname, "item_flag_team2"); // blue flag
@@ -234,7 +234,7 @@ void() havocbot_role_ctf_offense =
 		return;
 	}
 	// check our flag
-	if (self.team == 5) // red
+	if (self.team == COLOR_TEAM1) // red
 		f = find(world, classname, "item_flag_team1");
 	else // blue
 		f = find(world, classname, "item_flag_team2");
@@ -284,7 +284,7 @@ void() havocbot_role_ctf_interceptor =
 		return;
 	}
 	// check our flag
-	if (self.team == 5) // red
+	if (self.team == COLOR_TEAM1) // red
 		f = find(world, classname, "item_flag_team1");
 	else // blue
 		f = find(world, classname, "item_flag_team2");
@@ -325,7 +325,7 @@ void() havocbot_role_ctf_middle =
 		return;
 	}
 	// check our flag
-	if (self.team == 5) // red
+	if (self.team == COLOR_TEAM1) // red
 		f = find(world, classname, "item_flag_team1");
 	else // blue
 		f = find(world, classname, "item_flag_team2");
@@ -385,7 +385,7 @@ void() havocbot_role_ctf_defense =
 		return;
 	}
 	// check our flag
-	if (self.team == 5) // red
+	if (self.team == COLOR_TEAM1) // red
 		f = find(world, classname, "item_flag_team1");
 	else // blue
 		f = find(world, classname, "item_flag_team2");
@@ -453,7 +453,7 @@ void() havocbot_chooserole_ctf =
 {
 	local float r;
 	dprint("choose CTF role...\n");
-	if (self.team == 13)
+	if (self.team == COLOR_TEAM3 || self.team == COLOR_TEAM4)
 		self.havocbot_role = havocbot_role_ctf_rogue;
 	else
 	{
@@ -508,6 +508,202 @@ void() havocbot_chooserole_dom =
 	self.havocbot_role = havocbot_role_dom;
 };
 
+
+
+
+
+
+void(float ratingscale_team, float ratingscale_dropped, float ratingscale_enemy) havocbot_goalrating_kh =
+{
+	local entity head;
+	for(head = world; (head = find(head, classname, "item_kh_key")); )
+	{
+		if(head.owner == self)
+			continue;
+		if(!kh_tracking_enabled)
+			if(!head.owner || head.team == self.team)
+				continue; // skip what I can't see
+		if(!head.owner)
+			navigation_routerating(head, ratingscale_dropped);
+		else if(head.team == self.team)
+			navigation_routerating(head, ratingscale_team);
+		else
+			navigation_routerating(head, ratingscale_enemy);
+	}
+};
+
+void() havocbot_role_kh_carrier;
+void() havocbot_role_kh_defense;
+void() havocbot_role_kh_offense;
+void() havocbot_role_kh_freelancer;
+void() havocbot_role_kh_carrier =
+{
+	if (!(self.items & IT_KEY1))
+	{
+		dprint("changing role to freelancer\n");
+		self.havocbot_role = havocbot_role_kh_freelancer;
+		self.havocbot_role_timeout = 0;
+		return;
+	}
+
+	if (self.bot_strategytime < time)
+	{
+		self.bot_strategytime = time + cvar("bot_ai_strategyinterval");
+		navigation_goalrating_start();
+
+		if(kh_Key_AllOwnedByWhichTeam() == self.team)
+			havocbot_goalrating_kh(10000, 1, 1); // bring home
+		else
+			havocbot_goalrating_kh(4000, 4000, 100); // play defensively
+
+		havocbot_goalrating_items(10000, self.origin, 10000);
+		navigation_goalrating_end();
+	}
+}
+
+void() havocbot_role_kh_defense =
+{
+	if (self.items & IT_KEY1)
+	{
+		dprint("changing role to carrier\n");
+		self.havocbot_role = havocbot_role_kh_carrier;
+		self.havocbot_role_timeout = 0;
+		return;
+	}
+
+	if (!self.havocbot_role_timeout)
+		self.havocbot_role_timeout = time + random() * 10 + 20;
+	if (time > self.havocbot_role_timeout)
+	{
+		dprint("changing role to freelancer\n");
+		self.havocbot_role = havocbot_role_kh_freelancer;
+		self.havocbot_role_timeout = 0;
+		return;
+	}
+
+	if (self.bot_strategytime < time)
+	{
+		float key_owner_team;
+		self.bot_strategytime = time + cvar("bot_ai_strategyinterval");
+		navigation_goalrating_start();
+
+		key_owner_team = kh_Key_AllOwnedByWhichTeam();
+		if(key_owner_team == self.team)
+			havocbot_goalrating_kh(10000, 1, 1); // defend key carriers
+		else if(key_owner_team == -1)
+			havocbot_goalrating_kh(4000, 1000, 1); // play defensively
+		else
+			havocbot_goalrating_kh(1, 1, 10000); // ATTACK ANYWAY
+
+		havocbot_goalrating_items(10000, self.origin, 10000);
+		navigation_goalrating_end();
+	}
+};
+
+void() havocbot_role_kh_offense =
+{
+	if (self.items & IT_KEY1)
+	{
+		dprint("changing role to carrier\n");
+		self.havocbot_role = havocbot_role_kh_carrier;
+		self.havocbot_role_timeout = 0;
+		return;
+	}
+
+	if (!self.havocbot_role_timeout)
+		self.havocbot_role_timeout = time + random() * 10 + 20;
+	if (time > self.havocbot_role_timeout)
+	{
+		dprint("changing role to freelancer\n");
+		self.havocbot_role = havocbot_role_kh_freelancer;
+		self.havocbot_role_timeout = 0;
+		return;
+	}
+
+	if (self.bot_strategytime < time)
+	{
+		float key_owner_team;
+
+		self.bot_strategytime = time + cvar("bot_ai_strategyinterval");
+		navigation_goalrating_start();
+
+		key_owner_team = kh_Key_AllOwnedByWhichTeam();
+		if(key_owner_team == self.team)
+			havocbot_goalrating_kh(10000, 1, 1); // defend anyway
+		else if(key_owner_team == -1)
+			havocbot_goalrating_kh(1, 1000, 4000); // play offensively
+		else
+			havocbot_goalrating_kh(1, 1, 10000); // ATTACK! EMERGENCY!
+
+		havocbot_goalrating_items(10000, self.origin, 10000);
+		navigation_goalrating_end();
+	}
+};
+
+void() havocbot_role_kh_freelancer =
+{
+	if (self.items & IT_KEY1)
+	{
+		dprint("changing role to carrier\n");
+		self.havocbot_role = havocbot_role_kh_carrier;
+		self.havocbot_role_timeout = 0;
+		return;
+	}
+
+	if (!self.havocbot_role_timeout)
+		self.havocbot_role_timeout = time + random() * 10 + 10;
+	if (time > self.havocbot_role_timeout)
+	{
+		if (random() < 0.5)
+		{
+			dprint("changing role to offense\n");
+			self.havocbot_role = havocbot_role_kh_offense;
+		}
+		else
+		{
+			dprint("changing role to defense\n");
+			self.havocbot_role = havocbot_role_kh_defense;
+		}
+		self.havocbot_role_timeout = 0;
+		return;
+	}
+
+	if (self.bot_strategytime < time)
+	{
+		float key_owner_team;
+
+		self.bot_strategytime = time + cvar("bot_ai_strategyinterval");
+		navigation_goalrating_start();
+
+		key_owner_team = kh_Key_AllOwnedByWhichTeam();
+		if(key_owner_team == self.team)
+			havocbot_goalrating_kh(10000, 1, 1); // defend anyway
+		else if(key_owner_team == -1)
+			havocbot_goalrating_kh(1000, 4000, 1000); // prefer dropped keys
+		else
+			havocbot_goalrating_kh(1, 1, 10000); // ATTACK ANYWAY
+
+		havocbot_goalrating_items(10000, self.origin, 10000);
+		navigation_goalrating_end();
+	}
+};
+
+
+
+
+
+void() havocbot_chooserole_kh =
+{
+	local float r;
+	r = random() * 3;
+	if (r < 1)
+		self.havocbot_role = havocbot_role_kh_offense;
+	else if (r < 2)
+		self.havocbot_role = havocbot_role_kh_defense;
+	else
+		self.havocbot_role = havocbot_role_kh_freelancer;
+};
+
 void() havocbot_chooserole =
 {
 	dprint("choose a role...\n");
@@ -517,6 +713,8 @@ void() havocbot_chooserole =
 		havocbot_chooserole_ctf();
 	else if (cvar("g_domination"))
 		havocbot_chooserole_dom();
+	else if (cvar("g_keyhunt"))
+		havocbot_chooserole_kh();
 	else // assume anything else is deathmatch
 		havocbot_chooserole_dm();
 };

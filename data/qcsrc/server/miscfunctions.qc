@@ -1,3 +1,29 @@
+void() info_player_deathmatch; // needed for the other spawnpoints
+string ColoredTeamName(float t);
+
+float DistributeEvenly_amount;
+float DistributeEvenly_totalweight;
+void DistributeEvenly_Init(float amount, float totalweight)
+{
+	if(DistributeEvenly_amount)
+	{
+		dprint("DistributeEvenly_Init: UNFINISHED DISTRIBUTION (", ftos(DistributeEvenly_amount), " for ");
+		dprint(ftos(DistributeEvenly_totalweight), "left!\n");
+	}
+	DistributeEvenly_amount = amount;
+	DistributeEvenly_totalweight = totalweight;
+}
+float DistributeEvenly_Get(float weight)
+{
+	float f;
+	if(weight <= 0)
+		return 0;
+	f = floor(0.5 + DistributeEvenly_amount * weight / DistributeEvenly_totalweight);
+	DistributeEvenly_totalweight -= weight;
+	DistributeEvenly_amount -= f;
+	return f;
+}
+
 void move_out_of_solid_expand(entity e, vector by)
 {
 	float eps = 0.0625;
@@ -492,10 +518,9 @@ void backtrace(string msg)
 
 void DistributeFragsAmongTeam(entity p, float targetteam, float factor)
 {
-	float f;
-	float d;
 	float nTeam;
 	entity head;
+	float f;
 
 	if(!teams_matter)
 		return;
@@ -521,20 +546,12 @@ void DistributeFragsAmongTeam(entity p, float targetteam, float factor)
 	if(nTeam == 0)
 		return;
 
+	DistributeEvenly_Init(f, nTeam);
+
 	FOR_EACH_PLAYER(head)
 		if(head != p)
 			if(head.team == targetteam)
-			{
-				d = floor(f / nTeam);
-				head.frags = head.frags + d;
-				f = f - d;
-				nTeam = nTeam - 1;
-			}
-
-	if(nTeam != 0)
-		error("nPlayers in team changed!");
-	if(f != 0)
-		error(strcat("There were ", ftos(f), " frags left. BAD!"));
+				head.frags = head.frags + DistributeEvenly_Get(1);
 }
 
 string Team_ColorCode(float teamid)
@@ -544,9 +561,9 @@ string Team_ColorCode(float teamid)
 	else if(teamid == COLOR_TEAM2)
 		return "^4";
 	else if(teamid == COLOR_TEAM3)
-		return "^6";
-	else if(teamid == COLOR_TEAM4)
 		return "^3";
+	else if(teamid == COLOR_TEAM4)
+		return "^6";
 	else
 		return "^7";
 }
@@ -608,6 +625,7 @@ string decolorize(string s)
 */
 
 #define CENTERPRIO_POINT 1
+#define CENTERPRIO_SPAM 2
 #define CENTERPRIO_REBALANCE 2
 #define CENTERPRIO_VOTE 4
 #define CENTERPRIO_NORMAL 5
@@ -702,4 +720,31 @@ void readlevelcvars(void)
 	g_pickup_health_max                = cvar("g_pickup_health_max");
 	g_pickup_healthmega                = cvar("g_pickup_healthmega");
 	g_pickup_healthmega_max            = cvar("g_pickup_healthmega_max");
+}
+
+/*
+// TODO sound pack system
+string soundpack;
+
+string precache_sound_builtin (string s) = #19;
+void(entity e, float chan, string samp, float vol, float atten) sound_builtin = #8;
+string precache_sound(string s)
+{
+	return precache_sound_builtin(strcat(soundpack, s));
+}
+void play2(entity e, string filename)
+{
+	stuffcmd(e, strcat("play2 ", soundpack, filename, "\n"));
+}
+void sound(entity e, float chan, string samp, float vol, float atten)
+{
+	sound_builtin(e, chan, strcat(soundpack, samp), vol, atten);
+}
+*/
+
+string precache_sound (string s) = #19;
+void(entity e, float chan, string samp, float vol, float atten) sound = #8;
+void play2(entity e, string filename)
+{
+	stuffcmd(e, strcat("play2 ", filename, "\n"));
 }

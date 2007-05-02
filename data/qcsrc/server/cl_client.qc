@@ -1,11 +1,11 @@
 void info_player_start (void)
 {
-	self.classname = "info_player_deathmatch";
-	relocate_spawnpoint();
+	info_player_deathmatch();
 }
 
 void info_player_deathmatch (void)
 {
+	self.classname = "info_player_deathmatch";
 	relocate_spawnpoint();
 }
 
@@ -287,12 +287,13 @@ void PutObserverInServer (void)
 		WriteEntity(MSG_ONE, self);
 	}
 
-	WaypointSprite_PlayerDead();
-
 	DropAllRunes(self);
+	kh_Key_DropAll(self);
 
 	if(self.flagcarried)
 		DropFlag(self.flagcarried);
+
+	WaypointSprite_PlayerDead();
 
 	DistributeFragsAmongTeam(self, self.team, 1);
 
@@ -831,6 +832,7 @@ void ClientDisconnect (void)
 	WaypointSprite_PlayerGone();
 
 	DropAllRunes(self);
+	kh_Key_DropAll(self);
 
 	if(self.flagcarried)
 		DropFlag(self.flagcarried);
@@ -1239,7 +1241,7 @@ void ShowRespawnCountdown()
 		{
 			self.respawn_countdown = number - 1;
 			if(ceil(self.death_time - (time + 0.5)) == number) // only say it if it is the same number even in 0.5s; to prevent overlapping sounds
-				stuffcmd(self, strcat("play2 announcer/robotic/", ftos(number), ".ogg\n"));
+				play2(self, strcat("announcer/robotic/", ftos(number), ".ogg"));
 		}
 	}
 }
@@ -1508,6 +1510,7 @@ void PlayerPreThink (void)
 			minstagib_ammocheck();
 
 		ctf_setstatus();
+		kh_setstatus();
 
 		//self.angles_y=self.v_angle_y + 90;   // temp
 

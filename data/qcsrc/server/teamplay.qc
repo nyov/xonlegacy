@@ -5,13 +5,14 @@ float GAME_CTF			= 4;
 float GAME_RUNEMATCH		= 5;
 float GAME_LMS			= 6;
 float GAME_ARENA		= 7;
+float GAME_KEYHUNT		= 8;
 
 // client counts for each team
 float c1, c2, c3, c4;
 // # of bots on those teams
 float cb1, cb2, cb3, cb4;
 
-float g_domination, g_ctf, g_tdm;
+float g_domination, g_ctf, g_tdm, g_keyhunt;
 
 float audit_teams_time;
 
@@ -44,9 +45,9 @@ string TeamName(float t)
 	if(t == COLOR_TEAM2)
 		return "Blue Team";
 	if(t == COLOR_TEAM3)
-		return "Pink Team";
-	if(t == COLOR_TEAM4)
 		return "Yellow Team";
+	if(t == COLOR_TEAM4)
+		return "Pink Team";
 	return "Neutral Team";
 }
 string ColoredTeamName(float t)
@@ -57,9 +58,9 @@ string ColoredTeamName(float t)
 	if(t == COLOR_TEAM2)
 		return "^4Blue Team^7";
 	if(t == COLOR_TEAM3)
-		return "^6Pink Team^7";
-	if(t == COLOR_TEAM4)
 		return "^3Yellow Team^7";
+	if(t == COLOR_TEAM4)
+		return "^6Pink Team^7";
 	return "Neutral Team";
 }
 string TeamNoName(float t)
@@ -70,9 +71,9 @@ string TeamNoName(float t)
 	if(t == 2)
 		return "Blue Team";
 	if(t == 3)
-		return "Pink Team";
-	if(t == 4)
 		return "Yellow Team";
+	if(t == 4)
+		return "Pink Team";
 	return "Neutral Team";
 }
 
@@ -101,6 +102,7 @@ void ResetGameCvars()
 	cvar_set("g_runematch", "0");
 	cvar_set("g_lms", "0");
 	cvar_set("g_arena", "0");
+	cvar_set("g_keyhunt", "0");
 	cvar_set("teamplay", "0");
 }
 
@@ -224,6 +226,16 @@ void InitGameplayMode()
 		gamemode_name = "Arena";
 		teams_matter = 0;
 	}
+	else if(game == GAME_KEYHUNT || cvar("g_keyhunt"))
+	{
+		ResetGameCvars();
+		game = GAME_KEYHUNT;
+		cvar_set("g_keyhunt", "1");
+		fraglimit_override = cvar("g_keyhunt_point_limit");
+		ActivateTeamplay();
+		gamemode_name = "Key Hunt";
+		teams_matter = 1;
+	}
 	else
 	{
 		// we can only assume...
@@ -260,6 +272,8 @@ void InitGameplayMode()
 		runematch_init();
 	else if (game == GAME_TEAM_DEATHMATCH)//cvar("g_runematch"))
 		tdm_init();
+	else if (game == GAME_KEYHUNT)//cvar("g_keyhunt"))
+		kh_init();
 
 	// those mutators rule each other out
 	if(cvar("g_minstagib"))
@@ -286,6 +300,7 @@ void InitGameplayMode()
 	g_domination = cvar("g_domination");
 	g_ctf = cvar("g_ctf");
 	g_tdm = cvar("g_tdm");
+	g_keyhunt = cvar("g_keyhunt");
 }
 
 string GetClientVersionMessage(float v) {
@@ -503,7 +518,10 @@ void CheckAllowedTeams ()
 	else
 	{
 		// cover anything else by treating it like tdm with no teams spawned
-		dm = cvar("g_tdm_teams");
+		if(g_keyhunt)
+			dm = kh_teams;
+		else
+			dm = cvar("g_tdm_teams");
 		if(dm < 2)
 			error("g_tdm_teams < 2, not enough teams to play team deathmatch\n");
 
@@ -634,6 +652,8 @@ float FindSmallestTeam(entity pl, float ignore_pl)
 			error("Too few teams available for domination\n");
 		else if(g_ctf)
 			error("Too few teams available for ctf\n");
+		else if(g_keyhunt)
+			error("Too few teams available for key hunt\n");
 		else
 			error("Too few teams available for team deathmatch\n");
 	}
@@ -719,7 +739,7 @@ float JoinBestTeam(entity pl, float only_return_best)
 	float smallest, selectedteam;
 
 	// don't join a team if we're not playing a team game
-	if(!cvar("teamplay") && !g_domination && !g_ctf)
+	if(!cvar("teamplay") && !g_domination && !g_ctf && !g_keyhunt)
 		return 0;
 
 	// find out what teams are available
@@ -948,7 +968,6 @@ void ShufflePlayerOutOfTeam (float source_team)
 	float smallestteam, smallestteam_count, steam;
 	float lowest_bot_score, lowest_player_score;
 	entity head, lowest_bot, lowest_player, selected;
-	string m;
 
 	smallestteam = 0;
 	smallestteam_count = 999999999;
@@ -1081,17 +1100,8 @@ void ShufflePlayerOutOfTeam (float source_team)
 	SetPlayerTeam(selected, smallestteam, source_team, FALSE);
 
 	if(selected.deadflag == DEAD_NO)
-			Damage(selected, selected, selected, 100000, DEATH_AUTOTEAMCHANGE, selected.origin, '0 0 0');
-	m = "You have been moved into a different team to improve team balance\nYou are now on: ";
-	if (selected.team == 5)
-		m = strcat(m, "^1Red Team");
-	else if (selected.team == 14)
-		m = strcat(m, "^4Blue Team");
-	else if (selected.team == 10)
-		m = strcat(m, "^6Pink Team");
-	else if (selected.team == 13)
-		m = strcat(m, "^3Yellow Team");
-	centerprint(selected, m);
+		Damage(selected, selected, selected, 100000, DEATH_AUTOTEAMCHANGE, selected.origin, '0 0 0');
+	centerprint(selected, strcat("You have been moved into a different team to improve team balance\nYou are now on: ", ColoredTeamName(selected.team)));
 }
 
 float lastRebalanceInfo;
@@ -1242,8 +1252,8 @@ void() tdm_spawnteams =
 
 	numteams = cvar("g_tdm_teams");
 
-	tdm_spawnteam("Red", 4);
-	tdm_spawnteam("Blue", 13);
+	tdm_spawnteam("Red", COLOR_TEAM1-1);
+	tdm_spawnteam("Blue", COLOR_TEAM2-1);
 };
 
 void() tdm_delayedinit =

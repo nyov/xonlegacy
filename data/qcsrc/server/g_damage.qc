@@ -26,6 +26,11 @@ void GiveFrags (entity attacker, entity targ, float f)
 		if(f > 0)
 			f = RunematchHandleFrags(attacker, targ, f);
 	}
+	else if(cvar("g_keyhunt"))
+	{
+		if(f > 0)
+			f = kh_HandleFrags(attacker, targ, f);
+	}
 	else if(cvar("g_lms"))
 	{
 		// count remaining lives, not frags in lms
@@ -91,7 +96,7 @@ void LogDeath(string mode, float deathtype, entity killer, entity killed)
 
 void Obituary (entity attacker, entity targ, float deathtype)
 {
-	string	s, a, m;
+	string	s, a;
 
 	if (targ.classname == "player" || targ.classname == "corpse")
 	{
@@ -105,29 +110,11 @@ void Obituary (entity attacker, entity targ, float deathtype)
 		{
 			if (deathtype == DEATH_TEAMCHANGE)
 			{
-				m = "You are now on: ";
-				if (targ.team == 5)
-					m = strcat(m, "^1Red Team");
-				else if (targ.team == 14)
-					m = strcat(m, "^4Blue Team");
-				else if (targ.team == 10)
-					m = strcat(m, "^6Pink Team");
-				else if (targ.team == 13)
-					m = strcat(m, "^3Yellow Team");
-				centerprint(targ, m);
+				centerprint(targ, strcat("You are now on: ", ColoredTeamName(targ.team)));
 			}
 			else if (deathtype == DEATH_AUTOTEAMCHANGE)
 			{
-				m = "You have been moved into a different team to improve team balance\nYou are now on: ";
-				if (targ.team == 5)
-					m = strcat(m, "^1Red Team");
-				else if (targ.team == 14)
-					m = strcat(m, "^4Blue Team");
-				else if (targ.team == 10)
-					m = strcat(m, "^6Pink Team");
-				else if (targ.team == 13)
-					m = strcat(m, "^3Yellow Team");
-				centerprint(targ, m);
+				centerprint(targ, strcat("You have been moved into a different team to improve team balance\nYou are now on: ", ColoredTeamName(targ.team)));
 				return;
 			}
 			else if (deathtype == DEATH_CAMP)
@@ -249,37 +236,37 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				if (attacker.killcount == 3)
 				{
 					bprint (a,"^7 made a ^1TRIPLE FRAG\n");
-					stuffcmd(attacker, "play2 announcer/male/03kills.ogg\n");
+					play2(attacker, "announcer/male/03kills.ogg");
 				}
 				else if (attacker.killcount == 5)
 				{
 					bprint (a,"^7 made a ^1FIVE FRAG COMBO\n");
-					stuffcmd(attacker, "play2 announcer/male/05kills.ogg\n");
+					play2(attacker, "announcer/male/05kills.ogg");
 				}
 				else if (attacker.killcount == 10)
 				{
 					bprint (a,"^7 is on a ^1RAGE\n");
-					stuffcmd(attacker, "play2 announcer/male/10kills.ogg\n");
+					play2(attacker, "announcer/male/10kills.ogg");
 				}
 				else if (attacker.killcount == 15)
 				{
 					bprint (a,"^7 has done a ^1MASSACRE!\n");
-					stuffcmd(attacker, "play2 announcer/male/15kills.ogg\n");
+					play2(attacker, "announcer/male/15kills.ogg");
 				}
 				else if (attacker.killcount == 20)
 				{
 					bprint (a,"^7 is ^1UNHUMAN!\n");
-					stuffcmd(attacker, "play2 announcer/male/20kills.ogg\n");
+					play2(attacker, "announcer/male/20kills.ogg");
 				}
 				else if (attacker.killcount == 25)
 				{
 					bprint (a,"^7 is a ^1DEATH INCARNATION!\n");
-					stuffcmd(attacker, "play2 announcer/male/25kills.ogg\n");
+					play2(attacker, "announcer/male/25kills.ogg");
 				}
 				else if (attacker.killcount == 30)
 				{
 					bprint (a,"^7 is maybe a ^1AIMBOTTER?!\n");
-					stuffcmd(attacker, "play2 announcer/male/30kills.ogg\n");
+					play2(attacker, "announcer/male/30kills.ogg");
 				}
 			}
 		}
@@ -304,7 +291,7 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				bprint ("^1",s, "^1 died\n");
 			GiveFrags(targ, targ, -1);
 			if(targ.frags == -5) {
-				stuffcmd(targ, "play2 announcer/male/botlike.ogg\n");
+				play2(targ, "announcer/male/botlike.ogg");
 			}
 
 			if (targ.killcount > 2)
@@ -414,7 +401,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		}
 		else if (deathtype == IT_NEX && targ.items & IT_STRENGTH)
 		{
-			if(clienttype(attacker) == CLIENTTYPE_REAL) stuffcmd(attacker, "play2 announcer/male/yoda.ogg\n");
+			if(clienttype(attacker) == CLIENTTYPE_REAL) play2(attacker, "announcer/male/yoda.ogg");
 		}
 		if (deathtype == IT_LASER)
 		{
@@ -433,7 +420,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 	} else {
 		if (deathtype == IT_NEX && !targ.deadflag && !(attacker.flags & FL_ONGROUND) && !(targ.flags & FL_ONGROUND) && attacker.waterlevel < 2 && targ.waterlevel < 2 && attacker.killcount != 3 && attacker.killcount != 5 && attacker.killcount != 10 && attacker.killcount != 15 && attacker.killcount != 20 && attacker.killcount != 25 && attacker.killcount != 30)
 		{
-			if(clienttype(attacker) == CLIENTTYPE_REAL)  stuffcmd(attacker, "play2 announcer/male/yoda.ogg\n");
+			if(clienttype(attacker) == CLIENTTYPE_REAL)  play2(attacker, "announcer/male/yoda.ogg");
 		}
 	}
 
