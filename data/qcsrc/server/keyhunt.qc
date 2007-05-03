@@ -399,6 +399,9 @@ void kh_Key_DropAll(entity player)
 
 void kh_Key_Touch()
 {
+	if(intermission_running)
+		return;
+
 	if(self.owner) // already carried
 		return;
 	if(other.classname != "player")
@@ -414,6 +417,9 @@ void kh_Key_Touch()
 void kh_Key_Think()
 {
 	entity head;
+
+	if(intermission_running)
+		return;
 
 #ifdef KH_KEY_ATTACHMENT_DEBUG
 	if(self.kh_prev == self.owner)
@@ -552,11 +558,11 @@ void kh_LoserTeam(float teem, entity lostkey)
 	{
 		kh_Scores_Event(attacker, world, "push", cvar("g_balance_keyhunt_score_push"), 0);
 		centerprint(attacker, "Your push is the best!\n\n\n");
-		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, "\n");
+		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, " when ", attacker.netname, "^7 came.\n");
 	}
 	else
 	{
-		float of, fragsleft, i, thisteam;
+		float of, fragsleft, i, j, thisteam;
 		of = cvar("g_balance_keyhunt_score_destroyed_ownfactor");
 
 		FOR_EACH_PLAYER(player)
@@ -576,16 +582,20 @@ void kh_LoserTeam(float teem, entity lostkey)
 		fragsleft = DistributeEvenly_Get(players);
 
 		// Now distribute these among all other teams...
+		j = kh_teams - 1;
 		for(i = 0; i < kh_teams; ++i)
 		{
 			thisteam = kh_Team_ByID(i);
+			if(thisteam == teem) // bad boy, no cookie - this WILL happen
+				continue;
+
 			players = 0;
 			FOR_EACH_PLAYER(player)
 				if(player.team == thisteam)
 					++players;
 
-			DistributeEvenly_Init(fragsleft, kh_teams - i);
-			fragsleft = DistributeEvenly_Get(kh_teams - i - 1);
+			DistributeEvenly_Init(fragsleft, j);
+			fragsleft = DistributeEvenly_Get(j - 1);
 			DistributeEvenly_Init(DistributeEvenly_Get(1), players);
 
 			FOR_EACH_PLAYER(player)
@@ -611,10 +621,12 @@ void kh_FinishRound()
 	kh_Controller_SetThink(cvar("g_balance_keyhunt_delay_round"), "Round starts in ", kh_StartRound);
 }
 
-float kh_EnoughPlayers()
+string kh_CheckEnoughPlayers()
 {
 	float i, players, teem;
 	entity player;
+	string result;
+	result = "";
 	
 	// find a random player per team
 	for(i = 0; i < kh_teams; ++i)
@@ -627,27 +639,35 @@ float kh_EnoughPlayers()
 					if(player.team == teem)
 						++players;
 		if(players == 0)
-			return FALSE;
+		{
+			if(result != "")
+				result = strcat(result, ", ");
+			result = strcat(result, ColoredTeamName(teem));
+		}
 	}
-	return TRUE;
+	return result;
 }
 
 void kh_WaitForPlayers()
 {
-	if(kh_EnoughPlayers())
+	string teams_missing;
+	teams_missing = kh_CheckEnoughPlayers();
+	if(teams_missing == "")
 		kh_Controller_SetThink(cvar("g_balance_keyhunt_delay_round"), "Round starts in ", kh_StartRound);
 	else
-		kh_Controller_SetThink(1, "Waiting for players to join...", kh_WaitForPlayers);
+		kh_Controller_SetThink(1, strcat("Waiting for players to join...\n\nNeed active players for: ", teams_missing), kh_WaitForPlayers);
 }
 
 void kh_StartRound()
 {
+	string teams_missing;
 	float i, players, teem;
 	entity player;
 
-	if(!kh_EnoughPlayers())
+	teams_missing = kh_CheckEnoughPlayers();
+	if(teams_missing != "")
 	{
-		kh_Controller_SetThink(1, "Waiting for players to join...", kh_WaitForPlayers);
+		kh_Controller_SetThink(1, strcat("Waiting for players to join...\n\nNeed active players for: ", teams_missing), kh_WaitForPlayers);
 		return;
 	}
 
