@@ -108,6 +108,8 @@ void kh_Controller_Think()
 void kh_Scores_Event(entity player, entity key, string what, float frags_player, float frags_owner)
 {
 	string s;
+	if(intermission_running)
+		return;
 	if(frags_player)
 		player.frags = player.frags + floor(0.5 + frags_player);
 	if(frags_owner)
@@ -558,7 +560,7 @@ void kh_LoserTeam(float teem, entity lostkey)
 	{
 		kh_Scores_Event(attacker, world, "push", cvar("g_balance_keyhunt_score_push"), 0);
 		centerprint(attacker, "Your push is the best!\n\n\n");
-		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, " when ", attacker.netname, "^7 came\n");
+		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, "^7 when ", attacker.netname, "^7 came\n");
 	}
 	else
 	{
