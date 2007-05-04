@@ -558,7 +558,7 @@ void kh_LoserTeam(float teem, entity lostkey)
 	{
 		kh_Scores_Event(attacker, world, "push", cvar("g_balance_keyhunt_score_push"), 0);
 		centerprint(attacker, "Your push is the best!\n\n\n");
-		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, " when ", attacker.netname, "^7 came.\n");
+		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, " when ", attacker.netname, "^7 came\n");
 	}
 	else
 	{
@@ -601,6 +601,8 @@ void kh_LoserTeam(float teem, entity lostkey)
 			FOR_EACH_PLAYER(player)
 				if(player.team == thisteam)
 					kh_Scores_Event(player, world, "destroyed", DistributeEvenly_Get(1), 0);
+
+			--j;
 		}
 
 		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, "\n");
