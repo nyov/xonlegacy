@@ -12,13 +12,14 @@ vector KH_PLAYER_ATTACHMENT = '0 0 0';
 vector KH_PLAYER_ATTACHMENT_ANGLES = '0 0 0';
 string KH_PLAYER_ATTACHMENT_BONE = "";
 #else
-float KH_KEY_ZSHIFT = -15;
+float KH_KEY_ZSHIFT = 22;
 float KH_KEY_XYDIST = 24;
 float KH_KEY_XYSPEED = 45;
 #endif
 
-vector KH_KEY_MIN = '-8 -8 -8';
-vector KH_KEY_MAX = '8 8 40';
+vector KH_KEY_MIN = '-10 -10 -46';
+vector KH_KEY_MAX = '10 10 3';
+float KH_KEY_BRIGHTNESS = 0.015625;
 
 typedef void(void) kh_Think_t;
 var kh_Think_t kh_Controller_Thinkfunc;
@@ -293,26 +294,25 @@ void kh_Key_Spawn(entity initial_owner, float angle)
 	key.event_damage = kh_Key_Damage;
 	key.modelindex = kh_key_dropped;
 	key.model = "key";
-	setsize(key, '-8 -8 -8', '8 8 40');
 	setsize(key, KH_KEY_MIN, KH_KEY_MAX);
 
 	switch(initial_owner.team)
 	{
 		case COLOR_TEAM1:
 			key.netname = "^1red key";
-			key.colormod = '103 0 0' * (1/96);
+			key.colormod = '103 0 0' * KH_KEY_BRIGHTNESS;
 			break;
 		case COLOR_TEAM2:
 			key.netname = "^4blue key";
-			key.colormod = '35 35 191' * (1/96);
+			key.colormod = '35 35 191' * KH_KEY_BRIGHTNESS;
 			break;
 		case COLOR_TEAM3:
 			key.netname = "^3yellow key";
-			key.colormod = '187 167 15' * (1/96);
+			key.colormod = '187 167 15' * KH_KEY_BRIGHTNESS;
 			break;
 		case COLOR_TEAM4:
 			key.netname = "^6pink key";
-			key.colormod = '139 79 107' * (1/96);
+			key.colormod = '139 79 107' * KH_KEY_BRIGHTNESS;
 			break;
 		default:
 			key.netname = "NETGIER key";
@@ -804,6 +804,11 @@ void kh_init()
 
 	setmodel(kh_controller, "models/keyhunt/key.md3");
 	kh_key_dropped = kh_controller.modelindex;
+	/*
+	dprint(vtos(kh_controller.mins)); 
+	dprint(vtos(kh_controller.maxs)); 
+	dprint("\n");
+	*/
 #ifdef KH_PLAYER_USE_CARRIEDMODEL
 	setmodel(kh_controller, "models/keyhunt/key-carried.md3");
 	kh_key_carried = kh_controller.modelindex;
