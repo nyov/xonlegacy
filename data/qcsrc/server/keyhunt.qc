@@ -35,12 +35,14 @@ float kh_Team_ByID(float t)
 	return 0;
 }
 
+vector kh_average_teamcolor;
 entity kh_controller;
 float kh_tracking_enabled;
 float kh_teams;
 float kh_interferemsg_time, kh_interferemsg_team;
 .entity kh_next, kh_prev; // linked list
 .float kh_droptime;
+.float kh_dropperteam;
 
 string kh_sound_capture = "sound/ctf/capture.wav";
 string kh_sound_destroy = "sound/ctf/return.wav";
@@ -295,6 +297,7 @@ void kh_Key_Spawn(entity initial_owner, float angle)
 	key.event_damage = kh_Key_Damage;
 	key.modelindex = kh_key_dropped;
 	key.model = "key";
+	key.kh_dropperteam = 0;
 	setsize(key, KH_KEY_MIN, KH_KEY_MAX);
 
 	switch(initial_owner.team)
@@ -302,18 +305,22 @@ void kh_Key_Spawn(entity initial_owner, float angle)
 		case COLOR_TEAM1:
 			key.netname = "^1red key";
 			key.colormod = '103 0 0' * KH_KEY_BRIGHTNESS;
+			kh_average_teamcolor += key.colormod;
 			break;
 		case COLOR_TEAM2:
 			key.netname = "^4blue key";
 			key.colormod = '35 35 191' * KH_KEY_BRIGHTNESS;
+			kh_average_teamcolor += key.colormod;
 			break;
 		case COLOR_TEAM3:
 			key.netname = "^3yellow key";
 			key.colormod = '187 167 15' * KH_KEY_BRIGHTNESS;
+			kh_average_teamcolor += key.colormod;
 			break;
 		case COLOR_TEAM4:
 			key.netname = "^6pink key";
 			key.colormod = '139 79 107' * KH_KEY_BRIGHTNESS;
+			kh_average_teamcolor += key.colormod;
 			break;
 		default:
 			key.netname = "NETGIER key";
@@ -365,7 +372,9 @@ void kh_Key_Collect(entity key, entity player)
 {
 	sound(player, CHAN_AUTO, kh_sound_collect, 1, ATTN_NORM);
 
-	kh_Scores_Event(player, key, "collect", cvar("g_balance_keyhunt_score_collect"), 0);
+	if(key.kh_dropperteam != player.team)
+		kh_Scores_Event(player, key, "collect", cvar("g_balance_keyhunt_score_collect"), 0);
+	key.kh_dropperteam = 0;
 	bprint(player.netname, "^7 collected the ", key.netname, "\n");
 	kh_Key_AssignTo(key, player);
 
@@ -376,7 +385,7 @@ void kh_Key_Collect(entity key, entity player)
 	}
 }
 
-void kh_Key_DropAll(entity player)
+void kh_Key_DropAll(entity player, float suicide)
 {
 	entity key;
 	entity mypusher;
@@ -395,6 +404,8 @@ void kh_Key_DropAll(entity player)
 			key.velocity = W_CalculateProjectileVelocity(player.velocity, cvar("g_balance_keyhunt_dropvelocity") * v_forward);
 			key.pusher = mypusher;
 			key.pushltime = time + cvar("g_balance_keyhunt_protecttime");
+			if(suicide)
+				key.kh_dropperteam = player.team;
 		}
 		sound(player, CHAN_AUTO, kh_sound_drop, 1, ATTN_NORM);
 	}
@@ -456,6 +467,7 @@ void kh_Key_Think()
 			self.velocity = W_CalculateProjectileVelocity(self.owner.velocity, cvar("g_balance_keyhunt_throwvelocity") * v_forward);
 			kh_Key_AssignTo(self, world);
 			self.pushltime = time + cvar("g_balance_keyhunt_protecttime");
+			self.kh_dropperteam = self.team;
 		}
 	}
 
@@ -498,7 +510,7 @@ void kh_Key_Think()
 void kh_WinnerTeam(float teem)
 {
 	// all key carriers get some points
-	vector firstorigin, lastorigin;
+	vector firstorigin, lastorigin, midpoint;
 	float first;
 	entity key;
 	float score;
@@ -521,11 +533,13 @@ void kh_WinnerTeam(float teem)
 	bprint("^7 captured the keys for the ", ColoredTeamName(teem), "\n");
 
 	first = TRUE;
+	midpoint = '0 0 0';
 	FOR_EACH_KH_KEY(key)
 	{
 		vector thisorigin;
 
 		thisorigin = kh_AttachedOrigin(key);
+		midpoint += thisorigin;
 
 		if(!first)
 			te_lightning2(world, lastorigin, thisorigin);
@@ -538,6 +552,8 @@ void kh_WinnerTeam(float teem)
 	{
 		te_lightning2(world, lastorigin, firstorigin);
 	}
+	midpoint *= 1 / kh_teams;
+	te_customflash(midpoint, 1000, 1, kh_average_teamcolor);
 
 	sound(world, CHAN_AUTO, kh_sound_capture, 1, ATTN_NONE);
 	kh_FinishRound();
@@ -611,6 +627,7 @@ void kh_LoserTeam(float teem, entity lostkey)
 		bprint("The ", ColoredTeamName(teem), "^7 could not take care of the ", lostkey.netname, "\n");
 	}
 	sound(world, CHAN_AUTO, kh_sound_destroy, 1, ATTN_NONE);
+	te_tarexplosion(lostkey.origin);
 
 	kh_FinishRound();
 }
@@ -680,6 +697,7 @@ void kh_StartRound()
 		if(clienttype(player) == CLIENTTYPE_REAL)
 			centerprint_expire(player, CENTERPRIO_SPAM);
 
+	kh_average_teamcolor = '0 0 0';
 	for(i = 0; i < kh_teams; ++i)
 	{
 		teem = kh_Team_ByID(i);
@@ -698,6 +716,7 @@ void kh_StartRound()
 		//kh_Key_Spawn(my_player, 360 * i / kh_teams);
 		//kh_Key_Spawn(my_player, 360 * i / kh_teams);
 	}
+	kh_average_teamcolor *= 1 / kh_teams;
 
 	kh_tracking_enabled = FALSE;
 	kh_Controller_SetThink(cvar("g_balance_keyhunt_delay_tracking"), "Scanning frequency range...", kh_EnableTrackingDevice);
@@ -762,13 +781,25 @@ float kh_KeyCarrier_waypointsprite_for_player(entity e)
 
 float kh_HandleFrags(entity attacker, entity targ, float f)
 {
-	if(f <= 0)
-		return f;
 	if(attacker == targ)
 		return f;
 
 	if(targ.kh_next)
-		kh_Scores_Event(attacker, targ.kh_next, "carrierfrag", cvar("g_balance_keyhunt_score_carrierfrag")-1, 0);
+	{
+		if(attacker.team == targ.team)
+		{
+			entity k;
+			float nk;
+			nk = 0;
+			for(k = targ.kh_next; k != world; k = k.kh_next)
+				++nk;
+			kh_Scores_Event(attacker, targ.kh_next, "carrierfrag", -nk * cvar("g_balance_keyhunt_score_collect"), 0);
+		}
+		else
+		{
+			kh_Scores_Event(attacker, targ.kh_next, "carrierfrag", cvar("g_balance_keyhunt_score_carrierfrag")-1, 0);
+		}
+	}
 
 	return f;
 }
