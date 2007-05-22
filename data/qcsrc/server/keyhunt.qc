@@ -318,6 +318,7 @@ void kh_Key_Spawn(entity initial_owner, float angle)
 	key.modelindex = kh_key_dropped;
 	key.model = "key";
 	key.kh_dropperteam = 0;
+	key.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_PLAYERCLIP;
 	setsize(key, KH_KEY_MIN, KH_KEY_MAX);
 	key.colormod = kh_TeamColor(initial_owner.team) * KH_KEY_BRIGHTNESS;
 
@@ -551,7 +552,7 @@ void kh_WinnerTeam(float teem)
 		vector thisorigin;
 
 		thisorigin = kh_AttachedOrigin(key);
-		dprint("Key origin: ", vtos(thisorigin), "\n");
+		//dprint("Key origin: ", vtos(thisorigin), "\n");
 		midpoint += thisorigin;
 
 		if(!first)
