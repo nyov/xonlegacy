@@ -534,7 +534,7 @@ void PutClientInServer (void)
 	 	//stuffcmd(self, "set viewsize $tmpviewsize \n");
 
 		if (cvar("g_spawnsound"))
-			sound (self, CHAN_AUTO, "misc/teleport.wav", 1, ATTN_NORM);
+			sound (self, CHAN_AUTO, "misc/spawn.wav", 1, ATTN_NORM);
 
 	} else if(self.classname == "observer") {
 		PutObserverInServer ();
