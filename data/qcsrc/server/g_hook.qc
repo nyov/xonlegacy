@@ -77,7 +77,7 @@ void GrapplingHookThink()
 	self.nextthink = time;
 
 	makevectors(self.owner.v_angle);
-	org = self.owner.origin + self.owner.view_ofs + v_forward * 15 - v_right * 5 + v_up * -12;
+	org = self.owner.origin + self.owner.view_ofs + v_forward * 8 - v_right * 8 + v_up * -12;
 
 	if(self.rope_length < 0)
 		self.rope_length = vlen(org - self.origin);
@@ -226,7 +226,7 @@ void FireGrapplingHook (void)
 	missile.movetype = MOVETYPE_FLY;
 	missile.solid = SOLID_BBOX;
 
-	setmodel (missile, "models/ebomb.mdl"); // replace by something CENTERED!, precision set below
+	setmodel (missile, "models/ebomb.mdl"); // precision set below
 	setsize (missile, '-3 -3 -3', '3 3 3');
 	setorigin (missile, org);
 

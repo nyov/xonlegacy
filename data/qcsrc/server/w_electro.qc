@@ -100,7 +100,7 @@ void() W_Electro_Attack
 
 	if (cvar("g_use_ammunition"))
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_electro_primary_ammo");
-	proj.effects = EF_BRIGHTFIELD | EF_FULLBRIGHT | EF_NOSHADOW | EF_LOWPRECISION;
+	proj.effects = EF_BRIGHTFIELD | EF_LOWPRECISION;
 	proj.movetype = MOVETYPE_FLY;
 	proj.velocity = w_shotdir * cvar("g_balance_electro_primary_speed");
 	W_SetupProjectileVelocity(proj);
@@ -118,7 +118,7 @@ void() W_Electro_Attack2
 {
 	local entity proj;
 
-	W_SetupShot (self, '11 8 -8', FALSE, 2, "weapons/electro_fire2.wav");
+	W_SetupShot (self, '8 4.5 -13', FALSE, 2, "weapons/electro_fire2.wav");
 
 	proj = spawn ();
 	proj.classname = "plasma";
@@ -132,7 +132,7 @@ void() W_Electro_Attack2
 
 	if (cvar("g_use_ammunition"))
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_electro_secondary_ammo");
-	proj.effects = EF_FULLBRIGHT | EF_NOSHADOW | EF_LOWPRECISION;
+	proj.effects = EF_LOWPRECISION;
 	//proj.glow_size = 50;
 	//proj.glow_color = 45;
 	proj.movetype = MOVETYPE_BOUNCE;
