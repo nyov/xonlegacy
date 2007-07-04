@@ -605,6 +605,14 @@ void ClientConnect (void)
 {
 	local string s;
 
+	if(Ban_IsClientBanned(self))
+	{
+		s = strcat("^1NOTE:^7 banned client ", self.netaddress, " just tried to enter\n");
+		dropclient(self);
+		bprint(s);
+		return;
+	}
+
 	self.classname = "player_joining";
 	self.flags = self.flags | FL_CLIENT;
 	self.version_nagtime = time + 10 + random() * 10;
