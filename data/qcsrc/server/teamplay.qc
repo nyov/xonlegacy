@@ -6,13 +6,14 @@ float GAME_RUNEMATCH		= 5;
 float GAME_LMS			= 6;
 float GAME_ARENA		= 7;
 float GAME_KEYHUNT		= 8;
+float GAME_ONSLAUGHT	= 10;
 
 // client counts for each team
 float c1, c2, c3, c4;
 // # of bots on those teams
 float cb1, cb2, cb3, cb4;
 
-float g_domination, g_ctf, g_tdm, g_keyhunt;
+float g_domination, g_ctf, g_tdm, g_keyhunt, g_onslaught;
 
 float audit_teams_time;
 
@@ -103,6 +104,7 @@ void ResetGameCvars()
 	cvar_set("g_lms", "0");
 	cvar_set("g_arena", "0");
 	cvar_set("g_keyhunt", "0");
+	cvar_set("g_onslaught", "0");
 	cvar_set("teamplay", "0");
 }
 
@@ -236,6 +238,17 @@ void InitGameplayMode()
 		gamemode_name = "Key Hunt";
 		teams_matter = 1;
 	}
+	else if(game == GAME_ONSLAUGHT || cvar("g_onslaught"))
+	{
+		ResetGameCvars();
+		game = GAME_ONSLAUGHT;
+		cvar_set("g_onslaught", "1");
+
+		ActivateTeamplay();
+
+		gamemode_name = "Onslaught";
+		teams_matter = 1;
+	}
 	else
 	{
 		// we can only assume...
@@ -301,6 +314,7 @@ void InitGameplayMode()
 	g_ctf = cvar("g_ctf");
 	g_tdm = cvar("g_tdm");
 	g_keyhunt = cvar("g_keyhunt");
+	g_onslaught = cvar("g_onslaught");
 }
 
 string GetClientVersionMessage(float v) {
@@ -508,6 +522,21 @@ void CheckAllowedTeams (entity for_whom)
 
 	c1 = c2 = c3 = c4 = -1;
 	cb1 = cb2 = cb3 = cb4 = 0;
+
+	// onslaught is special
+	if(g_onslaught)
+	{
+		head = findchain(classname, "onslaught_generator");
+		while (head)
+		{
+			if (head.team == COLOR_TEAM1) c1 = 0;
+			if (head.team == COLOR_TEAM2) c2 = 0;
+			if (head.team == COLOR_TEAM3) c3 = 0;
+			if (head.team == COLOR_TEAM4) c4 = 0;
+			head = head.chain;
+		}
+		return;
+	}
 
 	if(g_domination)
 		teament_name = "dom_team";
