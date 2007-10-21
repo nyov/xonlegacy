@@ -697,6 +697,7 @@ float() DoNextMapOverride =
 	if(cvar("g_campaign"))
 	{
 		CampaignPostIntermission();
+		alreadychangedlevel = TRUE;
 		return TRUE;
 	}
 	if(cvar("quit_when_empty"))
@@ -704,12 +705,14 @@ float() DoNextMapOverride =
 		if(player_count <= currentbots)
 		{
 			localcmd("quit\n");
+			alreadychangedlevel = TRUE;
 			return TRUE;
 		}
 	}
 	if(cvar_string("quit_and_redirect") != "")
 	{
 		redirection_target = strzone(cvar_string("quit_and_redirect"));
+		alreadychangedlevel = TRUE;
 		return TRUE;
 	}
 	if (cvar("samelevel")) // if samelevel is set, stay on same level
@@ -719,6 +722,7 @@ float() DoNextMapOverride =
 		// so instead just restart the current map using the restart command (DOES NOT WORK PROPERLY WITH exit_cfg STUFF)
 		localcmd("restart\n");
 		//changelevel (mapname);
+		alreadychangedlevel = TRUE;
 		return TRUE;
 	}
 	if(cvar_string("nextmap") != "")
@@ -726,12 +730,14 @@ float() DoNextMapOverride =
 		{
 			Map_Goto_SetStr(cvar_string("nextmap"));
 			Map_Goto();
+			alreadychangedlevel = TRUE;
 			return TRUE;
 		}
 	if(cvar("lastlevel"))
 	{
 		GameResetCfg();
 		localcmd("set lastlevel 0\ntogglemenu\n");
+		alreadychangedlevel = TRUE;
 		return TRUE;
 	}
 	return FALSE;
@@ -1767,6 +1773,7 @@ float MapVote_Finished(float mappos)
 
 	Map_Goto_SetStr(mapvote_maps[mappos]);
 	Map_Goto();
+	alreadychangedlevel = TRUE;
 	return TRUE;
 }
 void MapVote_CheckRules_1()
@@ -1954,10 +1961,7 @@ void MapVote_Think()
 	{
 		mapvote_initialized = TRUE;
 		if(DoNextMapOverride())
-		{
-			alreadychangedlevel = TRUE;
 			return;
-		}
 		if(!cvar("g_maplist_votable") || player_count <= 0)
 		{
 			GotoNextMap();
