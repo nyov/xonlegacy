@@ -1875,7 +1875,7 @@ void MapVote_Tick()
 					if(mapvote_maps[i] != "")
 					{
 						tmp = mapvote_maps[i];
-						sprint(other, strcat("map voting: type ^1impulse ", ftos(i), "^7 to vote for ", tmp, "\n"));
+						sprint(other, strcat("map voting: type ^1impulse ", ftos(i+1), "^7 to vote for ", tmp, "\n"));
 					}
 			}
 		}
