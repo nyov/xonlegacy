@@ -101,3 +101,39 @@ float dist_point_line(vector p, vector l0, vector ldir)
 	// vlen of the remaining vector
 	return vlen(p);
 }
+
+void depthfirst(entity start, .entity up, .entity downleft, .entity right, void(entity, entity) funcPre, void(entity, entity) funcPost, entity pass)
+{
+	entity e;
+	e = start;
+	funcPre(pass, e);
+	while(e.downleft)
+	{
+		e = e.downleft;
+		funcPre(pass, e);
+	}
+	funcPost(pass, e);
+	while(e != start)
+	{
+		if(e.right)
+		{
+			e = e.right;
+			funcPre(pass, e);
+			while(e.downleft)
+			{
+				e = e.downleft;
+				funcPre(pass, e);
+			}
+		}
+		else
+			e = e.up;
+		funcPost(pass, e);
+	}
+}
+
+float median(float a, float b, float c)
+{
+	if(a < c)
+		return bound(a, b, c);
+	return bound(c, b, a);
+}
