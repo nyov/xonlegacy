@@ -1,5 +1,5 @@
 void ReadyCount();
-float ValidateMap(string vote);
+string ValidateMap(string vote);
 void(entity e) DropFlag;
 string MapVote_Suggest(string m);
 
@@ -206,11 +206,16 @@ void SV_ParseClientCommand(string s) {
 					} else if(time < self.vote_next) {
 						sprint(self, strcat("^1You have to wait ^2", ftos(self.vote_next - time), "^1 seconds before you can again call a vote.\n"));
 					} else if(VoteAllowed(strcat1(argv(2)))) { // strcat seems to be necessary
-						if(!ValidateMap(vote))
-							return;
 						// remap chmap to gotomap (forces intermission)
 						if(substring(vote, 0, 6) == "chmap ")
 							vote = strcat("gotomap ", substring(vote, 6, strlen(vote) - 6));
+						if(substring(vote, 0, 8) == "gotomap ")
+						{
+							if(!(vote = ValidateMap(substring(vote, 8, strlen(vote) - 8))))
+								return;
+							vote = strcat("gotomap ", vote);
+						}
+
 						// make kick and kickban votes a bit nicer (and reject them if formatted badly)
 						if(substring(vote, 0, 5) == "kick " || substring(vote, 0, 8) == "kickban ")
 						{
@@ -289,12 +294,15 @@ void SV_ParseClientCommand(string s) {
 				if(dovote == "") {
 					sprint(self, "^1Your command was empty. See help for more info.\n");
 				} else if(VoteAllowed(strcat1(argv(2)))) { // strcat seems to be necessary
-					if(!ValidateMap(dovote))
-						return;
-					// remap chmap to gotomap (forces intermission)
-					if(strlen(dovote) >= 6)
-						if(substring(dovote, 0, 6) == "chmap ")
-							dovote = strcat("gotomap ", substring(dovote, 6, strlen(dovote) - 6));
+					if(substring(dovote, 0, 6) == "chmap ")
+						dovote = strcat("gotomap ", substring(dovote, 6, strlen(dovote) - 6));
+					if(substring(dovote, 0, 8) == "gotomap ")
+					{
+						if(!(dovote = ValidateMap(substring(dovote, 8, strlen(dovote) - 8))))
+							return;
+						dovote = strcat("gotomap ", dovote);
+					}
+
 					dovote_display = dovote;
 					if(substring(dovote, 0, 5) == "kick " || substring(dovote, 0, 8) == "kickban ")
 					{
@@ -375,7 +383,7 @@ void SV_ParseClientCommand(string s) {
 	} else if(argv(0) == "sentcvar") { // new system
 		GetCvars(1);
 	} else if(argv(0) == "spectate") {
-		if(cvar("g_lms") || cvar("g_arena"))
+		if(g_lms || g_arena)
 			return; // don't allow spectating in lms, unless player runs out of lives
 		if(self.classname == "player" && cvar("sv_spectate") == 1) {
 			if(self.flagcarried)
@@ -387,7 +395,7 @@ void SV_ParseClientCommand(string s) {
 			PutClientInServer();
 		}
 	} else if(argv(0) == "join") {
-		if(!cvar("g_arena"))
+		if(!g_arena)
 		if (self.classname != "player")
 		{
 			self.classname = "player";
@@ -482,40 +490,43 @@ void SV_ParseClientCommand(string s) {
 	}
 }
 
-float ValidateMap(string vote)
+string ValidateMap(string m)
 {
-	string ext;
-	
-	tokenize(vote);
-	if(argv(0) == "map" || argv(0) == "changelevel")
-		ext = ".bsp";
-	else if(argv(0) == "chmap")
-		ext = ".mapcfg";
-	else if(argv(0) == "gotomap")
-		ext = ".mapcfg";
-	else
-		return TRUE;
-
+#ifdef MAPINFO
+	m = MapInfo_FixName(m);
+	if(!m)
+	{
+		sprint(self, "This map is not available on this server.\n");
+		return string_null;
+	}
+#endif
 	if(!cvar("sv_vote_change_gametype"))
-		if(!IsSameGametype(argv(1)))
+		if(!IsSameGametype(m))
 		{
 			sprint(self, "This server does not allow changing the game type by map votes.\n");
-			return FALSE;
+			return string_null;
 		}
 	if(!cvar("sv_vote_override_mostrecent"))
-		if(Map_IsRecent(argv(1)))
+		if(Map_IsRecent(m))
 		{
 			sprint(self, "This server does not allow for recent maps to be played again. Please be patient for some rounds.\n");
-			return FALSE;
+			return string_null;
 		}
-
-	if(!TryFile(strcat("maps/", argv(1), ext)))
+#ifdef MAPINFO
+	if(!MapInfo_CheckMap(m))
 	{
-		sprint(self, strcat("^1Invalid mapname, \"^3", argv(1), "^1\" does not exist on this server.\n"));
-		return FALSE;
+		sprint(self, strcat("^1Invalid mapname, \"^3", m, "^1\" does not support the current game mode.\n"));
+		return string_null;
 	}
+#else
+	if(!TryFile(strcat("maps/", m, ".mapcfg")))
+	{
+		sprint(self, strcat("^1Invalid mapname, \"^3", m, "^1\" does not exist on this server.\n"));
+		return string_null;
+	}
+#endif
 
-	return TRUE;
+	return m;
 }
 
 

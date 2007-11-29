@@ -11,7 +11,7 @@ void GiveFrags (entity attacker, entity targ, float f)
 {
 	if(gameover) return;
 
-	if(cvar("g_arena"))
+	if(g_arena)
 		if(cvar("g_arena_roundbased"))
 			return;
 
@@ -26,11 +26,11 @@ void GiveFrags (entity attacker, entity targ, float f)
 		if(f > 0)
 			f = RunematchHandleFrags(attacker, targ, f);
 	}
-	else if(cvar("g_keyhunt"))
+	else if(g_keyhunt)
 	{
 		f = kh_HandleFrags(attacker, targ, f);
 	}
-	else if(cvar("g_lms"))
+	else if(g_lms)
 	{
 		// count remaining lives, not frags in lms
 		targ.frags -= 1;
@@ -180,7 +180,7 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				{
 					checkrules_firstblood = TRUE;
 					//sound(world, CHAN_AUTO, "announcer/firstblood.wav", 1, ATTN_NONE);
-					//if (cvar("g_minstagib"))
+					//if (g_minstagib)
 						//sound(world, CHAN_AUTO, "announce/male/mapkill1.wav", 1, ATTN_NONE);
 					bprint("^1",a, "^1 drew first blood", "\n");
 				}
@@ -369,7 +369,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 					{
 						mirrordamage = cvar("g_mirrordamage") * damage;
 						mirrorforce = cvar("g_mirrordamage") * vlen(force);
-						if(cvar("g_minstagib"))
+						if(g_minstagib)
 						{
 							if(cvar("g_friendlyfire") == 0)
 								damage = 0;
@@ -384,7 +384,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 			}
 		}
 
-		if(cvar("g_lms"))
+		if(g_lms)
 		if(targ.classname == "player")
 		if(attacker.classname == "player")
 		if(attacker != targ)
@@ -400,7 +400,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		if(attacker)
 			attacker.hitsound += 1;
 
-		if (cvar("g_minstagib"))
+		if (g_minstagib)
 		{
 			if ((deathtype == DEATH_FALL)  ||
 				(deathtype == DEATH_DROWN) ||
@@ -440,13 +440,13 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		}
 
 		// apply strength multiplier
-		if (attacker.items & IT_STRENGTH && !cvar("g_minstagib"))
+		if (attacker.items & IT_STRENGTH && !g_minstagib)
 		{
 			damage = damage * cvar("g_balance_powerup_strength_damage");
 			force = force * cvar("g_balance_powerup_strength_force");
 		}
 		// apply invincibility multiplier
-		if (targ.items & IT_INVINCIBLE && !cvar("g_minstagib"))
+		if (targ.items & IT_INVINCIBLE && !g_minstagib)
 			damage = damage * cvar("g_balance_powerup_invincible_takedamage");
 
 
@@ -499,7 +499,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 	if(targ.classname == "player" && attacker.classname == "player" && attacker != targ && attacker.health > 2)
 	{
 		// Savage: vampire mode
-		if(cvar("g_vampire") && !cvar("g_minstagib"))
+		if(g_vampire && !g_minstagib)
 		{
 			attacker.health += damage;
 		}
@@ -541,7 +541,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 	if(mirrordamage > 0 || mirrorforce > 0)
 	{
 		attacker = attacker_save;
-		if(cvar("g_minstagib"))
+		if(g_minstagib)
 			if(mirrordamage > 0)
 			{
 				// just lose extra LIVES, don't kill the player for mirror damage

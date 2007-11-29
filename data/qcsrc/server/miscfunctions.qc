@@ -77,47 +77,6 @@ void move_out_of_solid(entity e)
 	}
 }
 
-// converts a number to a string with the indicated number of decimals
-// works for up to 10 decimals!
-string ftos_decimals(float number, float decimals)
-{
-	string result;
-	string tmp;
-	float len;
-
-	// if negative, cut off the sign first
-	if(number < 0)
-		return strcat("-", ftos_decimals(-number, decimals));
-	// it now is always positive!
-
-	// 3.516 -> 352
-	number = floor(number * pow(10, decimals) + 0.5);
-
-	// 352 -> "352"
-	result = ftos(number);
-	len = strlen(result);
-	// does it have a decimal point (should not happen)? If there is one, it is always at len-7)
-		// if ftos had fucked it up, which should never happen: "34278.000000"
-	if(len >= 7)
-		if(substring(result, len - 7, 1) == ".")
-		{
-			dprint("ftos(integer) has comma? Can't be. Affected result: ", result, "\n");
-			result = substring(result, 0, len - 7);
-			len -= 7;
-		}
-		// "34278"
-	// is it too short? If yes, insert leading zeroes
-	if(len <= decimals)
-	{
-		result = strcat(substring("0000000000", 0, decimals - len + 1), result);
-		len = decimals + 1;
-	}
-	// and now... INSERT THE POINT!
-	tmp = substring(result, len - decimals, decimals);
-	result = strcat(substring(result, 0, len - decimals), ".", tmp);
-	return result;
-}
-
 #define FOR_EACH_CLIENT(v) for(v = world; (v = findflags(v, flags, FL_CLIENT)) != world; )
 #define FOR_EACH_REALCLIENT(v) FOR_EACH_CLIENT(v) if(clienttype(v) == CLIENTTYPE_REAL)
 string STR_PLAYER = "player";
@@ -728,6 +687,19 @@ float start_armorvalue;
 
 void readlevelcvars(void)
 {
+	g_cloaked = cvar("g_cloaked");
+	g_footsteps = cvar("g_footsteps");
+	g_grappling_hook = cvar("g_grappling_hook");
+	g_instagib = cvar("g_instagib");
+	g_laserguided_missile = cvar("g_laserguided_missile");
+	g_midair = cvar("g_midair");
+	g_minstagib = cvar("g_minstagib");
+	g_nixnex = cvar("g_nixnex");
+	g_nixnex_with_laser = cvar("g_nixnex_with_laser");
+	g_norecoil = cvar("g_norecoil");
+	g_rocketarena = cvar("g_rocketarena");
+	g_vampire = cvar("g_vampire");
+
 	g_pickup_shells                    = cvar("g_pickup_shells");
 	g_pickup_shells_max                = cvar("g_pickup_shells_max");
 	g_pickup_nails                     = cvar("g_pickup_nails");
@@ -757,26 +729,26 @@ void readlevelcvars(void)
 	start_health = cvar("g_balance_health_start");
 	start_armorvalue = cvar("g_balance_armor_start");
 
-	if(cvar("g_instagib"))
+	if(g_instagib)
 	{
 		start_items = IT_NEX;
 		start_switchweapon = WEP_NEX;
 		weapon_action(start_switchweapon, WR_PRECACHE);
 		start_ammo_cells = 999;
 	}
-	else if(cvar("g_rocketarena"))
+	else if(g_rocketarena)
 	{
 		start_items = IT_ROCKET_LAUNCHER;
 		start_switchweapon = WEP_ROCKET_LAUNCHER;
 		weapon_action(start_switchweapon, WR_PRECACHE);
 		start_ammo_rockets = 999;
 	}
-	else if(cvar("g_nixnex"))
+	else if(g_nixnex)
 	{
 		start_items = 0;
 		// will be done later
 	}
-	else if(cvar("g_minstagib"))
+	else if(g_minstagib)
 	{
 		start_health = 100;
 		start_armorvalue = 0;
@@ -787,7 +759,7 @@ void readlevelcvars(void)
 	}
 	else
 	{
-		if(cvar("g_lms"))
+		if(g_lms)
 		{
 			start_ammo_shells = cvar("g_lms_start_ammo_shells");
 			start_ammo_nails = cvar("g_lms_start_ammo_nails");
@@ -808,55 +780,55 @@ void readlevelcvars(void)
 			start_ammo_cells = cvar("g_pickup_cells_max");
 		}
 
-		if (cvar("g_start_weapon_laser") || cvar("g_lms"))
+		if (cvar("g_start_weapon_laser") || g_lms)
 		{
 			start_items = start_items | IT_LASER;
 			start_switchweapon = WEP_LASER;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_shotgun") || cvar("g_lms"))
+		if (cvar("g_start_weapon_shotgun") || g_lms)
 		{
 			start_items = start_items | IT_SHOTGUN;
 			start_switchweapon = WEP_SHOTGUN;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_uzi") || cvar("g_lms"))
+		if (cvar("g_start_weapon_uzi") || g_lms)
 		{
 			start_items = start_items | IT_UZI;
 			start_switchweapon = WEP_UZI;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_grenadelauncher") || cvar("g_lms"))
+		if (cvar("g_start_weapon_grenadelauncher") || g_lms)
 		{
 			start_items = start_items | IT_GRENADE_LAUNCHER;
 			start_switchweapon = WEP_GRENADE_LAUNCHER;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_electro") || cvar("g_lms"))
+		if (cvar("g_start_weapon_electro") || g_lms)
 		{
 			start_items = start_items | IT_ELECTRO;
 			start_switchweapon = WEP_ELECTRO;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_crylink") || cvar("g_lms"))
+		if (cvar("g_start_weapon_crylink") || g_lms)
 		{
 			start_items = start_items | IT_CRYLINK;
 			start_switchweapon = WEP_CRYLINK;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_nex") || cvar("g_lms"))
+		if (cvar("g_start_weapon_nex") || g_lms)
 		{
 			start_items = start_items | IT_NEX;
 			start_switchweapon = WEP_NEX;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_hagar") || cvar("g_lms"))
+		if (cvar("g_start_weapon_hagar") || g_lms)
 		{
 			start_items = start_items | IT_HAGAR;
 			start_switchweapon = WEP_HAGAR;
 			weapon_action(start_switchweapon, WR_PRECACHE);
 		}
-		if (cvar("g_start_weapon_rocketlauncher") || cvar("g_lms"))
+		if (cvar("g_start_weapon_rocketlauncher") || g_lms)
 		{
 			start_items = start_items | IT_ROCKET_LAUNCHER;
 			start_switchweapon = WEP_ROCKET_LAUNCHER;

@@ -6,14 +6,13 @@ float GAME_RUNEMATCH		= 5;
 float GAME_LMS			= 6;
 float GAME_ARENA		= 7;
 float GAME_KEYHUNT		= 8;
+float GAME_ASSAULT		= 9;
 float GAME_ONSLAUGHT	= 10;
 
 // client counts for each team
 float c1, c2, c3, c4;
 // # of bots on those teams
 float cb1, cb2, cb3, cb4;
-
-float g_domination, g_ctf, g_tdm, g_keyhunt, g_onslaught;
 
 float audit_teams_time;
 
@@ -97,6 +96,7 @@ void(entity pl) LogTeamchange =
 
 void ResetGameCvars()
 {
+	cvar_set("g_dm", "0");
 	cvar_set("g_tdm", "0");
 	cvar_set("g_domination", "0");
 	cvar_set("g_ctf", "0");
@@ -104,6 +104,7 @@ void ResetGameCvars()
 	cvar_set("g_lms", "0");
 	cvar_set("g_arena", "0");
 	cvar_set("g_keyhunt", "0");
+	cvar_set("g_assault", "0");
 	cvar_set("g_onslaught", "0");
 	cvar_set("teamplay", "0");
 }
@@ -125,7 +126,7 @@ void InitGameplayMode()
 
 	VoteReset();
 
-	game = cvar ("gamecfg");	// load game options
+	game = cvar("gamecfg");	// load game options
 
 	// game cvars get reset before map changes
 	// then map's cfg sets them as desired
@@ -162,10 +163,11 @@ void InitGameplayMode()
 		gamemode_name = "Capture the Flag";
 		teams_matter = 1;
 	}
-	else if((game == GAME_RUNEMATCH || cvar("g_runematch")) && !cvar("g_minstagib"))
+	else if(game == GAME_RUNEMATCH || cvar("g_runematch"))
 	{
 		game = GAME_RUNEMATCH;
 		cvar_set("g_runematch", "1");
+		cvar_set("g_minstagib", "0");
 
 		if(cvar("deathmatch_force_teamplay"))
 			ActivateTeamplay();
@@ -202,6 +204,15 @@ void InitGameplayMode()
 		}
 
 		fraglimit_override = cvar("fraglimit_override");
+	}
+	else if(game == GAME_ASSAULT || cvar("g_assault"))
+	{
+		ResetGameCvars();
+		game = GAME_ASSAULT;
+		gamemode_name = "Assault";
+		ActivateTeamplay();
+		teams_matter = 1;
+		cvar_set("g_assault", "1");
 	}
 	else if(game == GAME_LMS || cvar("g_lms"))
 	{
@@ -253,6 +264,7 @@ void InitGameplayMode()
 	{
 		// we can only assume...
 		ResetGameCvars();
+		cvar_set("g_dm", "1");
 		gamemode_name = "Deathmatch";
 		teams_matter = 0;
 	}
@@ -289,17 +301,17 @@ void InitGameplayMode()
 		kh_init();
 
 	// those mutators rule each other out
-	if(cvar("g_minstagib"))
+	if(g_minstagib)
 	{
 		cvar_set("g_instagib", "0");
 		cvar_set("g_rocketarena", "0");
 	}
-	if(cvar("g_instagib"))
+	if(g_instagib)
 	{
 		cvar_set("g_minstagib", "0");
 		cvar_set("g_rocketarena", "0");
 	}
-	if(cvar("g_rocketarena"))
+	if(g_rocketarena)
 	{
 		cvar_set("g_instagib", "0");
 		cvar_set("g_minstagib", "0");
@@ -312,9 +324,12 @@ void InitGameplayMode()
 
 	g_domination = cvar("g_domination");
 	g_ctf = cvar("g_ctf");
+	g_lms = cvar("g_lms");
 	g_tdm = cvar("g_tdm");
 	g_keyhunt = cvar("g_keyhunt");
 	g_onslaught = cvar("g_onslaught");
+	g_assault = cvar("g_assault");
+	g_arena = cvar("g_arena");
 }
 
 string GetClientVersionMessage(float v) {
@@ -356,43 +371,43 @@ void PrintWelcomeMessage(entity pl)
 
 	if(self.classname == "observer")
 	{
-		if(cvar("g_lms") && self.frags <= 0 && self.frags > -666)
+		if(g_lms && self.frags <= 0 && self.frags > -666)
 			return centerprint(self, strcat(NEWLINES, "^1You have no more lives left\nwait for next round\n\n\n^7press attack to spectate other players"));
-		else if(cvar("g_lms") && self.frags == -666)
+		else if(g_lms && self.frags == -666)
 			return centerprint(self, strcat(NEWLINES, "^1Match has already begun\nwait for next round\n\n\n^7press attack to spectate other players"));
 	}
 	else if(self.classname == "spectator")
 	{
-		if ((cvar("g_lms") && self.frags < 1) || cvar("g_arena"))
+		if ((g_lms && self.frags < 1) || g_arena)
 			return centerprint(self, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press attack for next player\npress attack2 for free fly mode"));
 		else
 			return centerprint(self, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press jump to play\n^7press attack for next player\npress attack2 for free fly mode"));
 	}
 
 
-	if(cvar("g_minstagib"))
+	if(g_minstagib)
 		mutator = "^2Minstagib ^1";
-	else if(cvar("g_instagib"))
+	else if(g_instagib)
 		mutator = "^2Instagib ^1";
-	else if(cvar("g_rocketarena"))
+	else if(g_rocketarena)
 		mutator = "^2Rocketarena ^1";
-	else if(cvar("g_nixnex"))
+	else if(g_nixnex)
 		mutator = "^2No Items Nexuiz ^1";
 
-	if(cvar("g_midair")) {
+	if(g_midair) {
 		// to protect against unheedingly made changes
 		if (modifications) {
 			modifications = strcat(modifications, ", ");
 		}
 		modifications = "midair";
 	}
-	if(cvar("g_vampire")) {
+	if(g_vampire) {
 		if (modifications) {
 			modifications = strcat(modifications, ", ");
 		}
 		modifications = strcat(modifications, "vampire");
 	}
-	if(cvar("g_laserguided_missile")) {
+	if(g_laserguided_missile) {
 		if (modifications) {
 			modifications = strcat(modifications, ", ");
 		}
@@ -409,7 +424,7 @@ void PrintWelcomeMessage(entity pl)
 		s = strcat(s, "^8\nactive modifications: ^3", modifications, "^8\n");
 
 	if((self.classname == "observer" || self.classname == "spectator") && self.version == cvar("gameversion")) {
-		if(!cvar("g_arena"))
+		if(!g_arena)
 			s = strcat(s,"^7\n\n\npress jump to play\npress attack to spectate other players\n\n");
 		else if(player_count < 2 && arena_roundbased)
 		{
@@ -427,7 +442,7 @@ void PrintWelcomeMessage(entity pl)
 
 	s = strzone(s);
 
-	if (cvar("g_grappling_hook"))
+	if (g_grappling_hook)
 		s = strcat(s, "\n\n^8grappling hook is enabled, press 'e' to use it\n");
 
 	if (cvar_string("_mutatormsg") != "") {
@@ -544,6 +559,11 @@ void CheckAllowedTeams (entity for_whom)
 		teament_name = "ctf_team";
 	else if(g_tdm)
 		teament_name = "tdm_team";
+	else if(g_assault)
+	{
+		c1 = c2 = 0; // Assault always has 2 teams
+		return;
+	}
 	else
 	{
 		// cover anything else by treating it like tdm with no teams spawned
@@ -808,7 +828,7 @@ float JoinBestTeam(entity pl, float only_return_best)
 	// find out what teams are available
 	CheckAllowedTeams(pl);
 
-	if(cvar("g_domination"))
+	if(g_domination)
 	{
 		if(cvar("g_domination_default_teams") < 3)
 			c3 = 999999999;
@@ -906,26 +926,6 @@ void SV_ChangeTeam(float _color)
 		dteam = 3;
 	else if(dcolor == COLOR_TEAM4 - 1)
 		dteam = 4;
-
-	// remap invalid teams in dom & ctf
-	/*
-	if(cvar("g_ctf") && dteam == 3)
-		dteam = 2;
-	else if(cvar("g_ctf") && dteam == 4)
-		dteam = 1;
-	else if((cvar("g_domination") && cvar("g_domination_default_teams") < 3) || (cvar("g_tdm") && cvar("g_tdm_teams") < 3))
-	{
-		if(dteam == 3)
-			dteam = 2;
-		else if(dteam == 4)
-			dteam = 1;
-	}
-	else if((cvar("g_domination") && cvar("g_domination_default_teams") < 4) || (cvar("g_tdm") && cvar("g_tdm_teams") < 4))
-	{
-		if(dteam == 4)
-			dteam = 1;
-	}
-	*/
 
 	CheckAllowedTeams(self);
 
@@ -1322,6 +1322,10 @@ void() tdm_spawnteams =
 
 	tdm_spawnteam("Red", COLOR_TEAM1-1);
 	tdm_spawnteam("Blue", COLOR_TEAM2-1);
+	if(numteams >= 3)
+		tdm_spawnteam("Yellow", COLOR_TEAM3-1);
+	if(numteams >= 4)
+		tdm_spawnteam("Pink", COLOR_TEAM4-1);
 };
 
 void() tdm_delayedinit =

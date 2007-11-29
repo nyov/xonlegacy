@@ -11,9 +11,14 @@ void CampaignSetup(float n)
 		localcmd("\n");
 	localcmd(campaign_mutators[n]);
 		localcmd("\n");
+#ifdef MAPINFO
+	MapInfo_SwitchGameType(MapInfo_Type_FromString(campaign_gametype[n]));
+	MapInfo_LoadMap(campaign_mapname[n]);
+#else
 	localcmd("exec maps/"); // can't use strcat here in current fteqcc
 		localcmd(campaign_gametype[n]);
 		localcmd("_");
 		localcmd(campaign_mapname[n]);
 		localcmd(".mapcfg\n");
+#endif
 }
