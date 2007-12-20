@@ -197,6 +197,7 @@ void() CL_Weaponentity_Think =
 
 void() CL_ExteriorWeaponentity_Think =
 {
+	float tag_found;
 	self.nextthink = time;
 	if (self.owner.exteriorweaponentity != self)
 	{
@@ -217,7 +218,15 @@ void() CL_ExteriorWeaponentity_Think =
 			setmodel(self, strcat("models/weapons/v_", self.owner.weaponname, ".md3")); // precision set below
 		else
 			self.model = "";
-		setattachment(self, self.owner, "bip01 r hand");
+
+		if((tag_found = gettagindex(self.owner, "tag_weapon")))
+		{
+			self.tag_index = tag_found;
+			self.tag_entity = self.owner;
+		}
+		else
+			setattachment(self, self.owner, "bip01 r hand");
+
 		// if that didn't find a tag, hide the exterior weapon model
 		if (!self.tag_index)
 			self.model = "";
@@ -392,7 +401,7 @@ void(float fr, float t, void() func) weapon_thinkf =
 		backtrace("Tried to override initial weapon think function - should this really happen?");
 	}
 
-	if(cvar("g_runematch"))
+	if(g_runematch)
 	{
 		if(self.runes & RUNE_SPEED)
 		{
@@ -410,6 +419,15 @@ void(float fr, float t, void() func) weapon_thinkf =
 	// VorteX: haste can be added here
 	self.weapon_nextthink = max(time, self.weapon_nextthink_lastframe + t);
 	self.weapon_think = func;
+
+	if (fr == WFRAME_FIRE1 || fr == WFRAME_FIRE2)
+	if (t)
+	{
+		local vector anim;
+		anim = self.anim_shoot;
+		anim_z = anim_y / t;
+		player_setanim(anim, FALSE, TRUE, TRUE);
+	}
 };
 
 void(float spd, vector org) weapon_boblayer1 =

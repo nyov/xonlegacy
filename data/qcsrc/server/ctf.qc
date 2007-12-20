@@ -24,7 +24,7 @@ void() place_flag =
 	self.mdl = self.model;
 	self.flags = FL_ITEM;
 	self.solid = SOLID_TRIGGER;
-	self.movetype = MOVETYPE_TOSS;
+	self.movetype = MOVETYPE_NONE;
 	self.velocity = '0 0 0';
 	self.origin_z = self.origin_z + 6;
 	self.think = FlagThink;
@@ -34,11 +34,15 @@ void() place_flag =
 	self.mangle = self.angles;
 	self.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_PLAYERCLIP;
 	//self.effects = self.effects | EF_DIMLIGHT;
-	if (!droptofloor())
+	if(!self.noalign)
 	{
-		dprint("Flag fell out of level at ", vtos(self.origin), "\n");
-		remove(self);
-		return;
+		self.movetype = MOVETYPE_TOSS;
+		if (!droptofloor())
+		{
+			dprint("Flag fell out of level at ", vtos(self.origin), "\n");
+			remove(self);
+			return;
+		}
 	}
 	self.oldorigin = self.origin;
 };
@@ -58,7 +62,9 @@ void LogCTF(string mode, float flagteam, entity actor)
 void(entity e) RegenFlag =
 {
 	setattachment(e, world, "");
-	e.movetype = MOVETYPE_TOSS;
+	e.movetype = MOVETYPE_NONE;
+	if(!self.noalign)
+		e.movetype = MOVETYPE_TOSS;
 	e.solid = SOLID_TRIGGER;
 	// TODO: play a sound here
 	setorigin(e, e.oldorigin);
@@ -406,6 +412,8 @@ void() item_flag_team1 =
 	self.netname = "^1RED^7 flag";
 	self.target = "###item###";
 	self.skin = 0;
+	if(self.spawnflags & 1)
+		self.noalign = 1;
 	if (!self.model)
 		self.model = "models/ctf/flag_red.md3";
 	if (!self.noise)
@@ -433,7 +441,8 @@ void() item_flag_team1 =
 	//	self.glow_size = 50;
 
 	self.effects = self.effects | EF_FULLBRIGHT | EF_LOWPRECISION;
-	droptofloor();
+	if(!self.noalign)
+		droptofloor();
 
 	WaypointSprite_SpawnFixed("redbase", self.origin + '0 0 37');
 };
@@ -462,6 +471,8 @@ void() item_flag_team2 =
 	self.netname = "^4BLUE^7 flag";
 	self.target = "###item###";
 	self.skin = 0;
+	if(self.spawnflags & 1)
+		self.noalign = 1;
 	if (!self.model)
 		self.model = "models/ctf/flag_blue.md3";
 	if (!self.noise)
@@ -489,7 +500,8 @@ void() item_flag_team2 =
 	//	self.glow_size = 50;
 
 	self.effects = self.effects | EF_FULLBRIGHT | EF_LOWPRECISION;
-	droptofloor();
+	if(!self.noalign)
+		droptofloor();
 
 	WaypointSprite_SpawnFixed("bluebase", self.origin + '0 0 37');
 };

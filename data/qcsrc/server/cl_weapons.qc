@@ -210,8 +210,7 @@ void() W_PreviousWeapon =
 // Bringed back weapon frame
 void() W_WeaponFrame =
 {
-	if(arena_roundbased)
-	if(time < warmup)
+	if((arena_roundbased && time < warmup) || (time < restart_countdown))
 		return;
 
 	if (!self.weaponentity || self.health < 1)
@@ -231,6 +230,7 @@ void() W_WeaponFrame =
 	{
 		if (self.weaponentity.state == WS_CLEAR)
 		{
+			player_setanim(self.anim_draw, FALSE, TRUE, TRUE);
 			self.weaponentity.state = WS_RAISE;
 			weapon_action(self.switchweapon, WR_SETUP);
 			// VorteX: add player model weapon select frame here

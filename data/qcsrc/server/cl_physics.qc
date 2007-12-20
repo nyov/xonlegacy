@@ -49,7 +49,7 @@ void PlayerJump (void)
 	if (!(self.flags & FL_JUMPRELEASED))
 		return;
 
-	if(cvar("g_runematch"))
+	if(g_runematch)
 	{
 		if(self.runes & RUNE_SPEED)
 		{
@@ -74,6 +74,11 @@ void PlayerJump (void)
 
 	self.flags = self.flags - FL_ONGROUND;
 	self.flags = self.flags - FL_JUMPRELEASED;
+
+	if (self.crouch)
+		player_setanim(self.anim_duckjump, FALSE, TRUE, TRUE);
+	else
+		player_setanim(self.anim_jump, FALSE, TRUE, TRUE);
 }
 
 void() CheckWaterJump =
@@ -157,7 +162,7 @@ void SV_PlayerPhysics()
 
 	maxspd_mod = 1;
 
-	if(cvar("g_runematch"))
+	if(g_runematch)
 	{
 		if(self.runes & RUNE_SPEED)
 		{

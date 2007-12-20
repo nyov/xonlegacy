@@ -193,6 +193,9 @@ string CheckPlayerModel(string plyermodel) {
 	else if(cvar("sv_servermodelsonly"))
 	{
 		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".zym")
+		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".dpm")
+		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".md3")
+		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".psk")
 			return FallbackPlayerModel;
 		if(!fexists(plyermodel))
 			return FallbackPlayerModel;
@@ -248,7 +251,8 @@ void setmodel_lod(entity e, string modelname)
 #ifdef ALLOW_VARIABLE_LOD
 	string s;
 
-	s = strcat(substring(modelname, 0, strlen(modelname) - 4), "_1.zym");
+	// FIXME: this only supports 3-letter extensions
+	s = strcat(substring(modelname, 0, strlen(modelname) - 4), "_1", substring(modelname, 0, strlen(modelname) - 4));
 	if(fexists(s))
 	{
 		precache_model(s);
@@ -258,7 +262,7 @@ void setmodel_lod(entity e, string modelname)
 	else
 		self.modelindex_lod1 = -1;
 
-	s = strcat(substring(modelname, 0, strlen(modelname) - 4), "_2.zym");
+	s = strcat(substring(modelname, 0, strlen(modelname) - 4), "_2", substring(modelname, 0, strlen(modelname) - 4));
 	if(fexists(s))
 	{
 		precache_model(s);
@@ -281,6 +285,7 @@ void setmodel_lod(entity e, string modelname)
 	precache_model(modelname);
 	setmodel(e, modelname); // players have high precision
 #endif
+	player_setupanimsformodel();
 }
 
 /*
@@ -332,9 +337,7 @@ void PutObserverInServer (void)
 	self.pauseregen_finished = 0;
 	self.damageforcescale = 0;
 	self.death_time = 0;
-	self.dead_time = 0;
 	self.dead_frame = 0;
-	self.die_frame = 0;
 	self.deaths = 0;
 	self.alpha = 0;
 	self.scale = 0;
@@ -451,9 +454,7 @@ void PutClientInServer (void)
 		self.pauseregen_finished = time + cvar("g_balance_pause_health_regen_spawn");
 		self.damageforcescale = 2;
 		self.death_time = 0;
-		self.dead_time = 0;
 		self.dead_frame = 0;
-		self.die_frame = 0;
 		self.alpha = 0;
 		self.scale = 0;
 		self.fade_time = 0;
@@ -547,6 +548,7 @@ void PutClientInServer (void)
 
 		CL_SpawnWeaponentity();
 		self.alpha = default_player_alpha;
+		self.colormod = '1 1 1' * cvar("g_player_brightness");
 		self.exteriorweaponentity.alpha = default_weapon_alpha;
 
 		self.lms_nextcheck = time + cvar("g_lms_campcheck_interval")*2;
@@ -672,7 +674,7 @@ void ClientConnect (void)
 
 	bot_clientconnect();
 
-	//if(cvar("g_domination"))
+	//if(g_domination)
 	//	dom_player_join_team(self);
 
 	//JoinBestTeam(self, FALSE);
@@ -702,7 +704,7 @@ void ClientConnect (void)
 	bprint ("^4",self.netname);
 	bprint ("^4 connected");
 
-	if(cvar("g_domination") || g_ctf)
+	if(g_domination || g_ctf)
 	{
 		bprint(" and joined the ");
 		bprint(ColoredTeamName(self.team));
@@ -755,16 +757,9 @@ void ClientConnect (void)
 
 	if(g_lms)
 	{
-		self.frags = cvar("fraglimit");
-		// no fraglimit was set, so player gets 999 lives
-		if(self.frags < 1)
-			self.frags = 999;
-
 		self.frags = LMS_NewPlayerLives();
 		if(!self.frags)
-		{
 			self.frags = -666;
-		}
 	}
 	else if(g_arena)
 	{
@@ -1357,8 +1352,7 @@ void PlayerPreThink (void)
 			dist_z = 0;
 			self.lms_traveled_distance += fabs(vlen(dist));
 
-			if(cvar("g_campaign"))
-			if(!campaign_bots_may_start)
+			if((cvar("g_campaign") && !campaign_bots_may_start) || (time < restart_countdown))
 			{
 				self.lms_nextcheck = time + cvar("g_lms_campcheck_interval")*2;
 				self.lms_traveled_distance = 0;
@@ -1386,6 +1380,7 @@ void PlayerPreThink (void)
 				self.crouch = TRUE;
 				self.view_ofs = PL_CROUCH_VIEW_OFS;
 				setsize (self, PL_CROUCH_MIN, PL_CROUCH_MAX);
+				player_setanim(self.anim_duck, FALSE, TRUE, TRUE);
 			}
 		}
 		else
@@ -1586,16 +1581,37 @@ void PlayerPostThink (void)
 		UpdateChatBubble();
 		UpdateTeamBubble();
 		if (self.impulse)
-			ImpulseCommands ();
+			ImpulseCommands();
 		if (intermission_running)
 			return;		// intermission or finale
 
 		//PrintWelcomeMessage(self);
 		//if (TetrisPostFrame()) return;
+	
+		// restart countdown
+		if(time < restart_countdown)
+		{
+			string s;
+			float sec;
+
+			sec = ceil(restart_countdown-time);
+			s = strcat(NEWLINES, "^1Game starts in ", ftos(sec), " seconds");
+			centerprint(self, s);
+			self.movetype = MOVETYPE_NONE;		
+			self.velocity = '0 0 0';
+			self.avelocity = '0 0 0';
+			self.movement = '0 0 0';
+		}
+		else if(self.movetype == MOVETYPE_NONE)
+		{
+			self.movetype = MOVETYPE_WALK;
+			centerprint(self, "\n");
+		}
 	} else if (self.classname == "observer") {
 		//do nothing
 	} else if (self.classname == "spectator") {
 		//do nothing
 	}
+
 	Arena_Warmup();
 }

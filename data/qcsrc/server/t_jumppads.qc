@@ -118,20 +118,13 @@ void() trigger_push_touch =
 	if (other.deadflag && other.classname == "player")
 		return;
 
-	if (!self.target)
-	{
-		other.velocity = self.movedir;
-		other.flags = other.flags - (other.flags & FL_ONGROUND);
-		return;
-	}
-
 	if (other.classname == "player")
 	{
 		if(self.pushltime < time)  // prevent "snorring" sound when a player hits the jumppad more than once
 		{
 			// flash when activated
 			te_smallflash(other.origin);
-			sound (other, CHAN_ITEM, "misc/jumppad.wav", 1, ATTN_NORM);
+			sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 			self.pushltime = time + 0.2;
 		}
 		if(clienttype(other) == CLIENTTYPE_REAL)
@@ -152,7 +145,8 @@ void() trigger_push_touch =
 			other.jumppadcount = TRUE;
 	}
 
-	self.movedir = trigger_push_calculatevelocity(other.origin, self.enemy, self.height);
+	if(self.target)
+		self.movedir = trigger_push_calculatevelocity(other.origin, self.enemy, self.height);
 
 	other.flags = other.flags - (other.flags & FL_ONGROUND);
 	// reset tracking of oldvelocity for impact damage (sudden velocity changes)
@@ -242,8 +236,9 @@ void() trigger_push =
 		self.speed = 1000;
 	self.movedir = self.movedir * self.speed * 10;
 
-	if (self.target)
-		precache_sound ("misc/jumppad.wav");
+	if not(self.noise)
+		self.noise = "misc/jumppad.wav";
+	precache_sound (self.noise);
 
 	// this must be called to spawn the teleport waypoints for bots
 	self.think = trigger_push_findtarget;
