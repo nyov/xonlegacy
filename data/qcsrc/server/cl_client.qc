@@ -391,6 +391,14 @@ void PutObserverInServer (void)
 		self.frags = -666;
 }
 
+float RestrictSkin(float s)
+{
+	if(!teams_matter)
+		return s;
+	if(s == 6)
+		return 6;
+	return math_mod(s, 3);
+}
 
 /*
 =============
@@ -497,19 +505,8 @@ void PutClientInServer (void)
 		} else {
 			self.playermodel = CheckPlayerModel(self.playermodel);
 			setmodel_lod (self, self.playermodel);
-			if(teams_matter)
-			{
-				float s;
-				s = stof(self.playerskin);
-				if(s >= 0 && s < 3)
-					self.skin = s;
-				else if(s == 6)
-					self.skin = 6;
-				else
-					self.skin = 0;
-			}
-			else
-				self.skin = stof(self.playerskin);
+			self.skin = RestrictSkin(stof(self.playerskin));
+			self.playerskin = ftos(self.skin);
 		}
 		if(!teams_matter)
 			if(strlen(cvar_string("sv_defaultplayercolors")))
@@ -1148,6 +1145,12 @@ void SpectateCopy(entity spectatee) {
 	self.view_ofs = spectatee.view_ofs;
 	self.v_angle = spectatee.v_angle;
 	self.viewzoom = spectatee.viewzoom;
+	self.velocity = spectatee.velocity;
+	self.dmg_take = spectatee.dmg_take;
+	self.dmg_save = spectatee.dmg_save;
+	self.dmg_inflictor = spectatee.dmg_inflictor;
+	self.angles = spectatee.v_angle;
+	self.fixangle = TRUE;
 	setorigin(self, spectatee.origin);
 	setsize(self, spectatee.mins, spectatee.maxs);
 }
@@ -1160,11 +1163,6 @@ void SpectateUpdate() {
 		if(self.enemy.flags & FL_NOTARGET)
 			PutObserverInServer();
 		SpectateCopy(self.enemy);
-		self.dmg_take = self.enemy.dmg_take;
-		self.dmg_save = self.enemy.dmg_save;
-		self.dmg_inflictor = self.enemy.dmg_inflictor;
-		self.fixangle = TRUE;
-		self.angles = self.enemy.v_angle;
 		//msg_entity = self;
 		//WriteByte(MSG_ONE, SVC_SETANGLE);
 		//WriteAngle(MSG_ONE, self.enemy.v_angle_x);
@@ -1421,15 +1419,10 @@ void PlayerPreThink (void)
 				setsize (self, m1, m2);
 			}
 
-			if(teams_matter)
+			if(self.skin != stof(self.playerskin))
 			{
-				if (self.skin != math_mod(stof(self.playerskin), NUM_PLAYERSKINS_TEAMPLAY))
-					self.skin = math_mod(stof(self.playerskin), NUM_PLAYERSKINS_TEAMPLAY);
-			}
-			else
-			{
-				if (self.skin != stof(self.playerskin))
-					self.skin = stof(self.playerskin);
+				self.skin = RestrictSkin(stof(self.playerskin));
+				self.playerskin = ftos(self.skin);
 			}
 		}
 		if(!teams_matter)
