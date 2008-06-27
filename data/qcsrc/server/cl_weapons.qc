@@ -88,10 +88,20 @@ void(vector velo, vector delta, float doreduce) W_ThrowWeapon
 	local .float ammofield;
 
 	w = self.weapon;
-	if(w == WEP_LASER)
-		return;
-	if(w == 0)
+	if (w == 0)
 		return; // just in case
+	if (w == WEP_LASER)
+		return;
+	if (g_instagib)
+		return;
+	if (g_rocketarena)
+		return;
+	if (g_lms)
+		return;
+	if (g_nixnex)
+		return;
+	if (!cvar("g_pickup_items"))
+		return;
 
 	e = self;
 	wep = spawn();
@@ -146,7 +156,7 @@ void(float imp) W_SwitchWeapon
 	if (self.weapon != imp)
 	if (client_hasweapon(self, imp, TRUE, TRUE))
 	{
-		self.cnt = self.weapon;
+		self.cnt = self.weapon ? self.weapon : self.switchweapon;
 		self.switchweapon = imp;
 	}
 };
@@ -175,7 +185,7 @@ void() W_NextWeapon =
 		if (weaponwant > WEP_LAST)
 			weaponwant = WEP_FIRST;
 	}
-	self.cnt = self.weapon;
+	self.cnt = self.weapon ? self.weapon : self.switchweapon;
 	self.switchweapon = weaponwant;
 };
 
@@ -203,14 +213,14 @@ void() W_PreviousWeapon =
 		if (weaponwant > WEP_LAST)
 			weaponwant = WEP_FIRST;
 	}
-	self.cnt = self.weapon;
+	self.cnt = self.weapon ? self.weapon : self.switchweapon;
 	self.switchweapon = weaponwant;
 };
 
 // Bringed back weapon frame
 void() W_WeaponFrame =
 {
-	if((arena_roundbased && time < warmup) || (time < restart_countdown))
+	if((arena_roundbased && time < warmup) || ((time < restart_countdown) && !cvar("sv_ready_restart_after_countdown")))
 		return;
 
 	if (!self.weaponentity || self.health < 1)
@@ -248,10 +258,6 @@ void() W_WeaponFrame =
 		}
 	}
 
-	// don't let attack_finished fall behind when not firing (must be after weapon_setup calls!)
-	if (ATTACK_FINISHED(self) < time)
-		ATTACK_FINISHED(self) = time;
-
 	// call the think code which may fire the weapon
 	// and do so multiple times to resolve framerate dependency issues if the
 	// server framerate is very low and the weapon fire rate very high
@@ -261,12 +267,16 @@ void() W_WeaponFrame =
 	{
 		c = c + 1;
 		weapon_action(self.weapon, WR_THINK);
-		if (self.weapon_nextthink > 0 && time >= self.weapon_nextthink)
-		{
-			self.weapon_nextthink_lastframe = self.weapon_nextthink;
+		if (time + frametime * 0.5 >= self.weapon_nextthink)
 			self.weapon_think();
-		}
 	}
+
+	// don't let attack_finished fall behind when not firing (must be after weapon_setup calls!)
+	//if (ATTACK_FINISHED(self) < time)
+	//	ATTACK_FINISHED(self) = time;
+
+	//if (self.weapon_nextthink < time)
+	//	self.weapon_nextthink = time;
 
 	// update currentammo incase it has changed
 	if (self.items & IT_CELLS)

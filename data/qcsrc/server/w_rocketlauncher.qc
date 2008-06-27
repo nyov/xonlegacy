@@ -1,5 +1,6 @@
 
 .float rl_sound;
+.float rl_detonate_later;
 
 void W_Rocket_Explode (void)
 {
@@ -7,13 +8,7 @@ void W_Rocket_Explode (void)
 	sound (self, CHAN_BODY, "weapons/rocket_impact.wav", 1, ATTN_NORM);
 	org2 = findbetterlocation (self.origin, 16);
 
-	//te_explosion (org2);
-	// LordHavoc: TE_TEI_BIGEXPLOSION
-	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-	WriteByte (MSG_BROADCAST, 78);
-	WriteCoord (MSG_BROADCAST, org2_x);
-	WriteCoord (MSG_BROADCAST, org2_y);
-	WriteCoord (MSG_BROADCAST, org2_z);
+	pointparticles(particleeffectnum("rocket_explode"), org2, '0 0 0', 1);
 
 	//effect (org2, "models/sprites/rockexpl.spr", 0, 12, 35);
 	self.event_damage = SUB_Null;
@@ -85,6 +80,23 @@ entity FindLaserTarget(entity e, float dist_variance, float dot_variance)
 	return selected;
 }
 
+void W_Rocket_RemoteExplode()
+{
+	if(self.owner.deadflag == DEAD_NO)
+	{
+		if((self.spawnshieldtime >= 0)
+			? (time >= self.spawnshieldtime) // timer
+			: (vlen(NearestPointOnBox(self.owner, self.origin) - self.origin) > cvar("g_balance_rocketlauncher_radius")) // safety device
+		)
+		{
+			W_Rocket_Explode ();
+		}
+		else
+		{
+		}
+	}
+}
+
 void W_Rocket_Think (void)
 {
 	entity e;
@@ -125,10 +137,9 @@ void W_Rocket_Think (void)
 
 			if(self.owner.deadflag == DEAD_NO)
 			if (self.owner.button0 && self.ltime < 0) // if the player let go of the button and then pushed it again
-			{
-				  W_Rocket_Explode ();
-				  return;
-			}
+				self.rl_detonate_later = TRUE;
+			if(self.rl_detonate_later)
+				W_Rocket_RemoteExplode();
 
 			if(cvar("g_balance_rocketlauncher_laserguided_allow_steal"))
 			{
@@ -165,9 +176,10 @@ void W_Rocket_Think (void)
 		}
 		else
 		{
-			if(self.owner.deadflag == DEAD_NO)
 			if (self.owner.button3)
-				  W_Rocket_Explode ();
+				self.rl_detonate_later = TRUE;
+			if(self.rl_detonate_later)
+				W_Rocket_RemoteExplode();
 		}
 	}
 }
@@ -204,12 +216,17 @@ void W_Rocket_Attack (void)
 	if (cvar("g_use_ammunition") && !g_rocketarena)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_rocketlauncher_ammo");
 
-	W_SetupShot (self, '8 3 -8', FALSE, 5, "weapons/rocket_fire.wav");
-	te_smallflash(w_shotorg);
+	W_SetupShot (self, '25 3 -4', FALSE, 5, "weapons/rocket_fire.wav");
+	//W_SetupShot (self, '25 8 -8', FALSE, 5, "weapons/rocket_fire.wav"); // TODO: move model to the right a little
+	pointparticles(particleeffectnum("rocketlauncher_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
 	missile.owner = self;
 	self.lastrocket = missile;
+	if(cvar("g_balance_rocketlauncher_detonatedelay") >= 0)
+		missile.spawnshieldtime = time + cvar("g_balance_rocketlauncher_detonatedelay");
+	else
+		missile.spawnshieldtime = -1;
 	missile.classname = "missile";
 	missile.bot_dodge = TRUE;
 	missile.bot_dodgerating = cvar("g_balance_rocketlauncher_primary_damage") * 2; // * 2 because it can be detonated inflight which makes it even more dangerous
@@ -224,7 +241,7 @@ void W_Rocket_Attack (void)
 	setmodel (missile, "models/rocket.md3"); // precision set below
 	setsize (missile, '-3 -3 -3', '3 3 3'); // give it some size so it can be shot
 
-	setorigin (missile, w_shotorg);
+	setorigin (missile, w_shotorg - v_forward * 3); // move it back so it hits the wall at the right point
 	if(g_laserguided_missile && self.laser_on)
 		missile.velocity = w_shotdir * cvar("g_balance_rocketlauncher_laserguided_speedstart");
 	else
@@ -247,7 +264,7 @@ void W_Rocket_Attack (void)
 	flash.owner = self;
 	flash.viewmodelforclient = self;
 	flash.customizeentityforclient = CL_Weaponentity_CustomizeEntityForClient;
-	setorigin (flash, '35 5 -12');
+	setorigin (flash, '35 8 0');
 	setmodel (flash, "models/flash.md3"); // precision set below
 	setattachment(flash, self.weaponentity, "bone01");
 	SUB_SetFade (flash, time, 0.4);
@@ -341,7 +358,7 @@ float(float req) w_rlauncher =
 				}else{
 					local float distance; distance= bound(300,vlen(self.origin-self.enemy.origin),30000);
 					//As the distance gets larger, a correct detonation gets near imposible
-					//Bots are assumed to use the rocket light to see if the rocket gets near a player
+					//Bots are assumed to use the rocket spawnfunc_light to see if the rocket gets near a player
 					if(v_forward * normalize(missile.origin - self.enemy.origin)< 0.1)
 						if(self.enemy.classname == "player")
 							if(desirabledamage >= 0.1*coredamage)

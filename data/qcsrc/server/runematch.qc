@@ -27,11 +27,11 @@ float	CURSE_LAST	= 131072;
 
 */
 
-/*QUAKED runematch_spawn_point (1 0 0) (-16 -16 -24) (16 16 24)
+/*QUAKED spawnfunc_runematch_spawn_point (1 0 0) (-16 -16 -24) (16 16 24)
 spawn point for runes in runematch
 */
 
-void runematch_spawn_point()
+void spawnfunc_runematch_spawn_point()
 {
 	if(!g_runematch)
 	{
@@ -171,7 +171,7 @@ void RuneCarriedThink()
 		rune = find(rune, classname, "rune");
 	}
 
-	ang_y = rnum*(360 / rcount) + math_mod(time, 360)*45;//180;
+	ang_y = rnum*(360 / rcount) + mod(time, 360)*45;//180;
 
 	makevectors(ang);
 

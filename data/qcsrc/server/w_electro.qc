@@ -3,21 +3,18 @@ void W_Plasma_Explode (void)
 {
 	vector org2;
 	org2 = findbetterlocation (self.origin, 8);
-	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-	WriteByte (MSG_BROADCAST, 79);
-	WriteCoord (MSG_BROADCAST, org2_x);
-	WriteCoord (MSG_BROADCAST, org2_y);
-	WriteCoord (MSG_BROADCAST, org2_z);
-	WriteCoord (MSG_BROADCAST, 0);		// SeienAbunae: groan... Useless clutter
-	WriteCoord (MSG_BROADCAST, 0);
-	WriteCoord (MSG_BROADCAST, 0);
-	WriteByte (MSG_BROADCAST, 155);
 
 	self.event_damage = SUB_Null;
 	if (self.movetype == MOVETYPE_BOUNCE)
+	{
+		pointparticles(particleeffectnum("electro_ballexplode"), org2, '0 0 0', 1);
 		RadiusDamage (self, self.owner, cvar("g_balance_electro_secondary_damage"), cvar("g_balance_electro_secondary_edgedamage"), cvar("g_balance_electro_secondary_radius"), world, cvar("g_balance_electro_secondary_force"), IT_ELECTRO);
+	}
 	else
+	{
+		pointparticles(particleeffectnum("electro_impact"), org2, '0 0 0', 1);
 		RadiusDamage (self, self.owner, cvar("g_balance_electro_primary_damage"), cvar("g_balance_electro_primary_edgedamage"), cvar("g_balance_electro_primary_radius"), world, cvar("g_balance_electro_primary_force"), IT_ELECTRO);
+	}
 	sound (self, CHAN_BODY, "weapons/electro_impact.wav", 1, ATTN_NORM);
 
 	remove (self);
@@ -27,18 +24,18 @@ void W_Plasma_Explode_Combo (void) {
 	vector org2;
 
 	org2 = findbetterlocation (self.origin, 8);
-	te_spikequad(self.origin);
+	pointparticles(particleeffectnum("electro_combo"), org2, '0 0 0', 1);
 
 	sound (self, CHAN_BODY, "weapons/electro_impact_combo.wav", 1, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
 	RadiusDamage (self, self.owner, cvar("g_balance_electro_combo_damage"), cvar("g_balance_electro_combo_edgedamage"), cvar("g_balance_electro_combo_radius"), world, cvar("g_balance_electro_combo_force"), IT_ELECTRO);
-	te_explosionrgb(org2, '0.5 0.5 1');
 	remove (self);
 }
 
 void W_Plasma_Touch (void)
 {
+	entity o;
 	if (trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
 	{
 		sound (self, CHAN_BODY, "misc/null.wav", 1, ATTN_NORM);
@@ -46,7 +43,12 @@ void W_Plasma_Touch (void)
 		return;
 	}
 	if (other.takedamage == DAMAGE_AIM) {
+		o = self.owner;
 		W_Plasma_Explode ();
+		if(other.classname == "player")
+			if(IsDifferentTeam(o, other))
+				if(IsFlying(other))
+					announce(o, "announcer/male/electrobitch.ogg");
 	} else {
 		sound (self, CHAN_IMPACT, "weapons/electro_bounce.wav", 1, ATTN_NORM);
 	}
@@ -54,13 +56,20 @@ void W_Plasma_Touch (void)
 
 void W_Plasma_TouchExplode (void)
 {
+	entity o;
 	if (trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
 	{
 		sound (self, CHAN_BODY, "misc/null.wav", 1, ATTN_NORM);
 		remove(self);
 		return;
 	}
+	o = self.owner;
 	W_Plasma_Explode ();
+	if(other.takedamage == DAMAGE_AIM)
+		if(other.classname == "player")
+			if(IsDifferentTeam(o, other))
+				if(IsFlying(other))
+					announce(o, "announcer/male/electrobitch.ogg");
 }
 
 void W_Plasma_Damage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
@@ -86,7 +95,9 @@ void() W_Electro_Attack
 {
 	local entity proj;
 
-	W_SetupShot (self, '11 8 -8', FALSE, 2, "weapons/electro_fire.wav");
+	W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/electro_fire.wav");
+
+	pointparticles(particleeffectnum("electro_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	proj = spawn ();
 	proj.classname = "plasma_prim";
@@ -118,7 +129,9 @@ void() W_Electro_Attack2
 {
 	local entity proj;
 
-	W_SetupShot (self, '8 4.5 -13', FALSE, 2, "weapons/electro_fire2.wav");
+	W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/electro_fire2.wav");
+
+	pointparticles(particleeffectnum("electro_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	proj = spawn ();
 	proj.classname = "plasma";
@@ -136,7 +149,7 @@ void() W_Electro_Attack2
 	//proj.glow_size = 50;
 	//proj.glow_color = 45;
 	proj.movetype = MOVETYPE_BOUNCE;
-	proj.velocity = v_forward * cvar("g_balance_electro_secondary_speed") + v_up * cvar("g_balance_electro_secondary_speed_up");
+	proj.velocity = (w_shotdir + randomvec() * cvar("g_balance_electro_secondary_spread")) * cvar("g_balance_electro_secondary_speed") + v_up * cvar("g_balance_electro_secondary_speed_up");
 	W_SetupProjectileVelocity(proj);
 	proj.touch = W_Plasma_Touch;
 	setmodel(proj, "models/ebomb.mdl"); // precision set above

@@ -1,6 +1,45 @@
 
 float checkrules_firstblood;
 
+.float announcetime;
+float yoda;
+void announce(entity player, string msg)
+{
+	if(time > player.announcetime)
+	if(clienttype(player) == CLIENTTYPE_REAL)
+	{
+		player.announcetime = time + 0.3;
+		play2(player, msg);
+	}
+}
+
+float IsDifferentTeam(entity a, entity b)
+{
+	if(teams_matter)
+	{
+		if(a.team == b.team)
+			return 0;
+	}
+	else
+	{
+		if(a == b)
+			return 0;
+	}
+	return 1;
+}
+
+float IsFlying(entity a)
+{
+	if(a.flags & FL_ONGROUND)
+		return 0;
+	if(a.waterlevel >= 2)
+		return 0;
+	traceline(a.origin, a.origin - '0 0 48', MOVE_NORMAL, a);
+	if(trace_fraction < 1)
+		return 0;
+	return 1;
+}
+
 void(entity player, float f) UpdateFrags =
 {
 	player.frags += f;
@@ -237,37 +276,37 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				if (attacker.killcount == 3)
 				{
 					bprint (a,"^7 made a ^1TRIPLE FRAG\n");
-					play2(attacker, "announcer/male/03kills.ogg");
+					announce(attacker, "announcer/male/03kills.ogg");
 				}
 				else if (attacker.killcount == 5)
 				{
-					bprint (a,"^7 made a ^1FIVE FRAG COMBO\n");
-					play2(attacker, "announcer/male/05kills.ogg");
+					bprint (a,"^7 unleashes ^1RAGE\n");
+					announce(attacker, "announcer/male/05kills.ogg");
 				}
 				else if (attacker.killcount == 10)
 				{
-					bprint (a,"^7 is on a ^1RAGE\n");
-					play2(attacker, "announcer/male/10kills.ogg");
+					bprint (a,"^7 starts the ^1MASSACRE!\n");
+					announce(attacker, "announcer/male/10kills.ogg");
 				}
 				else if (attacker.killcount == 15)
 				{
-					bprint (a,"^7 has done a ^1MASSACRE!\n");
-					play2(attacker, "announcer/male/15kills.ogg");
+					bprint (a,"^7 executes ^1MAYHEM!\n");
+					announce(attacker, "announcer/male/15kills.ogg");
 				}
 				else if (attacker.killcount == 20)
 				{
-					bprint (a,"^7 is ^1UNHUMAN!\n");
-					play2(attacker, "announcer/male/20kills.ogg");
+					bprint (a,"^7 is a ^1BERSERKER!\n");
+					announce(attacker, "announcer/male/20kills.ogg");
 				}
 				else if (attacker.killcount == 25)
 				{
-					bprint (a,"^7 is a ^1DEATH INCARNATION!\n");
-					play2(attacker, "announcer/male/25kills.ogg");
+					bprint (a,"^7 inflicts ^1CARNAGE!\n");
+					announce(attacker, "announcer/male/25kills.ogg");
 				}
 				else if (attacker.killcount == 30)
 				{
-					bprint (a,"^7 is maybe a ^1AIMBOTTER?!\n");
-					play2(attacker, "announcer/male/30kills.ogg");
+					bprint (a,"^7 unleashes ^1ARMAGEDDON!\n");
+					announce(attacker, "announcer/male/30kills.ogg");
 				}
 			}
 		}
@@ -292,7 +331,7 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				bprint ("^1",s, "^1 died\n");
 			GiveFrags(targ, targ, -1);
 			if(targ.frags == -5) {
-				play2(targ, "announcer/male/botlike.ogg");
+				announce(targ, "announcer/male/botlike.ogg");
 			}
 
 			if (targ.killcount > 2)
@@ -416,7 +455,9 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 			}
 			else if (deathtype == IT_NEX && targ.items & IT_STRENGTH)
 			{
-				if(clienttype(attacker) == CLIENTTYPE_REAL) play2(attacker, "announcer/male/yoda.ogg");
+				if(clienttype(attacker) == CLIENTTYPE_REAL)
+					if(IsDifferentTeam(targ, attacker))
+						yoda = 1;
 			}
 			if (deathtype == IT_LASER)
 			{
@@ -433,10 +474,11 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				}
 			}
 		} else {
-			if (deathtype == IT_NEX && !targ.deadflag && !(attacker.flags & FL_ONGROUND) && !(targ.flags & FL_ONGROUND) && attacker.waterlevel < 2 && targ.waterlevel < 2 && attacker.killcount != 3 && attacker.killcount != 5 && attacker.killcount != 10 && attacker.killcount != 15 && attacker.killcount != 20 && attacker.killcount != 25 && attacker.killcount != 30)
-			{
-				if(clienttype(attacker) == CLIENTTYPE_REAL)  play2(attacker, "announcer/male/yoda.ogg");
-			}
+			if (!targ.deadflag)
+				if(targ.takedamage == DAMAGE_AIM)
+					if(IsFlying(targ))
+						if(IsDifferentTeam(targ, attacker))
+							yoda = 1;
 		}
 
 		// apply strength multiplier
@@ -487,6 +529,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 
 	// apply push
 	if (self.damageforcescale)
+	if (vlen(force))
 	{
 		self.velocity = self.velocity + self.damageforcescale * force;
 		self.flags = self.flags - (self.flags & FL_ONGROUND);
@@ -499,7 +542,10 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 	if(targ.classname == "player" && attacker.classname == "player" && attacker != targ && attacker.health > 2)
 	{
 		// Savage: vampire mode
-		if(g_vampire && !g_minstagib)
+		if (g_vampire)
+		if (!g_minstagib)
+		if (!g_instagib)
+		if (time > self.spawnshieldtime)
 		{
 			attacker.health += damage;
 		}
@@ -558,6 +604,20 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 	}
 }
 
+vector NearestPointOnBox(entity box, vector org)
+{
+	vector m1, m2, nearest;
+
+	m1 = box.mins + box.origin;
+	m2 = box.maxs + box.origin;
+
+	nearest_x = bound(m1_x, org_x, m2_x);
+	nearest_y = bound(m1_y, org_y, m2_y);
+	nearest_z = bound(m1_z, org_z, m2_z);
+
+	return nearest;
+}
+
 float RadiusDamage (entity inflictor, entity attacker, float coredamage, float edgedamage, float rad, entity ignore, float forceintensity, float deathtype)
 // Returns total damage applies to creatures
 {
@@ -566,11 +626,9 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 	float	power;
 	vector	blastorigin;
 	vector	force;
-	vector	m1;
-	vector	m2;
-	vector	nearest;
-	vector	diff;
+	vector  diff;
 	vector  center;
+	vector  nearest;
 	float   total_damage_to_creatures;
 
 	blastorigin = (inflictor.origin + (inflictor.mins + inflictor.maxs) * 0.5);
@@ -584,15 +642,7 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 			{
 				// LordHavoc: measure distance to nearest point on target (not origin)
 				// (this guarentees 100% damage on a touch impact)
-				nearest = blastorigin;
-				m1 = targ.origin + targ.mins;
-				m2 = targ.origin + targ.maxs;
-				if (nearest_x < m1_x) nearest_x = m1_x;
-				if (nearest_y < m1_y) nearest_y = m1_y;
-				if (nearest_z < m1_z) nearest_z = m1_z;
-				if (nearest_x > m2_x) nearest_x = m2_x;
-				if (nearest_y > m2_y) nearest_y = m2_y;
-				if (nearest_z > m2_z) nearest_z = m2_z;
+				nearest = NearestPointOnBox(targ, blastorigin);
 				diff = nearest - blastorigin;
 				// round up a little on the damage to ensure full damage on impacts
 				// and turn the distance into a fraction of the radius
@@ -606,7 +656,7 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 					finaldmg = coredamage * power + edgedamage * (1 - power);
 					if (finaldmg > 0)
 					{
-						center = (m1 + m2) * 0.5;
+						center = targ.origin + (targ.mins + targ.maxs) * 0.5;
 						// if it's a player, use the view origin as reference
 						if (targ.classname == "player")
 							center = targ.origin + targ.view_ofs;
@@ -631,9 +681,9 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 								Damage (targ, inflictor, attacker, finaldmg, deathtype, nearest, force);
 								break;
 							}
-							nearest_x = m1_x + random() * targ.size_x;
-							nearest_y = m1_y + random() * targ.size_y;
-							nearest_z = m1_z + random() * targ.size_z;
+							nearest_x = targ.mins_x + random() * targ.size_x;
+							nearest_y = targ.mins_y + random() * targ.size_y;
+							nearest_z = targ.mins_z + random() * targ.size_z;
 						}
 					}
 				}
@@ -643,83 +693,3 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 
 	return total_damage_to_creatures;
 }
-
-/*
-entity	multi_ent;
-float	multi_damage;
-vector	multi_force;
-
-void ClearMultiDamage (void)
-{
-	multi_ent = world;
-	multi_damage = 0;
-	multi_force = '0 0 0';
-}
-
-void ApplyMultiDamage (void)
-{
-	if (!multi_ent)
-		return;
-
-	Damage (self, multi_ent.origin, multi_ent, 0, multi_damage, multi_force);
-}
-
-void AddMultiDamage (entity hit, float damage, vector force)
-{
-	if (!hit)
-		return;
-
-	if (hit != multi_ent)
-	{
-		ApplyMultiDamage ();
-		ClearMultiDamage ();
-		multi_ent = hit;
-	}
-	multi_damage = multi_damage + damage;
-	multi_force = multi_force + force;
-}
-
-void FireBullets (float shotcount, vector dir, vector spread, float deathtype)
-{
-	vector	direction;
-	vector	source;
-	vector	vel;
-	vector	org;
-
-	makevectors (self.v_angle);
-
-	source = self.origin + v_forward * 10;	// FIXME
-	source_x = self.absmin_z + self.size_z * 0.7;	// ??? whaddabout view_ofs
-
-	// LordHavoc: better to use normal damage
-	//ClearMultiDamage ();
-	while (shotcount > 0)
-	{
-		direction = dir + crandom () * spread_x * v_right + crandom () * spread_y * v_up;
-
-		traceline (source, source + direction * 2048, FALSE, self);
-		if (trace_fraction != 1.0)
-		{
-			vel = normalize (direction + v_up * crandom () + v_right * crandom ());
-			vel = vel + 2 * trace_plane_normal;
-			vel = vel * 200;
-
-			org = trace_endpos - direction * 4;
-
-			if (!trace_ent.takedamage)
-				te_gunshot (org);
-			// LordHavoc: better to use normal damage
-			//AddMultiDamage (trace_ent, 4, direction * 4);
-			Damage (trace_ent, self, self, 4, deathtype, trace_endpos, direction * 4);
-		}
-
-		shotcount = shotcount + 1;
-	}
-
-	// LordHavoc: better to use normal damage
-	//ApplyMultiDamage ();
-}
-*/
-
-
-

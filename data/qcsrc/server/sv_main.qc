@@ -146,6 +146,7 @@ Called before each frame by the server
 */
 void RuneMatchGivePoints();
 float RedirectionThink();
+entity SelectSpawnPoint (float anypoint);
 void StartFrame (void)
 {
 	dprint_load(); // load dprint status from cvar
@@ -174,4 +175,13 @@ void StartFrame (void)
 
 	RuneMatchGivePoints();
 	bot_serverframe();
+
+	if(cvar("spawn_debugview"))
+	{
+		RandomSelection_Init();
+		for(self = world; (self = find(self, classname, "player")); )
+			RandomSelection_Add(self, 0, 1);
+		self = RandomSelection_chosen_ent;
+		SelectSpawnPoint(0);
+	}
 }

@@ -285,7 +285,7 @@ void SV_PlayerPhysics()
 	}
 	else if (time < self.ladder_time)
 	{
-		// on a func_ladder or swimming in func_water
+		// on a spawnfunc_func_ladder or swimming in spawnfunc_func_water
 		self.flags = self.flags - (self.flags & FL_ONGROUND);
 
 		self.velocity = self.velocity * (1 - frametime * sv_friction);

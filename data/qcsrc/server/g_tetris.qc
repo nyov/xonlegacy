@@ -2,11 +2,11 @@
 
 Installation:
 
-in weapons.qc add TetrisImpulses(); to ImpulseCommands
+in cl_impulse.qc add TetrisImpulses(); to ImpulseCommands
 
-in progs.src add tetris.qc after subs.qc
-in client.qc add if (TetrisPreFrame()) return; to  PlayerPreThink
-in client.qc add if (TetrisPostFrame()) return; to PlayerPostThink
+in progs.src add g_tetris.qc after g_subs.qc
+in cl_client.qc add if (TetrisPreFrame()) return; to  PlayerPreThink
+in cl_client.qc add if (TetrisPostFrame()) return; to PlayerPostThink
 
 */
 
@@ -325,12 +325,14 @@ somewhat modified because we don't need all the fanciness Prydon Gate is capable
 
 */
 
-void(float c1, float c2, float c3, float c4, float c5, float c6) p6 =
+// remove warnings by adding underscores, i hate warnings, warnings suck
+// --blub
+void(float _c1, float _c2, float _c3, float _c4, float c5, float c6) p6 =
 {
-	WriteChar(MSG_ONE, c1);
-	WriteChar(MSG_ONE, c2);
-	WriteChar(MSG_ONE, c3);
-	WriteChar(MSG_ONE, c4);
+	WriteChar(MSG_ONE, _c1);
+	WriteChar(MSG_ONE, _c2);
+	WriteChar(MSG_ONE, _c3);
+	WriteChar(MSG_ONE, _c4);
 	WriteChar(MSG_ONE, c5);
 	WriteChar(MSG_ONE, c6);
 };
@@ -375,11 +377,11 @@ void (float ln) DrawLine =
 
 void (float pc, float ln) DrawPiece =
 {
-	float x, d, piece_ln, color;
+	float x, d, piece_ln, pcolor;
 	vector piece_dat;
-	color = pc & 3;
-	if (color == 0) // 4
-		color = 1;
+	pcolor = pc & 3;
+	if (pcolor == 0) // 4
+		pcolor = 1;
 	WriteChar(MSG_ONE, TET_SPACE); // pad to 6
 
 	piece_dat = PieceShape(pc);
@@ -389,7 +391,7 @@ void (float pc, float ln) DrawPiece =
 		piece_ln = piece_dat_y;
 	for (x = 1; x <= 4; x = x + 1)
 	{
-		d = GetXBlock(x, piece_ln) * color;
+		d = GetXBlock(x, piece_ln) * pcolor;
 		if (d)
 			WriteChar(MSG_ONE, TET_BLOCKS + d);
 		else
@@ -541,15 +543,15 @@ void ClearPiece(float piece, float orgx, float orgy, float rot) =
 }
 void CementPiece(float piece, float orgx, float orgy, float rot) =
 {
-	float color;
+	float pcolor;
 	float x, y;
 	// why did I start counting from 1, damnit
 	orgx = orgx - 1;
 	orgy = orgy - 1;
 
-	color = piece & 3;
-	if (color == 0) // 4
-		color = 1;
+	pcolor = piece & 3;
+	if (pcolor == 0) // 4
+		pcolor = 1;
 
 	for (y = 1; y < 5; y = y + 1)
 	{
@@ -557,7 +559,7 @@ void CementPiece(float piece, float orgx, float orgy, float rot) =
 		{
 			if (PieceMetric(x, y, rot, piece))
 			{
-				SetSquare(x + orgx, y + orgy, color);
+				SetSquare(x + orgx, y + orgy, pcolor);
 			}
 		}
 	}
@@ -667,9 +669,9 @@ Important Linking Into Quake stuff
 */
 
 
-void() TetrisImpulses =
+void(float imp) TetrisImpulses =
 {
-	if (self.impulse == 200)
+	if (imp == 200)
 	{
 		self.tetris_on = 1;
 		ResetTetris();
@@ -720,21 +722,18 @@ float() TetrisPostFrame =
 
 	if (!self.tetris_on)
 		return 0;
+	
 	if (self.origin != self.tet_org)
 	{
-		mov = vectoangles(self.origin - self.tet_org);
 		self.origin = self.tet_org;
-
-		norm = angcompa(self.v_angle_y, mov_y);
-
-		if (norm > -80 && norm < 80)
-			keysa = keysa | TETKEY_UP;
-		if (norm > 10 && norm < 170)
-			keysa = keysa | TETKEY_RIGHT;
-		if (norm > 100  || norm < -260)
-			keysa = keysa | TETKEY_DOWN;
-		if (norm > -170 && norm < -10)
-			keysa = keysa | TETKEY_LEFT;
+		if(self.movement_x < 0)
+			keysa |= TETKEY_DOWN;
+		else if(self.movement_x > 0)
+			keysa |= TETKEY_UP;
+		if(self.movement_y < 0)
+			keysa |= TETKEY_LEFT;
+		else if(self.movement_y > 0)
+			keysa |= TETKEY_RIGHT;
 	}
 	if (self.button0)
 		keysa = keysa | TETKEY_ROTRIGHT;

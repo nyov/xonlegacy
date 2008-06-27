@@ -1,5 +1,5 @@
 
-float maxclients; // set by worldspawn code
+float maxclients; // set by spawnfunc_worldspawn code
 float numdecors;
 float maxdecors;
 .float createdtime;
@@ -188,37 +188,6 @@ void(entity e) removedecor =
 	remove(e);
 };
 
-
-void(vector org, vector vel, float amount) blood =
-{
-	te_blood(org, vel, amount);
-};
-
-void(vector org, vector vel, float amount) spark =
-{
-	te_spark(org, vel, amount);
-};
-
-void(vector m1, vector m2, float vel, float amount) bloodshower =
-{
-	te_bloodshower(m1, m2, vel, amount);
-};
-
-void(vector org, float quad) bulletpuff =
-{
-	if (quad)
-		te_gunshotquad(org);
-	else
-		te_gunshot(org);
-};
-
-void(vector org, float quad) nailpuff =
-{
-	if (quad)
-		te_superspikequad(org);
-	else
-		te_superspike(org);
-};
 
 // used for various little bouncing debris to avoid getting stuck in the air
 void() DecorThink =

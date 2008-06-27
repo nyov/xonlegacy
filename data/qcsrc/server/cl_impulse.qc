@@ -1,4 +1,5 @@
 .vector personal_v_angle; // view angles to restore on impulse 77
+.vector personal_velocity; // velocity to restore on impulse 77
 
 void CopyBody(float keepvelocity);
 
@@ -62,6 +63,10 @@ void ImpulseCommands (void)
 	if (!imp || gameover)
 		return;
 	self.impulse = 0;
+
+	if (timeoutStatus == 2) //don't allow any impulses while the game is paused
+		return;
+
 	if (imp >= 1 && imp <= 12)
 	{
 		// weapon switching impulses
@@ -83,12 +88,8 @@ void ImpulseCommands (void)
 	else if (imp == 17)
 	{
 		if(self.deadflag == DEAD_NO)
-		{
-			if (self.weapon != WEP_LASER
-				&& !g_minstagib && !g_instagib
-				&& !g_rocketarena && !g_lms && cvar("g_pickup_items") && !g_nixnex)
-				W_ThrowWeapon(W_CalculateProjectileVelocity(self.velocity, v_forward * 750), '0 0 0', TRUE);
-		}
+		if (!g_minstagib)
+			W_ThrowWeapon(W_CalculateProjectileVelocity(self.velocity, v_forward * 750), '0 0 0', TRUE);
 	}
 	// deploy waypoints
 	else if (imp >= 30 && imp <= 49)
@@ -97,18 +98,21 @@ void ImpulseCommands (void)
 		{
 			WaypointSprite_DeployPersonal("waypoint", self.origin);
 			self.personal_v_angle = self.v_angle;
+			self.personal_velocity = self.velocity;
 			sprint(self, "personal waypoint spawned at location\n");
 		}
 		else if(imp == 31)
 		{
 			WaypointSprite_DeployPersonal("waypoint", self.cursor_trace_endpos);
 			self.personal_v_angle = self.v_angle;
+			self.personal_velocity = '0 0 0';
 			sprint(self, "personal waypoint spawned at crosshair\n");
 		}
 		else if(imp == 32 && vlen(self.death_origin))
 		{
 			WaypointSprite_DeployPersonal("waypoint", self.death_origin);
 			self.personal_v_angle = self.v_angle;
+			self.personal_velocity = '0 0 0';
 			sprint(self, "personal waypoint spawned at death location\n");
 		}
 		else if(imp == 33 && self.deadflag == DEAD_NO && teams_matter)
@@ -189,6 +193,7 @@ void ImpulseCommands (void)
 				{
 					if(self.waypointsprite_deployed_personal)
 					{
+						self.speedrunning = TRUE;
 						tracebox(self.waypointsprite_deployed_personal.origin, self.mins, self.maxs, self.waypointsprite_deployed_personal.origin, MOVE_WORLDONLY, self);
 						if(trace_startsolid)
 						{
@@ -198,7 +203,7 @@ void ImpulseCommands (void)
 						{
 							// Abort speedrun, teleport back
 							setorigin(self, self.waypointsprite_deployed_personal.origin);
-							self.velocity = '0 0 0';
+							self.oldvelocity = self.velocity = self.personal_velocity;
 							self.angles = self.personal_v_angle;
 							self.fixangle = TRUE;
 							if(self.flagcarried)
@@ -207,6 +212,16 @@ void ImpulseCommands (void)
 								ReturnFlag(self.flagcarried);
 							}
 						}
+						self.ammo_rockets = 999;
+						self.ammo_nails = 999;
+						self.ammo_cells = 999;
+						self.ammo_shells = 999;
+						self.health = start_health;
+						self.armorvalue = start_armorvalue;
+						self.items |= itemsInMap & (IT_LASER | IT_SHOTGUN | IT_UZI | IT_GRENADE_LAUNCHER | IT_ELECTRO | IT_CRYLINK | IT_NEX | IT_HAGAR | IT_ROCKET_LAUNCHER);
+						self.pauserotarmor_finished = time + cvar("g_balance_pause_armor_rot_spawn");
+						self.pauserothealth_finished = time + cvar("g_balance_pause_health_rot_spawn");
+						self.pauseregen_finished = time + cvar("g_balance_pause_health_regen_spawn");
 					}
 					else
 						sprint(self, "No waypoint set, cheater (use g_waypointsprite_personal to set one)\n");
@@ -214,12 +229,12 @@ void ImpulseCommands (void)
 				else if(imp == 99)
 				{
 					self.items |= (IT_LASER | IT_UZI | IT_SHOTGUN | IT_GRENADE_LAUNCHER | IT_ELECTRO | IT_CRYLINK | IT_NEX | IT_HAGAR | IT_ROCKET_LAUNCHER);
-					self.ammo_shells = cvar("g_pickup_shells_max");
-					self.ammo_nails = cvar("g_pickup_nails_max");
-					self.ammo_rockets = cvar("g_pickup_rockets_max");
-					self.ammo_cells = cvar("g_pickup_cells_max");
-					self.health = cvar("g_pickup_healthshard_max");
-					self.armorvalue = cvar("g_pickup_armorshard_max");
+					self.ammo_shells = g_pickup_shells_max;
+					self.ammo_nails = g_pickup_nails_max;
+					self.ammo_rockets = g_pickup_rockets_max;
+					self.ammo_cells = g_pickup_cells_max;
+					self.health = g_pickup_healthsmall_max;
+					self.armorvalue = g_pickup_armorsmall_max;
 					self.pauserotarmor_finished = time + cvar("g_balance_pause_armor_rot_spawn");
 					self.pauserothealth_finished = time + cvar("g_balance_pause_health_rot_spawn");
 					self.pauseregen_finished = time + cvar("g_balance_pause_health_regen_spawn");
@@ -237,10 +252,14 @@ void ImpulseCommands (void)
 					makevectors (self.v_angle);
 					self.velocity = self.velocity + v_forward * 300;
 					CopyBody(1);
+					self.lip += 1;
 					self.velocity = self.velocity - v_forward * 300;
 				}
 				else if (imp == 14)
+				{
 					CopyBody(0);
+					self.lip += 1;
+				}
 			}
 		}
 	}
@@ -254,5 +273,5 @@ void ImpulseCommands (void)
 		else if (imp == 106) waypoint_saveall();
 	}
 
-	//TetrisImpulses();
+	//TetrisImpulses(imp);
 }

@@ -105,7 +105,7 @@ void() SUB_UseTargets =
 
 
 
-void() trigger_reactivate =
+void() spawnfunc_trigger_reactivate =
 {
 	self.solid = SOLID_TRIGGER;
 };
@@ -181,6 +181,10 @@ void() multi_touch =
 	if (other.classname != "player")
 		return;
 
+    if(self.team)
+    if(self.team == other.team)
+        return;
+
 // if the trigger has an angles field, check player's facing direction
 	if (self.movedir != '0 0 0')
 	{
@@ -205,12 +209,12 @@ void multi_eventdamage (vector hitloc, float damage, entity inflictor, entity at
 	}
 }
 
-/*QUAKED trigger_multiple (.5 .5 .5) ? notouch
+/*QUAKED spawnfunc_trigger_multiple (.5 .5 .5) ? notouch
 Variable sized repeatable trigger.  Must be targeted at one or more entities.  If "health" is set, the trigger must be killed to activate each time.
 If "delay" is set, the trigger waits some time after activating before firing.
 "wait" : Seconds between triggerings. (.2 default)
 If notouch is set, the trigger is only fired by other entities, not by touching.
-NOTOUCH has been obsoleted by trigger_relay!
+NOTOUCH has been obsoleted by spawnfunc_trigger_relay!
 sounds
 1)	secret
 2)	beep beep
@@ -218,7 +222,7 @@ sounds
 4)
 set "message" to text string
 */
-void() trigger_multiple =
+void() spawnfunc_trigger_multiple =
 {
 	if (self.sounds == 1)
 	{
@@ -262,7 +266,7 @@ void() trigger_multiple =
 };
 
 
-/*QUAKED trigger_once (.5 .5 .5) ? notouch
+/*QUAKED spawnfunc_trigger_once (.5 .5 .5) ? notouch
 Variable sized trigger. Triggers once, then removes itself.  You must set the key "target" to the name of another object in the level that has a matching
 "targetname".  If "health" is set, the trigger must be killed to activate.
 If notouch is set, the trigger is only fired by other entities, not by touching.
@@ -275,22 +279,35 @@ sounds
 4)
 set "message" to text string
 */
-void() trigger_once =
+void() spawnfunc_trigger_once =
 {
 	self.wait = -1;
-	trigger_multiple();
+	spawnfunc_trigger_multiple();
 };
 
 //=============================================================================
 
-/*QUAKED trigger_relay (.5 .5 .5) (-8 -8 -8) (8 8 8)
+/*QUAKED spawnfunc_trigger_relay (.5 .5 .5) (-8 -8 -8) (8 8 8)
 This fixed size trigger cannot be touched, it can only be fired by other events.  It can contain killtargets, targets, delays, and messages.
 */
-void() trigger_relay =
+void() spawnfunc_trigger_relay =
 {
 	self.use = SUB_UseTargets;
 };
 
+void() delay_use
+{
+    self.think = SUB_UseTargets;
+    self.nextthink = self.wait;
+}
+
+void() spawnfunc_trigger_delay
+{
+    if(!self.wait)
+        self.wait = 1;
+
+    self.use = delay_use;
+}
 
 //=============================================================================
 
@@ -325,14 +342,14 @@ void() counter_use =
 	multi_trigger ();
 };
 
-/*QUAKED trigger_counter (.5 .5 .5) ? nomessage
+/*QUAKED spawnfunc_trigger_counter (.5 .5 .5) ? nomessage
 Acts as an intermediary for an action that takes multiple inputs.
 
 If nomessage is not set, t will print "1 more.. " etc when triggered and "sequence complete" when finished.
 
 After the counter has been triggered "count" times (default 2), it will fire all of it's targets and remove itself.
 */
-void() trigger_counter =
+void() spawnfunc_trigger_counter =
 {
 	self.wait = -1;
 	if (!self.count)
@@ -342,7 +359,7 @@ void() trigger_counter =
 };
 
 .float triggerhurttime;
-void() hurt_touch =
+void() spawnfunc_hurt_touch =
 {
 	if (!other.owner)
 	{
@@ -362,15 +379,15 @@ void() hurt_touch =
 	return;
 };
 
-/*QUAKED trigger_hurt (.5 .5 .5) ?
+/*QUAKED spawnfunc_trigger_hurt (.5 .5 .5) ?
 Any object touching this will be hurt
 set dmg to damage amount
 defalt dmg = 5
 */
-void() trigger_hurt =
+void() spawnfunc_trigger_hurt =
 {
 	InitTrigger ();
-	self.touch = hurt_touch;
+	self.touch = spawnfunc_hurt_touch;
 	if (!self.dmg)
 		self.dmg = 1000;
 	if (!self.message)
@@ -378,9 +395,9 @@ void() trigger_hurt =
 };
 
 //void() target_speaker_use = {sound(self, CHAN_VOICE, self.noise, 1, 1);}
-//void() target_speaker = {self.use = target_speaker_use;}
+//void() spawnfunc_target_speaker = {self.use = target_speaker_use;}
 
-void() target_speaker =
+void() spawnfunc_target_speaker =
 {
 if(self.noise) {
  precache_sound (self.noise);
@@ -390,7 +407,7 @@ if(self.noise) {
 };
 
 
-void() func_stardust {
+void() spawnfunc_func_stardust {
 	self.effects = EF_STARDUST;
 }
 
@@ -443,7 +460,7 @@ void() rain_think =
 //	WriteByte (MSG_BROADCAST, self.cnt);
 };
 
-/*QUAKED func_rain (0 .5 .8) ?
+/*QUAKED spawnfunc_func_rain (0 .5 .8) ?
 This is an invisible area like a trigger, which rain falls inside of.
 
 Keys:
@@ -452,9 +469,9 @@ Keys:
 "cnt"
  sets color of rain (default 12 - white)
 "count"
- adjusts rain density, this many particles fall every second, experiment to see the effects (default is based on area size)
+ adjusts density, this many particles fall every second for a 1024x1024 area, default is 2000
 */
-void() func_rain =
+void() spawnfunc_func_rain =
 {
 	self.dest = self.velocity;
 	self.velocity = '0 0 0';
@@ -463,14 +480,16 @@ void() func_rain =
 	self.angles = '0 0 0';
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
-	setmodel(self, self.model); // no precision needed
+	if(self.model != "")
+		setmodel(self, self.model); // no precision needed
 	setorigin(self, self.origin);
 	setsize(self, self.mins, self.maxs);
 	self.model = "";
 	if (!self.cnt)
 		self.cnt = 12;
 	if (!self.count)
-		self.count = (self.absmax_x - self.absmin_x)*(self.absmax_y - self.absmin_y)/8192;
+		self.count = 2000;
+	self.count = 0.1 * self.count * (self.size_x / 1024) * (self.size_y / 1024);
 	if (self.count < 1)
 	{
 		remove(self);
@@ -485,7 +504,7 @@ void() func_rain =
 
 void() snow_think =
 {
-	self.nextthink = time + 0.1;
+	self.nextthink = time + 0.1 + random() * 0.05;
 	te_particlesnow(self.absmin, self.absmax, self.dest, self.count, self.cnt);
 //	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
 //	WriteByte (MSG_BROADCAST, TE_PARTICLESNOW);
@@ -496,7 +515,7 @@ void() snow_think =
 //	WriteByte (MSG_BROADCAST, self.cnt);
 };
 
-/*QUAKED func_snow (0 .5 .8) ?
+/*QUAKED spawnfunc_func_snow (0 .5 .8) ?
 This is an invisible area like a trigger, which snow falls inside of.
 
 Keys:
@@ -505,9 +524,9 @@ Keys:
 "cnt"
  sets color of rain (default 12 - white)
 "count"
- adjusts snow density, this many particles fall every second, experiment to see the effects (default is based on area size)
+ adjusts density, this many particles fall every second for a 1024x1024 area, default is 2000
 */
-void() func_snow =
+void() spawnfunc_func_snow =
 {
 	self.dest = self.velocity;
 	self.velocity = '0 0 0';
@@ -516,14 +535,16 @@ void() func_snow =
 	self.angles = '0 0 0';
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
-	setmodel(self, self.model); // no precision needed
+	if(self.model != "")
+		setmodel(self, self.model); // no precision needed
 	setorigin(self, self.origin);
 	setsize(self, self.mins, self.maxs);
 	self.model = "";
 	if (!self.cnt)
 		self.cnt = 12;
 	if (!self.count)
-		self.count = (self.absmax_x - self.absmin_x)*(self.absmax_y - self.absmin_y)/8192;
+		self.count = 2000;
+	self.count = 0.1 * self.count * (self.size_x / 1024) * (self.size_y / 1024);
 	if (self.count < 1)
 	{
 		remove(self);
@@ -535,4 +556,166 @@ void() func_snow =
 	self.nextthink = time + 0.5;
 };
 
+
+void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, float deathtype);
+void() misc_laser_think =
+{
+	vector o;
+	if(!self.state)
+	{
+		self.enemy = find(world, targetname, self.target);
+		self.state = 1;
+	}
+	if(self.enemy)
+	{
+		o = self.enemy.origin;
+	}
+	else
+	{
+		makevectors(self.angles);
+		o = self.origin + v_forward * MAX_SHOT_DISTANCE;
+	}
+
+	if(self.dmg)
+	{
+		if(self.dmg < 0)
+			FireRailgunBullet(self.origin, o, 100000, 0, DEATH_HURTTRIGGER);
+		else
+			FireRailgunBullet(self.origin, o, self.dmg * frametime, 0, DEATH_HURTTRIGGER);
+	}
+
+	if(time > self.ltime)
+	{
+		traceline(self.origin, o, MOVE_WORLDONLY, self);
+		trailparticles(self, self.cnt, self.origin, trace_endpos);
+		pointparticles(self.lip, trace_endpos, trace_plane_normal, 256 * frametime);
+		self.ltime = time + self.wait;
+	}
+	self.nextthink = time;
+}
+/*QUAKED spawnfunc_misc_laser (.5 .5 .5) ?
+Any object touching the beam will be hurt
+Keys:
+"target"
+ spawnfunc_target_position where the laser ends
+"mdl"
+ name of beam effect to use
+"dmg"
+ damage per second (-1 for a laser that kills immediately)
+"wait"
+ delay between sending the particle effect
+*/
+void() spawnfunc_misc_laser =
+{
+	if(self.mdl)
+	{
+		self.cnt = particleeffectnum(self.mdl);
+		self.lip = particleeffectnum(strcat(self.mdl, "_end"));
+	}
+	else
+	{
+		self.cnt = particleeffectnum("misc_laser_beam");
+		self.lip = particleeffectnum("misc_laser_beam_end");
+	}
+	if(!self.wait)
+		self.wait = 1;
+	if(!self.message)
+		self.message = "saw the light";
+	self.think = misc_laser_think;
+	self.nextthink = time;
+}
+
+.float strength;
+.float lastpushtime;
+void trigger_impulse_touch1()
+{
+	entity targ;
+    float pushdeltatime;
+
+	// FIXME: Better checking for what to push and not.
+	if (other.classname != "player")
+	if (other.classname != "corpse")
+	if (other.classname != "body")
+	if (other.classname != "gib")
+	if (other.classname != "missile")
+	if (other.classname != "casing")
+	if (other.classname != "grenade")
+	if (other.classname != "plasma")
+	if (other.classname != "plasma_prim")
+	if (other.classname != "plasma_chain")
+	if (other.classname != "droppedweapon")
+		return;
+
+	if (other.deadflag && other.classname == "player")
+		return;
+
+    targ = find(world, targetname, self.target);
+    if(!targ)
+    {
+        objerror("trigger_force without a (valif) .target!\n");
+        remove(self);
+        return;
+    }
+
+
+    pushdeltatime = time - other.lastpushtime;
+    if (pushdeltatime > 0.15) pushdeltatime = 0;
+    other.lastpushtime = time;
+    if(!pushdeltatime) return;
+
+    other.velocity = other.velocity + normalize(targ.origin - self.origin) * self.strength * pushdeltatime;
+}
+
+void trigger_impulse_touch2()
+{
+
+	// FIXME: Better checking for what to push and not.
+	if (other.classname != "player")
+	if (other.classname != "corpse")
+	if (other.classname != "body")
+	if (other.classname != "gib")
+	if (other.classname != "missile")
+	if (other.classname != "casing")
+	if (other.classname != "grenade")
+	if (other.classname != "plasma")
+	if (other.classname != "plasma_prim")
+	if (other.classname != "plasma_chain")
+	if (other.classname != "droppedweapon")
+		return;
+
+	if (other.deadflag && other.classname == "player")
+		return;
+
+    other.velocity = other.velocity * self.strength;
+}
+
+
+/*QUAKED spawnfunc_trigger_impulse (.5 .5 .5) ?
+-------- KEYS --------
+target : If this is set, this points to the spawnfunc_target_position to which the player will get pushed.
+         If not, this trigger acts like a damper/accelerator field.
+
+strength : This is how mutch force to add in the direction of .target each second
+           when .target is set. If not, this is hoe mutch to slow down/accelerate
+           someting cought inside this trigger. (1=no change, 0,5 half speed rougthly each tic, 2 = doubble)
+
+-------- NOTES --------
+Use a brush textured with common/origin in the trigger entity to determine the origin of the force
+in directional push mode. For damper/accelerator mode this is no nessesary (and has no effect).
+*/
+
+void spawnfunc_trigger_impulse()
+{
+    InitTrigger ();
+    if(self.target)
+    {
+        if(!self.strength) self.strength = 950;
+        self.touch = trigger_impulse_touch1;
+    }
+    else
+    {
+        if(!self.strength) self.strength = 0.9;
+        self.touch = trigger_impulse_touch2;
+    }
+}
 

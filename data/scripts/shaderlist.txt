@@ -8,7 +8,6 @@ evil2
 evil3
 evil4_techtrims
 evil5
-evil6
 evil6_floors
 evil6_lights
 evil6_support
@@ -19,7 +18,9 @@ eX
 final_rage
 harlequin_sky
 kaznexctf2
+leiprojectile
 liquids
+mflag
 morphed
 nexdm18_rmx
 official_cmp1
@@ -31,7 +32,13 @@ sav-liquids
 sfx
 stralenex1
 stralenex8
+strength
 swamp
+terrain_alphafade
+terrain_dotproduct2projected
+terrain_dotproduct2
+test3
 toxic
+tree
 tznex01
 water

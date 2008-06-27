@@ -20,6 +20,8 @@ void CopyBody(float keepvelocity)
 		return;
 	oldself = self;
 	self = spawn();
+	self.enemy = oldself;
+	self.lip = oldself.lip;
 	self.colormap = oldself.colormap;
 	self.iscreature = oldself.iscreature;
 	self.angles = oldself.angles;
@@ -250,21 +252,13 @@ void player_anim (void)
 
 void SpawnThrownWeapon (vector org, float w)
 {
-	if (!cvar("g_pickup_items"))
-	if (!g_minstagib)
-		return;
-	if (!w)
-		return;
-	if (w == IT_LASER)
-		return;
-
 	W_ThrowWeapon(randomvec() * 100 + '0 0 200', org - self.origin, FALSE);
 }
 
 void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
 	local float take, save;
-	te_blood (hitloc, force, damage);
+	pointparticles(particleeffectnum("blood"), hitloc, force, bound(0, damage, 200));
 	// damage resistance (ignore most of the damage from a bullet or similar)
 	damage = max(damage - 5, 1);
 
@@ -310,34 +304,45 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 		te_bloodshower (self.origin + self.mins, self.origin + self.maxs, 1200 * multiplier, 1000);
 
 		// make a meaty mess
-		TossGib (self, "models/gibs/eye.md3", self.origin, self.velocity,0);
-		TossGib (world, "models/gibs/bloodyskull.md3", self.origin, '0 0 600',0);
+		TossGib (self, "models/gibs/eye.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
+		TossGib (world, "models/gibs/bloodyskull.md3", self.origin + self.view_ofs, self.velocity,0);
 
 		local float c;
 		c = 0;
 		while (c < multiplier)
 		{
 			c = c + 1;
-			TossGib (world, "models/gibs/gib1.md3", self.origin, self.velocity,0);
-			//TossGib (world, "models/gibs/gib2.md3", self.origin, self.velocity,0);
-			TossGib (world, "models/gibs/gib1.mdl", self.origin, self.velocity,0);
-			//TossGib (world, "models/gibs/gib3.md3", self.origin, self.velocity,0);
-			TossGib (world, "models/gibs/gib2.mdl", self.origin, self.velocity,0);
-			//TossGib (world, "models/gibs/gib4.md3", self.origin, self.velocity,0);
-			TossGib (world, "models/gibs/gib3.mdl", self.origin, self.velocity,0);
+			//TossGib (world, "models/gibs/gib1.md3", self.origin, self.velocity + randomvec() * 450,0);
+			//TossGib (world, "models/gibs/gib2.md3", self.origin, self.velocity + randomvec() * 450,0);
+			//TossGib (world, "models/gibs/gib3.md3", self.origin, self.velocity + randomvec() * 450,0);
+			//TossGib (world, "models/gibs/gib4.md3", self.origin, self.velocity + randomvec() * 450,0);
+			//TossGib (world, "models/gibs/gib5.md3", self.origin, self.velocity + randomvec() * 450,0);
+			//TossGib (world, "models/gibs/gib6.md3", self.origin, self.velocity + randomvec() * 450,0);
 
-			// these destory on impact
-			TossGib (world, "models/gibs/gib5.md3", self.origin, '-500 0 450',1);
-			//TossGib (world, "models/gibs/gib6.md3", self.origin, '0 500 450',1);
-			TossGib (world, "models/gibs/chunk.mdl", self.origin, '0 -500 450',1);
-			TossGib (world, "models/gibs/chunk.mdl", self.origin, '500 0 450',1);
-			TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity,1);
-			TossGib (world, "models/gibs/chunk.mdl", self.origin, '0 0 450',1);
+			TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * (random() * 120 + 90),0);
+			TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * (random() * 120 + 90),0);
+			//TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
+			//TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
+			TossGib (world, "models/gibs/chest.md3", self.origin + self.view_ofs * 0.5, self.velocity + randomvec() * (random() * 120 + 80),0);
+			//TossGib (world, "models/gibs/smallchest.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
+			TossGib (world, "models/gibs/smallchest.md3", self.origin + self.view_ofs, self.velocity + randomvec() * (random() * 120 + 80),0);
+			TossGib (world, "models/gibs/leg1.md3", self.origin + self.view_ofs * -0.2, self.velocity + randomvec() * (random() * 120 + 85),0);
+			TossGib (world, "models/gibs/leg2.md3", self.origin + self.view_ofs * -0.4, self.velocity + randomvec() * (random() * 120 + 85),0);
+			//TossGib (world, "models/gibs/leg1.md3", self.origin + self.view_ofs * -0.2, self.velocity + randomvec() * 150,0);
+			//TossGib (world, "models/gibs/leg2.md3", self.origin + self.view_ofs * -0.4, self.velocity + randomvec() * 150,0);
+
+			// these splat on impact
+			TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
+			TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
+			TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
+			TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
 		}
 
 		sound (self, CHAN_VOICE, "misc/gib.wav", 1, ATTN_NORM);
 	}
 }
+
+void ClientKill_Now_TeamChange();
 
 void PlayerDamage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
@@ -345,7 +350,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 
 	damage = damage * bound(1.0, self.cvar_cl_handicap, 100.0);
 
-	te_blood (hitloc, force, damage);
+	pointparticles(particleeffectnum("blood"), hitloc, force, bound(0, damage, 200));
 	if (self.pain_finished < time)		//Don't switch pain sequences like crazy
 	{
 		if (random() > 0.5)
@@ -425,7 +430,26 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 
 	if (self.health < 1)
 	{
+		float defer_ClientKill_Now_TeamChange;
+		defer_ClientKill_Now_TeamChange = FALSE;
+
 		self.deaths += 1;
+
+		// get rid of kill indicator
+		if(self.killindicator)
+		{
+			remove(self.killindicator);
+			self.killindicator = world;
+			if(self.killindicator_teamchange)
+				defer_ClientKill_Now_TeamChange = TRUE;
+
+			if(self.classname == "body")
+			if(deathtype == DEATH_KILL)
+			{
+				// for the lemmings fans, a small harmless explosion
+				pointparticles(particleeffectnum("rocket_explode"), self.origin, '0 0 0', 1);
+			}
+		}
 
 		// become fully visible
 		self.alpha = 1;
@@ -519,6 +543,9 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 
 		if(g_arena)
 			Spawnqueue_Unmark(self);
+
+		if(defer_ClientKill_Now_TeamChange)
+			ClientKill_Now_TeamChange();
 	}
 }
 
@@ -664,3 +691,182 @@ void UpdateSelectedPlayer()
 	if(self.selected_player)
 		self.last_selected_player = self.selected_player;
 }
+
+float precache_sound_index (string s) = #19;
+void soundto(entity e, entity sounddest, float chan, string samp, float vol, float atten)
+{
+	vector o;
+	if(clienttype(sounddest) != CLIENTTYPE_REAL)
+		return;
+	o = e.origin + 0.5 * (e.mins + e.maxs);
+	msg_entity = sounddest;
+	WriteByte(MSG_ONE, 6);
+	WriteByte(MSG_ONE, 27); // all bits except SND_LOOPING
+	WriteByte(MSG_ONE, vol * 255);
+	WriteByte(MSG_ONE, atten * 64);
+	WriteEntity(MSG_ONE, e);
+	WriteByte(MSG_ONE, chan);
+	WriteShort(MSG_ONE, precache_sound_index(samp));
+	WriteCoord(MSG_ONE, o_x);
+	WriteCoord(MSG_ONE, o_y);
+	WriteCoord(MSG_ONE, o_z);
+}
+
+#if 0
+.string playersound_attack;
+.string playersound_attackinfive;
+.string playersound_coverme;
+.string playersound_defend;
+.string playersound_freelance;
+.string playersound_incoming;
+.string playersound_meet;
+.string playersound_needhelp;
+.string playersound_seenflag;
+.string playersound_taunt;
+.string playersound_teamshoot;
+.float modelindex_for_playersound;
+
+float GetVoiceMessageTeamsayType(string type)
+{
+	if(type == "taunt")
+		return 0;
+	if(type == "teamshoot")
+		return 2;
+	return 1;
+}
+
+string allvoicesamples = "attack attackinfive coverme defend freelance incoming meet needhelp seenflag taunt teamshoot";
+float GetPlayerSoundSampleField_notFound;
+.string GetVoiceMessageSampleField(string type)
+{
+	GetPlayerSoundSampleField_notFound = 0;
+	switch(type)
+	{
+		case "attack":       return playersound_attack;
+		case "attackinfive": return playersound_attackinfive;
+		case "coverme":      return playersound_coverme;
+		case "defend":       return playersound_defend;
+		case "freelance":    return playersound_freelance;
+		case "incoming":     return playersound_incoming;
+		case "meet":         return playersound_meet;
+		case "needhelp":     return playersound_needhelp;
+		case "seenflag":     return playersound_seenflag;
+		case "taunt":        return playersound_taunt;
+		case "teamshoot":    return playersound_teamshoot;
+	}
+	GetPlayerSoundSampleField_notFound = 1;
+	return playersound_taunt;
+}
+
+.string GetPlayerSoundSampleField(string type)
+{
+	GetPlayerSoundSampleField_notFound = 0;
+	switch(type)
+	{
+		case "attack":       return playersound_attack;
+		default:             return GetVoiceMessageSampleField(type);
+	}
+}
+
+void PrecachePlayerSounds(string f)
+{
+	float fh;
+	float i, n;
+	string s;
+	fh = fopen(f, FILE_READ);
+	if(fh < 0)
+		return;
+	while((s = fgets(fh)))
+	{
+		if(tokenize(s) != 3)
+		{
+			dprint("Invalid sound info line: ", s, "\n");
+			continue;
+		}
+		n = stof(argv(2));
+		for(i = 1; i <= n; ++i)
+			precache_sound(strcat(argv(1), ftos(i), ".wav"));
+	}
+	fclose(fh);
+}
+
+void LoadPlayerSounds(string f)
+{
+	float fh;
+	string s;
+	var .string field;
+	fh = fopen(f, FILE_READ);
+	if(fh < 0)
+		return;
+	while((s = fgets(fh)))
+	{
+		if(tokenize(s) != 3)
+			continue;
+		field = GetPlayerSoundSampleField(argv(0));
+		if(GetPlayerSoundSampleField_notFound)
+			continue;
+		if(self.field)
+			strunzone(self.field);
+		self.field = strzone(strcat(argv(1), " ", argv(2)));
+	}
+	fclose(fh);
+}
+
+void UpdatePlayerSounds()
+{
+	if(self.modelindex == self.modelindex_for_playersound)
+		return;
+	self.modelindex_for_playersound = self.modelindex;
+	LoadPlayerSounds("sound/player/default.sounds");
+	LoadPlayerSounds(strcat(self.model, ".sounds"));
+}
+
+void VoiceMessage(string type)
+{
+	// TODO precache voice messages?
+	var string sample;
+	var float teamsay;
+	sample = self.(GetPlayerSoundSampleField(type));
+
+	if(GetPlayerSoundSampleField_notFound)
+	{
+		sprint(self, strcat("Invalid voice. Use one of: ", allvoicesamples, "\n"));
+		return;
+	}
+
+	if(!sample)
+		return;
+
+	teamsay = GetVoiceMessageTeamsayType(type);
+
+	tokenize(sample);
+	sample = strcat(argv(0), ftos(ceil(random() * stof(argv(1)))), ".wav"); // randomization
+
+	if(teamsay == 2)
+	{
+		if(teams_matter)
+			if(self.pusher)
+				if(self.pusher.team == self.team)
+				{
+					soundto(self, self.pusher, CHAN_VOICE, sample, 1, ATTN_NONE);
+					soundto(self, self, CHAN_VOICE, sample, 1, ATTN_NONE);
+				}
+	}
+	else if(teamsay == 0 || !teams_matter)
+	{
+		// broadcast the sound, but it's directional
+		sound(self, CHAN_VOICE, sample, 1, ATTN_NORM);
+	}
+	else if(teamsay == 1)
+	{
+		entity e;
+		FOR_EACH_REALCLIENT(e)
+			if(e.team == self.team)
+				soundto(self, e, CHAN_VOICE, sample, 1, ATTN_NONE);
+	}
+}
+#else
+void PrecachePlayerSounds(string f) { }
+void UpdatePlayerSounds() { }
+void VoiceMessage(string type) { sprint(self, "Sorry, voice command support is not done yet. Maybe later.\n"); }
+#endif

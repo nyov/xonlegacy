@@ -1,6 +1,3 @@
-void Damage (entity targ, entity inflictor, entity attacker, float
-damage, float deathtype, vector hitloc, vector force);
-
 void() tdeath_touch =
 {
 	if (other == self.owner)
@@ -67,12 +64,12 @@ void Teleport_Touch (void)
 
 	// Make teleport effect where the player left
 	sound (other, CHAN_ITEM, "misc/teleport.wav", 1, ATTN_NORM);
-	te_teleport (other.origin);
+	pointparticles(particleeffectnum("teleport"), other.origin, '0 0 0', 1);
 
 	// Make teleport effect where the player arrived
 	sound (other, CHAN_ITEM, "misc/teleport.wav", 1, ATTN_NORM);
 	makevectors (self.enemy.mangle);
-	te_teleport (self.enemy.origin + v_forward * 32);
+	pointparticles(particleeffectnum("teleport"), self.enemy.origin + v_forward * 32, '0 0 0', 1);
 
 	// Relocate the player
 	setorigin (other, self.enemy.origin + '0 0 1' * (1 - other.mins_z - 24));
@@ -125,7 +122,7 @@ void Teleport_Touch (void)
 	}
 }
 
-void info_teleport_destination (void)
+void spawnfunc_info_teleport_destination (void)
 {
 	self.mangle = self.angles;
 	self.angles = '0 0 0';
@@ -137,14 +134,14 @@ void info_teleport_destination (void)
 		objerror ("Teleport destination without a targetname");
 }
 
-void misc_teleporter_dest (void)
+void spawnfunc_misc_teleporter_dest (void)
 {
-	info_teleport_destination();
+	spawnfunc_info_teleport_destination();
 }
 
-void target_teleporter (void)
+void spawnfunc_target_teleporter (void)
 {
-	info_teleport_destination();
+	spawnfunc_info_teleport_destination();
 }
 
 void teleport_findtarget (void)
@@ -164,7 +161,7 @@ void teleport_findtarget (void)
 	waypoint_spawnforteleporter(self, self.dest, 0);
 }
 
-void trigger_teleport (void)
+void spawnfunc_trigger_teleport (void)
 {
 	self.angles = '0 0 0';
 

@@ -267,6 +267,29 @@ float EF_LOWPRECISION = 4194304;
 //description:
 //this is a very special capability, attachs the entity to the view of the client specified, origin and angles become relative to the view of that client, all effects can be used (multiple skins on a weapon model etc)...  the entity is not visible to any other client.
 
+//DP_GECKO_SUPPORT
+//idea: Res2k, BlackHC
+//darkplaces implementation: Res2k, BlackHC
+//constant definitions:
+float GECKO_BUTTON_DOWN         = 0;
+float GECKO_BUTTON_UP           = 1;
+// either use down and up or just press but not all of them!
+float GECKO_BUTTON_PRESS        = 2;
+// use this for mouse events if needed?
+float GECKO_BUTTON_DOUBLECLICK  = 3;
+//builtin definitions:
+float(string name) gecko_create( string name ) = #487;
+void(string name) gecko_destroy( string name ) = #488;
+void(string name) gecko_navigate( string name, string URI ) = #489;
+float(string name) gecko_keyevent( string name, float key, float eventtype ) = #490;
+void gecko_mousemove( string name, float x, float y ) = #491;
+void gecko_resize( string name, float w, float h ) = #492;
+vector gecko_get_texture_extent( string name ) = #493;
+//engine-called QC prototypes:
+//string(string name, string query) Qecko_Query;
+//description:
+//provides an interface to the offscreengecko library and allows for internet browsing in games
+
 //DP_GFX_EXTERNALTEXTURES
 //idea: LordHavoc
 //darkplaces implementation: LordHavoc
@@ -535,6 +558,16 @@ string(string s) cvar_string = #448;
 //description:
 //returns the value of a cvar, as a tempstring.
 
+//DP_QC_EDICT_NUM
+//idea: 515
+//DarkPlaces implementation: LordHavoc
+//builtin definitions:
+entity(float entnum) edict_num = #459;
+float(entity ent) wasfreed = #353; // same as in EXT_CSQC extension
+//description:
+//edict_num returns the entity corresponding to a given number, this works even for freed entities, but you should call wasfreed(ent) to see if is currently active.
+//wasfreed returns whether an entity slot is currently free (entities that have never spawned are free, entities that have had remove called on them are also free).
+
 //DP_QC_ETOS
 //idea: id Software
 //darkplaces implementation: id Software
@@ -620,6 +653,23 @@ vector(entity e, float s, vector p) getsurfaceclippedpoint = #439;
 //description:
 //functions to query surface information.
 
+//DP_QC_GETSURFACEPOINTATTRIBUTE
+//idea: BlackHC
+//darkplaces implementation: BlackHC
+// constants
+float SPA_POSITION = 0;
+float SPA_S_AXIS = 1;
+float SPA_T_AXIS = 2;
+float SPA_R_AXIS = 3; // same as SPA_NORMAL
+float SPA_TEXCOORDS0 = 4;
+float SPA_LIGHTMAP0_TEXCOORDS = 5;
+float SPA_LIGHTMAP0_COLOR = 6;
+//builtin definitions:
+vector(entity e, float s, float n, float a) getsurfacepointattribute = #486;
+
+//description:
+//function to query extended information about a point on a certain surface
+
 //DP_QC_GETTAGINFO
 //idea: VorteX, LordHavoc (somebody else?)
 //DarkPlaces implementation: VorteX
@@ -669,6 +719,12 @@ float(float minimum, float val, float maximum) bound = #96;
 //
 //NOTE: this extension is superseded by DP_QC_UNLIMITEDTEMPSTRINGS
 
+//DP_QC_NUM_FOR_EDICT
+//idea: Blub\0
+//darkplaces implementation: Blub\0
+//Function to get the number of an entity - a clean way.
+float(entity num) num_for_edict = #512;
+
 //DP_QC_RANDOMVEC
 //idea: LordHavoc
 //darkplaces implementation: LordHavoc
@@ -700,7 +756,7 @@ string(float uselocaltime, string format, ...) strftime = #478;
 //for more format codes please do a web search for strftime 3 and you should find the man(3) pages for this standard C function.
 //
 //practical uses:
-//changing day/night cycle (shops closing, monsters going on the prowl) in an RPG, for this you probably want to use s = strftime(TRUE, "%H");hour = ftos(s);
+//changing day/night cycle (shops closing, monsters going on the prowl) in an RPG, for this you probably want to use s = strftime(TRUE, "%H");hour = stof(s);
 //printing current date/time for competitive multiplayer games, such as the beginning/end of each round in real world time.
 //activating eastereggs in singleplayer games on certain dates.
 //
@@ -794,6 +850,15 @@ float MOVE_WORLDONLY = 3;
 //when the QC interpreter returns.
 //
 //this is basically a poor man's garbage collection system for strings.
+
+//DP_QC_VECTOANGLES_WITH_ROLL
+//idea: LordHavoc
+//darkplaces implementation: LordHavoc
+//builtin definitions:
+vector(vector forward, vector up) vectoangles2 = #51; // same number as vectoangles
+//description:
+//variant of vectoangles that takes an up vector to calculate roll angle (also uses this to calculate yaw correctly if the forward is straight up or straight down)
+//note: just like normal vectoangles you need to negate the pitch of the returned angles if you want to feed them to makevectors or assign to self.v_angle
 
 //DP_QC_VECTORVECTORS
 //idea: LordHavoc
@@ -994,6 +1059,36 @@ void(vector org, string modelname, float startframe, float endframe, float frame
 //This field function, when provided, is triggered on an entity when the contents (ie. liquid / water / etc) is changed.
 //The first parameter provides the entities original contents, prior to the transition.  The second parameter provides the new contents.
 //NOTE: If this field function is provided on an entity, the standard watersplash sound IS SUPPRESSED to allow for authors to create their own transition sounds.
+
+//DP_SV_MOVETYPESTEP_LANDEVENT
+//idea: Dresk
+//darkplaces implementation: Dresk
+//field definitions:
+.void(vector vImpactVelocity) movetypesteplandevent;
+//description:
+//This field function, when provided, is triggered on a MOVETYPE_STEP entity when it experiences  "land event".
+// The standard engine behavior for this event is to play the sv_sound_land CVar sound.
+//The parameter provides the velocity of the entity at the time of the impact.  The z value may therefore be used to calculate how "hard" the entity struck the surface.
+//NOTE: If this field function is provided on a MOVETYPE_STEP entity, the standard sv_sound_land sound IS SUPPRESSED to allow for authors to create their own feedback.
+
+//DP_SV_POINTSOUND
+//idea: Dresk
+//darkplaces implementation: Dresk
+//builtin definitions:
+void(vector origin, string sample, float volume, float attenuation) pointsound = #483;
+//description:
+//Similar to the standard QC sound function, this function takes an origin instead of an entity and omits the channel parameter.
+// This allows sounds to be played at arbitrary origins without spawning entities.
+
+//DP_SV_ONENTITYNOSPAWNFUNCTION
+//idea: Dresk
+//darkplaces implementation: Dresk
+//engine-called QC prototypes:
+//void() SV_OnEntityNoSpawnFunction;
+//description:
+// This function is called whenever an entity on the server has no spawn function, and therefore has no defined QC behavior.
+// You may as such dictate the behavior as to what happens to the entity.
+// To mimic the engine's default behavior, simply call remove(self).
 
 //DP_SV_MODELFLAGS_AS_EFFECTS
 //idea: LordHavoc, Dresk
@@ -1538,3 +1633,77 @@ string(string info, string key) infoget = #227;
 float(string s1, string s2, float len) strncmp = #228;
 float(string s1, string s2) strcasecmp = #229;
 float(string s1, string s2, float len) strncasecmp = #230;
+
+//DP_CON_BESTWEAPON
+//idea: many
+//darkplaces implementation: div0
+//description:
+//allows QC to register weapon properties for use by the bestweapon command, for mods that change required ammo count or type for the weapons
+//it is done using console commands sent via stuffcmd:
+//  register_bestweapon quake
+//  register_bestweapon clear
+//  register_bestweapon <shortname> <impulse> <itemcode> <activeweaponcode> <ammostat> <ammomin>
+//for example, this is what Quake uses:
+//  register_bestweapon 1 1 4096 4096 6 0 // STAT_SHELLS is 6
+//  register_bestweapon 2 2    1    1 6 1
+//  register_bestweapon 3 3    2    2 6 1
+//  register_bestweapon 4 4    4    4 7 1 // STAT_NAILS is 7
+//  register_bestweapon 5 5    8    8 7 1
+//  register_bestweapon 6 6   16   16 8 1 // STAT_ROCKETS is 8
+//  register_bestweapon 7 7   32   32 8 1
+//  register_bestweapon 8 8   64   64 9 1 // STAT_CELLS is 9
+//after each map client initialization, this is reset back to Quake settings. So you should send these data in ClientConnect.
+//also, this extension introduces a new "cycleweapon" command to the user.
+
+//DP_QC_STRINGBUFFERS
+//idea: ??
+//darkplaces implementation: LordHavoc
+//functions to manage string buffer objects - that is, arbitrary length string arrays that are handled by the engine
+float() buf_create = #460;
+void(float bufhandle) buf_del = #461;
+float(float bufhandle) buf_getsize = #462;
+void(float bufhandle_from, float bufhandle_to) buf_copy = #463;
+void(float bufhandle, float sortpower, float backward) buf_sort = #464;
+string(float bufhandle, string glue) buf_implode = #465;
+string(float bufhandle, float string_index) bufstr_get = #466;
+void(float bufhandle, float string_index, string str) bufstr_set = #467;
+float(float bufhandle, string str, float order) bufstr_add = #468;
+void(float bufhandle, float string_index) bufstr_free = #469;
+
+//DP_QC_STRREPLACE
+//idea: Sajt
+//darkplaces implementation: Sajt
+//builtin definitions:
+string(string search, string replace, string subject) strreplace = #484;
+string(string search, string replace, string subject) strireplace = #485;
+//description:
+//strreplace replaces all occurrences of 'search' with 'replace' in the string 'subject', and returns the result as a tempstring.
+//strireplace does the same but uses case-insensitive matching of the 'search' term
+//
+//DP_QC_CRC16
+//idea: div0
+//darkplaces implementation: div0
+//Some hash function to build hash tables with. This has to be be the CRC-16-CCITT that is also required for the QuakeWorld download protocol.
+//When caseinsensitive is set, the CRC is calculated of the lower cased string.
+float(float caseinsensitive, string s, ...) crc16 = #494;
+
+//DP_SV_SHUTDOWN
+//idea: div0
+//darkplaces implementation: div0
+//A function that gets called just before progs exit. To save persistent data from.
+//It is not called on a crash or error.
+//void SV_Shutdown();
+
+//DP_QC_URI_ESCAPE
+//idea: div0
+//darkplaces implementation: div0
+//URI::Escape's functionality
+string(string in) uri_escape = #510;
+string(string in) uri_unescape = #511;
+
+//DP_SV_SPAWNFUNC_PREFIX
+//idea: div0
+//darkplaces implementation: div0
+//Make functions whose name start with spawnfunc_ take precedence as spawn function for loading entities.
+//Useful if you have a field ammo_shells (required in any Quake mod) but want to support spawn functions called ammo_shells (like in Q3A).
+//Optionally, you can declare a global "float require_spawnfunc_prefix;" which will require ANY spawn function to start with that prefix.

@@ -1,3 +1,6 @@
+.entity sprite;
+entity ctf_worldflaglist; // CTF flags in the map
+.entity ctf_worldflagnext;
 
 .float next_take_time;			// the next time a player can pick up a flag (time + blah)
 								/// I used this, in part, to fix the looping score bug. - avirox
@@ -9,6 +12,20 @@
 //float FLAGSCORE_CAPTURE_TEAM  = 20;
 
 #define FLAG_CARRY_POS '-15 0 7'
+
+void FakeTimeLimit(entity e, float t)
+{
+	msg_entity = e;
+	WriteByte(MSG_ONE, 3); // svc_updatestat
+	WriteByte(MSG_ONE, 236); // STAT_TIMELIMIT
+	if(t < 0)
+		WriteCoord(MSG_ONE, cvar("timelimit"));
+	else
+		WriteCoord(MSG_ONE, (t + 1) / 60);
+}
+
+float   flagcaptimerecord;
+.float  flagpickuptime;
 
 void() FlagThink;
 void() FlagTouch;
@@ -81,6 +98,9 @@ void(entity e) ReturnFlag =
 	{
 		WaypointSprite_DetachCarrier(e.owner);
 		e.owner.flagcarried = world;
+
+		if(e.speedrunning)
+			FakeTimeLimit(e.owner, -1);
 	}
 	e.owner = world;
 	RegenFlag(e);
@@ -89,6 +109,12 @@ void(entity e) ReturnFlag =
 void(entity e) DropFlag =
 {
 	local entity p;
+
+	if(e.speedrunning)
+	{
+		ReturnFlag(e);
+		return;
+	}
 
 	if (!e.owner)
 	{
@@ -147,6 +173,25 @@ void() FlagThink =
 
 	AnimateFlag();
 
+	if(self.speedrunning)
+	if(self.cnt == FLAG_CARRY)
+	{
+		if(self.owner)
+		if(flagcaptimerecord)
+		if(time >= self.flagpickuptime + flagcaptimerecord)
+		{
+			bprint("The ", self.netname, " became impatient after ", ftos_decimals(flagcaptimerecord, 2), " seconds and returned itself\n");
+
+			self.owner.impulse = 77; // returning!
+			e = self;
+			self = self.owner;
+			ReturnFlag(e);
+			ImpulseCommands();
+			self = e;
+			return;
+		}
+	}
+
 	if (self.cnt == FLAG_BASE)
 		return;
 
@@ -178,9 +223,6 @@ void() FlagThink =
 	}
 };
 
-float   flagcaptimerecord;
-.float  flagpickuptime;
-
 void() FlagTouch =
 {
 	if(gameover) return;
@@ -188,7 +230,7 @@ void() FlagTouch =
 	local float t;
 	local entity head;
 	local entity player;
-	local string s, s0;
+	local string s, s0, h0, h1;
 	if (other.classname != "player")
 		return;
 	if (other.health < 1) // ignore dead players
@@ -209,19 +251,29 @@ void() FlagTouch =
 		t = time - other.flagcarried.flagpickuptime;
 		s = ftos_decimals(t, 2);
 		s0 = ftos_decimals(flagcaptimerecord, 2);
+		h0 = db_get(ServerProgsDB, strcat(GetMapname(), "/captimerecord/netname"));
+		h1 = other.netname;
+		if(h0 == h1)
+			h0 = "his";
+		else
+			h0 = strcat(h0, "^7's"); // h0: display text for previous netname
 		if (flagcaptimerecord == 0)
 		{
 			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, " seconds\n");
 			flagcaptimerecord = t;
+			db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/time"), ftos(t));
+			db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/netname"), h1);
 		}
 		else if (t < flagcaptimerecord)
 		{
-			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, ", breaking the previous record of ", s0, " seconds\n");
+			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, ", breaking ", strcat(h0, " previous record of ", s0, " seconds\n"));
 			flagcaptimerecord = t;
+			db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/time"), ftos(t));
+			db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/netname"), h1);
 		}
 		else
 		{
-			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, ", failing to break the previous record of ", s0, " seconds\n");
+			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, ", failing to break ", strcat(h0, " record of ", s0, " seconds\n"));
 		}
 
 		LogCTF("capture", other.flagcarried.team, other);
@@ -236,6 +288,8 @@ void() FlagTouch =
 
 		sound (self, CHAN_AUTO, self.noise2, 1, ATTN_NONE);
 		WaypointSprite_DetachCarrier(other);
+		if(self.speedrunning)
+			FakeTimeLimit(other, -1);
 		RegenFlag (other.flagcarried);
 		other.flagcarried = world;
 		other.next_take_time = time + 1;
@@ -249,6 +303,10 @@ void() FlagTouch =
 			return;
 		// pick up
 		self.flagpickuptime = time; // used for timing runs
+		self.speedrunning = other.speedrunning; // if speedrunning, flag will self-return and teleport the owner back after the record
+		if(other.speedrunning)
+		if(flagcaptimerecord)
+			FakeTimeLimit(other, time + flagcaptimerecord);
 		self.solid = SOLID_NOT;
 		setorigin(self, self.origin); // relink
 		self.owner = other;
@@ -312,7 +370,7 @@ void() FlagTouch =
 	}
 };
 
-/*QUAKED info_player_team1 (1 0 0) (-16 -16 -24) (16 16 24)
+/*QUAKED spawnfunc_info_player_team1 (1 0 0) (-16 -16 -24) (16 16 24)
 CTF Starting point for a player
 in team one (Red).
 
@@ -320,14 +378,14 @@ Keys:
 "angle"
  viewing angle when spawning
 */
-void() info_player_team1 =
+void() spawnfunc_info_player_team1 =
 {
 	self.team = COLOR_TEAM1; // red
-	info_player_deathmatch();
+	spawnfunc_info_player_deathmatch();
 };
-//self.team = 4;self.classname = "info_player_start";info_player_start();};
+//self.team = 4;self.classname = "info_player_start";spawnfunc_info_player_start();};
 
-/*QUAKED info_player_team2 (1 0 0) (-16 -16 -24) (16 16 24)
+/*QUAKED spawnfunc_info_player_team2 (1 0 0) (-16 -16 -24) (16 16 24)
 CTF Starting point for a player in
 team two (Blue).
 
@@ -335,14 +393,14 @@ Keys:
 "angle"
  viewing angle when spawning
 */
-void() info_player_team2 =
+void() spawnfunc_info_player_team2 =
 {
 	self.team = COLOR_TEAM2; // blue
-	info_player_deathmatch();
+	spawnfunc_info_player_deathmatch();
 };
-//self.team = 13;self.classname = "info_player_start";info_player_start();};
+//self.team = 13;self.classname = "info_player_start";spawnfunc_info_player_start();};
 
-/*QUAKED info_player_team3 (1 0 0) (-16 -16 -24) (16 16 24)
+/*QUAKED spawnfunc_info_player_team3 (1 0 0) (-16 -16 -24) (16 16 24)
 CTF Starting point for a player in
 team three (Magenta).
 
@@ -350,14 +408,14 @@ Keys:
 "angle"
  viewing angle when spawning
 */
-void() info_player_team3 =
+void() spawnfunc_info_player_team3 =
 {
 	self.team = COLOR_TEAM3; // purple
-	info_player_deathmatch();
+	spawnfunc_info_player_deathmatch();
 };
 
 
-/*QUAKED info_player_team4 (1 0 0) (-16 -16 -24) (16 16 24)
+/*QUAKED spawnfunc_info_player_team4 (1 0 0) (-16 -16 -24) (16 16 24)
 CTF Starting point for a player in
 team four (Yellow).
 
@@ -365,16 +423,16 @@ Keys:
 "angle"
  viewing angle when spawning
 */
-void() info_player_team4 =
+void() spawnfunc_info_player_team4 =
 {
 	self.team = COLOR_TEAM4; // yellow
-	info_player_deathmatch();
+	spawnfunc_info_player_deathmatch();
 };
 
 
 
 
-/*QUAKED item_flag_team1 (0 0.5 0.8) (-48 -48 -37) (48 48 37)
+/*QUAKED spawnfunc_item_flag_team1 (0 0.5 0.8) (-48 -48 -37) (48 48 37)
 CTF flag for team one (Red).
 Multiple are allowed.
 
@@ -393,20 +451,28 @@ Keys:
  (default ctf/return.wav)
 "noise2"
  sound played when flag is captured
- (default ctf/capture.wav)
+ (default ctf/redcapture.wav)
 "noise3"
  sound played when flag is lost in the field and respawns itself
  (default ctf/respawn.wav)
 */
 
-void() item_flag_team1 =
+void() spawnfunc_item_flag_team1 =
 {
 	if (!g_ctf)
+	{
+		remove(self);
 		return;
+	}
+
 	//if(!cvar("teamplay"))
 	//	cvar_set("teamplay", "3");
 
-	self.classname = "item_flag_team1";
+	// link flag into ctf_worldflaglist
+	self.ctf_worldflagnext = ctf_worldflaglist;
+	ctf_worldflaglist = self;
+
+	self.classname = "item_flag_team";
 	self.team = COLOR_TEAM1; // color 4 team (red)
 	self.items = IT_KEY2; // gold key (redish enough)
 	self.netname = "^1RED^7 flag";
@@ -421,7 +487,7 @@ void() item_flag_team1 =
 	if (!self.noise1)
 		self.noise1 = "ctf/return.wav";
 	if (!self.noise2)
-		self.noise2 = "ctf/capture.wav";
+		self.noise2 = "ctf/redcapture.wav"; // blue team scores by capturing the red flag
 	if (!self.noise3)
 		self.noise3 = "ctf/respawn.wav";
 	precache_model (self.model);
@@ -444,10 +510,12 @@ void() item_flag_team1 =
 	if(!self.noalign)
 		droptofloor();
 
-	WaypointSprite_SpawnFixed("redbase", self.origin + '0 0 37');
+	waypoint_spawnforitem(self);
+
+	WaypointSprite_SpawnFixed("redbase", self.origin + '0 0 37', self, sprite);
 };
 
-/*QUAKED item_flag_team2 (0 0.5 0.8) (-48 -48 -24) (48 48 64)
+/*QUAKED spawnfunc_item_flag_team2 (0 0.5 0.8) (-48 -48 -24) (48 48 64)
 CTF flag for team two (Blue).
 Multiple are allowed.
 
@@ -455,17 +523,38 @@ Keys:
 "angle"
  Angle the flag will point
 (minus 90 degrees)
-
+"model"
+ model to use, note this needs red and blue as skins 0 and 1
+ (default models/ctf/flag.md3)
+"noise"
+ sound played when flag is picked up
+ (default ctf/take.wav)
+"noise1"
+ sound played when flag is returned by a teammate
+ (default ctf/return.wav)
+"noise2"
+ sound played when flag is captured
+ (default ctf/bluecapture.wav)
+"noise3"
+ sound played when flag is lost in the field and respawns itself
+ (default ctf/respawn.wav)
 */
 
-void() item_flag_team2 =
+void() spawnfunc_item_flag_team2 =
 {
 	if (!g_ctf)
+	{
+		remove(self);
 		return;
+	}
 	//if(!cvar("teamplay"))
 	//	cvar_set("teamplay", "3");
 
-	self.classname = "item_flag_team2";
+	// link flag into ctf_worldflaglist
+	self.ctf_worldflagnext = ctf_worldflaglist;
+	ctf_worldflaglist = self;
+
+	self.classname = "item_flag_team";
 	self.team = COLOR_TEAM2; // color 13 team (blue)
 	self.items = IT_KEY1; // silver key (bluish enough)
 	self.netname = "^4BLUE^7 flag";
@@ -480,7 +569,7 @@ void() item_flag_team2 =
 	if (!self.noise1)
 		self.noise1 = "ctf/return.wav";
 	if (!self.noise2)
-		self.noise2 = "ctf/capture.wav";
+		self.noise2 = "ctf/bluecapture.wav"; // red team scores by capturing the blue flag
 	if (!self.noise3)
 		self.noise3 = "ctf/respawn.wav";
 	precache_model (self.model);
@@ -503,27 +592,17 @@ void() item_flag_team2 =
 	if(!self.noalign)
 		droptofloor();
 
-	WaypointSprite_SpawnFixed("bluebase", self.origin + '0 0 37');
+	waypoint_spawnforitem(self);
+
+	WaypointSprite_SpawnFixed("bluebase", self.origin + '0 0 37', self, sprite);
 };
 
 
-// spawnfunctions for q3 flags
-void team_CTF_redflag()
-{
-	item_flag_team1();
-}
-
-void team_CTF_blueflag()
-{
-	item_flag_team2();
-}
-
-
-/*QUAKED ctf_team (0 .5 .8) (-16 -16 -24) (16 16 32)
+/*QUAKED spawnfunc_ctf_team (0 .5 .8) (-16 -16 -24) (16 16 32)
 Team declaration for CTF gameplay, this allows you to decide what team
 names and control point models are used in your map.
 
-Note: If you use ctf_team entities you must define at least 2!  However, unlike
+Note: If you use spawnfunc_ctf_team entities you must define at least 2!  However, unlike
 domination, you don't need to make a blank one too.
 
 Keys:
@@ -534,8 +613,13 @@ Keys:
 
 */
 
-void() ctf_team =
+void() spawnfunc_ctf_team =
 {
+	if (!g_ctf)
+	{
+		remove(self);
+		return;
+	}
 	self.classname = "ctf_team";
 	self.team = self.cnt + 1;
 };
@@ -550,7 +634,7 @@ void ctf_spawnteam (string teamname, float teamcolor)
 	self.netname = teamname;
 	self.cnt = teamcolor;
 
-	ctf_team();
+	spawnfunc_ctf_team();
 
 	self = oldself;
 };
@@ -581,24 +665,21 @@ void() ctf_init =
 	e = spawn();
 	e.think = ctf_delayedinit;
 	e.nextthink = time + 0.1;
+	flagcaptimerecord = stof(db_get(ServerProgsDB, strcat(GetMapname(), "/captimerecord/time")));
 };
 
-void(entity flag) ctf_setstatus2 =
+void(entity flag, float shift) ctf_setstatus2 =
 {
-	if (flag) {
-		local float shift;
-		if (flag.team == COLOR_TEAM1) shift = IT_RED_FLAG_TAKEN;
-		else if (flag.team == COLOR_TEAM2) shift = IT_BLUE_FLAG_TAKEN;
-		else shift = 0;
-
-		local float status;
-		if (flag.cnt ==	FLAG_CARRY)
-			if (flag.owner == self) status = 3;
-			else status = 1;
-		else if (flag.cnt == FLAG_DROPPED) status = 2;
-		else status = 0;
-
-		self.items = self.items | (shift * status);
+	if (flag.cnt ==	FLAG_CARRY)
+		if (flag.owner == self)
+			self.items |= shift * 3;
+		else
+			self.items |= shift * 1;
+	else if (flag.cnt == FLAG_DROPPED)
+		self.items |= shift * 2;
+	else
+	{
+		// no status bits
 	}
 };
 
@@ -611,9 +692,37 @@ void() ctf_setstatus =
 
 	if (g_ctf) {
 		local entity flag;
-		flag = find(world, classname, "item_flag_team1");
-		ctf_setstatus2(flag);
-		flag = find(world, classname, "item_flag_team2");
-		ctf_setstatus2(flag);
+		float redflags, blueflags;
+
+		redflags = 0;
+		blueflags = 0;
+
+		for (flag = ctf_worldflaglist; flag; flag = flag.ctf_worldflagnext) if(flag.cnt != FLAG_BASE)
+		{
+			if(flag.team == COLOR_TEAM1)
+				++redflags;
+			else if(flag.team == COLOR_TEAM2)
+				++blueflags;
+		}
+
+		// blinking magic: if there is more than one flag, show one of these in a clever way
+		if(redflags)
+			redflags = mod(floor(time * redflags * 0.75), redflags);
+		if(blueflags)
+			blueflags = mod(floor(time * blueflags * 0.75), blueflags);
+
+		for (flag = ctf_worldflaglist; flag; flag = flag.ctf_worldflagnext) if(flag.cnt != FLAG_BASE)
+		{
+			if(flag.team == COLOR_TEAM1)
+			{
+				if(redflags-- == 0) // happens exactly once
+					ctf_setstatus2(flag, IT_RED_FLAG_TAKEN);
+			}
+			else if(flag.team == COLOR_TEAM2)
+			{
+				if(blueflags-- == 0) // happens exactly once
+					ctf_setstatus2(flag, IT_BLUE_FLAG_TAKEN);
+			}
+		}
 	}
 };

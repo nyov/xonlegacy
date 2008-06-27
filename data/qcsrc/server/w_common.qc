@@ -1,31 +1,4 @@
 
-// increments sprite frame, loops when end is hit.. simple
-
-float TE_SMOKE =77;
-void (vector vec) WriteVec =
-{
-		WriteCoord (MSG_BROADCAST, vec_x);
-		WriteCoord (MSG_BROADCAST, vec_y);
-		WriteCoord (MSG_BROADCAST, vec_z);
-}
-void (vector org, vector dir, float counts) W_Smoke =
-{
-		WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-		WriteByte (MSG_BROADCAST, TE_SMOKE);
-		WriteVec (org);
-		WriteVec (dir);
-		WriteByte (MSG_BROADCAST, counts);
-}
-
-// increments sprite frame, loops when end is hit.. simple
-void animate_sprite (float startframe, float frame_count)
-{
-	if ((self.frame - startframe) >= (frame_count - 1 ))
-		self.frame = startframe;
-	else
-		self.frame = self.frame + 1;
-}
-
 void W_GiveWeapon (entity e, float wep, string name)
 {
 	entity oldself;
@@ -52,7 +25,8 @@ void W_GiveWeapon (entity e, float wep, string name)
 void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, float deathtype)
 {
 	local vector hitloc, force, endpoint, dir;
-	local entity ent;
+	local entity ent, endent;
+	local float endq3surfaceflags;
 	//local entity explosion;
 
 	dir = normalize(end - start);
@@ -66,11 +40,10 @@ void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, f
 	// note down which entities were hit so we can damage them later
 	while (1)
 	{
-		traceline_hitcorpse (self, start, end, FALSE, self);
-
-		//if (trace_ent.solid == SOLID_BSP && !(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
-		//if (!(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
-		//	te_plasmaburn (trace_endpos - dir * 6);
+		if(self.antilag_debug)
+			traceline_antilag (self, start, end, FALSE, self, self.antilag_debug);
+		else
+			traceline_antilag (self, start, end, FALSE, self, self.ping * 0.001);
 
 		// if it is world we can't hurt it so stop now
 		if (trace_ent == world || trace_fraction == 1)
@@ -90,6 +63,8 @@ void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, f
 	}
 
 	endpoint = trace_endpos;
+	endent = trace_ent;
+	endq3surfaceflags = trace_dphitq3surfaceflags;
 
 	// find all the entities the railgun hit and restore their solid state
 	ent = findfloat(world, railgunhit, TRUE);
@@ -129,6 +104,8 @@ void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, f
 	//remove(explosion);
 
 	trace_endpos = endpoint;
+	trace_ent = endent;
+	trace_dphitq3surfaceflags = endq3surfaceflags;
 }
 
 void fireBullet (vector start, vector dir, float spread, float damage, float force, float dtype, float tracer)
@@ -136,10 +113,12 @@ void fireBullet (vector start, vector dir, float spread, float damage, float for
 	vector  end;
 	local entity e;
 
-	// use traceline_hitcorpse to make sure it can hit gibs and corpses too
 	dir = dir + randomvec() * spread;
 	end = start + dir * MAX_SHOT_DISTANCE;
-	traceline_hitcorpse (self, start, end, FALSE, self);
+	if(self.antilag_debug)
+		traceline_antilag (self, start, end, FALSE, self, self.antilag_debug);
+	else
+		traceline_antilag (self, start, end, FALSE, self, self.ping * 0.001);
 
 	if (tracer)
 	{
@@ -163,9 +142,9 @@ void fireBullet (vector start, vector dir, float spread, float damage, float for
 		if (trace_ent.solid == SOLID_BSP && !(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
 		{
 			if (dtype == IT_SHOTGUN)
-				te_gunshot (trace_endpos);
+				pointparticles(particleeffectnum("shotgun_impact"), trace_endpos, trace_plane_normal * 1000, 1);
 			else
-				te_spike (trace_endpos);
+				pointparticles(particleeffectnum("machinegun_impact"), trace_endpos, trace_plane_normal * 1000, 1);
 		}
 		Damage (trace_ent, self, self, damage, dtype, trace_endpos, dir * force);
 	}

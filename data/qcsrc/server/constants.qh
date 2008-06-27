@@ -132,6 +132,7 @@ float	MSG_BROADCAST				= 0;
 float	MSG_ONE					= 1;
 float	MSG_ALL					= 2;
 float	MSG_INIT				= 3;
+float	MSG_ENTITY				= 5;
 
 // Deathtypes (weapon deathtypes are the IT_* constants below)
 // NOTE: when adding death types, please add an explanation to Docs/spamlog.txt too.
@@ -200,7 +201,7 @@ vector	PL_CROUCH_MAX				= '16 16 25';
 //float	GAME_FULLBRIGHT_PLAYERS			= 64; /// makes the players model fullbright
 //float	GAME_TEAMS				= 128; /// Teams, red/green/yellow/blue
 
-float	game;	// set to "gamecfg" on worldspawn
+float	game;	// set to "gamecfg" on spawnfunc_worldspawn
 
 
 //float	POWERUP_STRENGTH_DAMAGE			= 2; // damage multiplier for strength powerup

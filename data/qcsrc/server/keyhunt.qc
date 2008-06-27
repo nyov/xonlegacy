@@ -1,4 +1,4 @@
-#define FOR_EACH_KH_KEY(v) for(v = world; (v = find(v, classname, STR_ITEM_KH_KEY)); )
+#define FOR_EACH_KH_KEY(v) for(v = kh_worldkeylist; v; v = v.kh_worldkeynext )
 
 // #define KH_PLAYER_USE_ATTACHMENT
 // #define KH_PLAYER_USE_CARRIEDMODEL
@@ -32,6 +32,8 @@ float kh_Team_ByID(float t)
 	return 0;
 }
 
+entity kh_worldkeylist;
+.entity kh_worldkeynext;
 entity kh_controller;
 float kh_tracking_enabled;
 float kh_teams;
@@ -281,23 +283,6 @@ void kh_Key_Damage(entity inflictor, entity attacker, float damage, float deatht
 			self.team = attacker.team;
 }
 
-vector kh_TeamColor(float teem)
-{
-	switch(teem)
-	{
-		case COLOR_TEAM1:
-			return '1 0.0625 0.0625';
-		case COLOR_TEAM2:
-			return '0.0625 0.0625 1';
-		case COLOR_TEAM3:
-			return '1 1 0.0625';
-		case COLOR_TEAM4:
-			return '1 0.0625 1';
-		default:
-			return '1 1 1';
-	}
-}
-
 void kh_Key_Spawn(entity initial_owner, float angle)
 {
 	entity key;
@@ -316,7 +301,7 @@ void kh_Key_Spawn(entity initial_owner, float angle)
 	key.kh_dropperteam = 0;
 	key.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_PLAYERCLIP;
 	setsize(key, KH_KEY_MIN, KH_KEY_MAX);
-	key.colormod = kh_TeamColor(initial_owner.team) * KH_KEY_BRIGHTNESS;
+	key.colormod = TeamColor(initial_owner.team) * KH_KEY_BRIGHTNESS;
 
 	switch(initial_owner.team)
 	{
@@ -337,6 +322,10 @@ void kh_Key_Spawn(entity initial_owner, float angle)
 			break;
 	}
 
+	// link into key list
+	key.kh_worldkeynext = kh_worldkeylist;
+	kh_worldkeylist = key;
+
 	sprint(initial_owner, strcat("You got the ^2", key.netname, "\n"));
 
 	WaypointSprite_Spawn("", 0, 0, key, '0 0 1' * KH_KEY_WP_ZSHIFT, world, key.team, key, waypointsprite_attachedforcarrier, FALSE);
@@ -354,6 +343,23 @@ void kh_Key_Remove(entity key)
 		WaypointSprite_Kill(key.waypointsprite_attachedforcarrier);
 	else // it was dropped
 		WaypointSprite_DetachCarrier(key);
+
+	// remove key from key list
+	if (kh_worldkeylist == key)
+		kh_worldkeylist = kh_worldkeylist.kh_worldkeynext;
+	else
+	{
+		o = kh_worldkeylist;
+		while (o)
+		{
+			if (o.kh_worldkeynext == key)
+			{
+				o.kh_worldkeynext = o.kh_worldkeynext.kh_worldkeynext;
+				break;
+			}
+			o = o.kh_worldkeynext;
+		}
+	}
 
 	remove(key);
 }
@@ -458,7 +464,7 @@ void kh_Key_Think()
 	if(self.owner)
 	{
 #ifndef KH_PLAYER_USE_ATTACHMENT
-		makevectors('0 1 0' * (self.cnt + math_mod(time, 360) * KH_KEY_XYSPEED));
+		makevectors('0 1 0' * (self.cnt + mod(time, 360) * KH_KEY_XYSPEED));
 		setorigin(self, v_forward * KH_KEY_XYDIST + '0 0 1' * self.origin_z);
 #endif
 
@@ -484,7 +490,7 @@ void kh_Key_Think()
 	if(!self.owner)
 		if(time > self.pain_finished)
 			kh_LoserTeam(self.team, self);
-	
+
 	if(self.owner)
 	if(kh_Key_AllOwnedByWhichTeam() != -1)
 	{
@@ -563,7 +569,7 @@ void kh_WinnerTeam(float teem)
 		te_lightning2(world, lastorigin, firstorigin);
 	}
 	midpoint = midpoint * (1 / kh_teams);
-	te_customflash(midpoint, 1000, 1, kh_TeamColor(teem) * 0.5 + '0.5 0.5 0.5'); // make the color >=0.5 in each component
+	te_customflash(midpoint, 1000, 1, TeamColor(teem) * 0.5 + '0.5 0.5 0.5'); // make the color >=0.5 in each component
 
 	sound(world, CHAN_AUTO, kh_sound_capture, 1, ATTN_NONE);
 	kh_FinishRound();
@@ -600,7 +606,7 @@ void kh_LoserTeam(float teem, entity lostkey)
 		FOR_EACH_PLAYER(player)
 			if(player.team != teem)
 				++players;
-		
+
 		FOR_EACH_KH_KEY(key)
 			if(key.owner && key.team != teem)
 				++keys;
@@ -666,7 +672,7 @@ string kh_CheckEnoughPlayers()
 	entity player;
 	string result;
 	result = "";
-	
+
 	// find a random player per team
 	for(i = 0; i < kh_teams; ++i)
 	{
@@ -781,11 +787,11 @@ float kh_KeyCarrier_waypointsprite_for_player(entity e)
 	// e is spectator? That's no team mate...
 	if(e.classname != "player")
 		return kh_GetCarrierSprite(self.team, -1);
-	
+
 	// e is no key carrier: simple case...
 	if(!e.kh_next)
 		return kh_GetCarrierSprite(self.team, e.team);
-	
+
 	// e is a key carrier: if any key is dropped or owned by another team, show
 	// the carrier sprite; otherwise show run here
 	if(kh_Key_AllOwnedByWhichTeam() == e.team)
@@ -852,8 +858,8 @@ void kh_init()
 	setmodel(kh_controller, "models/keyhunt/key.md3");
 	kh_key_dropped = kh_controller.modelindex;
 	/*
-	dprint(vtos(kh_controller.mins)); 
-	dprint(vtos(kh_controller.maxs)); 
+	dprint(vtos(kh_controller.mins));
+	dprint(vtos(kh_controller.maxs));
 	dprint("\n");
 	*/
 #ifdef KH_PLAYER_USE_CARRIEDMODEL

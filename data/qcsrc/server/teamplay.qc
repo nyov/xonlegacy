@@ -1,13 +1,7 @@
-float GAME_DEATHMATCH		= 1;
-float GAME_TEAM_DEATHMATCH	= 2;
-float GAME_DOMINATION		= 3;
-float GAME_CTF			= 4;
-float GAME_RUNEMATCH		= 5;
-float GAME_LMS			= 6;
-float GAME_ARENA		= 7;
-float GAME_KEYHUNT		= 8;
-float GAME_ASSAULT		= 9;
-float GAME_ONSLAUGHT	= 10;
+string cache_motd;
+string cache_mutatormsg;
+string cache_lastmotd;
+string cache_lastmutatormsg;
 
 // client counts for each team
 float c1, c2, c3, c4;
@@ -37,31 +31,30 @@ void TeamchangeFrags(entity e)
 	}
 }
 
+vector TeamColor(float teem)
+{
+	switch(teem)
+	{
+		case COLOR_TEAM1:
+			return '1 0.0625 0.0625';
+		case COLOR_TEAM2:
+			return '0.0625 0.0625 1';
+		case COLOR_TEAM3:
+			return '1 1 0.0625';
+		case COLOR_TEAM4:
+			return '1 0.0625 1';
+		default:
+			return '1 1 1';
+	}
+}
+
 string TeamName(float t)
 {
-	// fixme: Search for team entities and get their .netname's!
-	if(t == COLOR_TEAM1)
-		return "Red Team";
-	if(t == COLOR_TEAM2)
-		return "Blue Team";
-	if(t == COLOR_TEAM3)
-		return "Yellow Team";
-	if(t == COLOR_TEAM4)
-		return "Pink Team";
-	return "Neutral Team";
+	return strcat(Team_ColorName(t), " Team");
 }
 string ColoredTeamName(float t)
 {
-	// fixme: Search for team entities and get their .netname's!
-	if(t == COLOR_TEAM1)
-		return "^1Red Team^7";
-	if(t == COLOR_TEAM2)
-		return "^4Blue Team^7";
-	if(t == COLOR_TEAM3)
-		return "^3Yellow Team^7";
-	if(t == COLOR_TEAM4)
-		return "^6Pink Team^7";
-	return "Neutral Team";
+	return strcat(Team_ColorCode(t), Team_ColorName(t), " Team^7");
 }
 string TeamNoName(float t)
 {
@@ -297,11 +290,6 @@ void InitGameplayMode()
 		cvar_set("g_minstagib", "0");
 	}
 
-	registercvar("_motd", "");
-	registercvar("_mutatormsg", "");
-	cvar_set("_motd", wordwrap(cvar_string("sv_motd"), 50));
-	cvar_set("_mutatormsg", wordwrap(cvar_string("g_mutatormsg"), 50));
-
 	g_domination = cvar("g_domination");
 	g_ctf = cvar("g_ctf");
 	g_lms = cvar("g_lms");
@@ -311,6 +299,11 @@ void InitGameplayMode()
 	g_onslaught = cvar("g_onslaught");
 	g_assault = cvar("g_assault");
 	g_arena = cvar("g_arena");
+
+	cache_mutatormsg = strzone("");
+	cache_motd = strzone("");
+	cache_lastmutatormsg = strzone("");
+	cache_lastmotd = strzone("");
 
 	// enforce the server's universal frag/time limits
 	if(!cvar("g_campaign"))
@@ -361,8 +354,10 @@ void PrintWelcomeMessage(entity pl)
 	self.welcomemessage_time = time + 0.8; */
 
 	if(self.cvar_scr_centertime == 0) return;
-	if(self.welcomemessage_time > time) return;
-	self.welcomemessage_time = time + self.cvar_scr_centertime * 0.6;
+	if( !(timeoutStatus >= 1 || (time < restart_countdown) ) ) { //really print the WelcomeMessage to the player every frame when timeout-seconds are shown or the game is restarted, to make sure that the shown number is accurate
+		if(self.welcomemessage_time > time) return;
+		self.welcomemessage_time = time + self.cvar_scr_centertime * 0.6;
+	}
 
 	if(cvar("g_campaign"))
 	{
@@ -370,21 +365,31 @@ void PrintWelcomeMessage(entity pl)
 		return;
 	}
 
-	if(self.classname == "observer")
+	if(!self.button7)
 	{
-		if(g_lms && self.frags <= 0 && self.frags > -666)
-			return centerprint(self, strcat(NEWLINES, "^1You have no more lives left\nwait for next round\n\n\n^7press attack to spectate other players"));
-		else if(g_lms && self.frags == -666)
-			return centerprint(self, strcat(NEWLINES, "^1Match has already begun\nwait for next round\n\n\n^7press attack to spectate other players"));
+		if(self.classname == "observer")
+		{
+			if(g_lms && self.frags <= 0 && self.frags > -666)
+				return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "^1You have no more lives left\nwait for next round\n\n\n^7press attack to spectate other players"));
+			else if(g_lms && self.frags == -666)
+				return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "^1Match has already begun\nwait for next round\n\n\n^7press attack to spectate other players"));
+		}
+		else if(self.classname == "spectator")
+		{
+			if ((g_lms && self.frags < 1) || g_arena)
+				return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press attack for next player\npress attack2 for free fly mode"));
+			else {
+				local string specString;
+				specString = strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press jump to play\n^7press attack for next player\npress attack2 for free fly mode");
+				
+				if(time < restart_countdown) //also show the countdown when being a spectator
+					specString = strcat(specString, "\n\n^1Game starts in ", ftos(restartAnnouncer.cnt + 1), " seconds^7");
+				else if (timeoutStatus != 0)
+					specString = strcat(specString, "\n\n", getTimeoutText(1));
+				return centerprint_atprio(self, CENTERPRIO_SPAM, specString);
+			}
+		}
 	}
-	else if(self.classname == "spectator")
-	{
-		if ((g_lms && self.frags < 1) || g_arena)
-			return centerprint(self, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press attack for next player\npress attack2 for free fly mode"));
-		else
-			return centerprint(self, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press jump to play\n^7press attack for next player\npress attack2 for free fly mode"));
-	}
-
 
 	if(g_minstagib)
 		mutator = "^2Minstagib ^1";
@@ -414,6 +419,12 @@ void PrintWelcomeMessage(entity pl)
 		}
 		modifications = strcat(modifications, "laser-guided-missiles");
 	}
+	if(g_tourney) {
+		if (modifications) {
+			modifications = strcat(modifications, ", ");
+		}
+		modifications = strcat(modifications, "Tournament");
+	}
 
 	local string versionmessage;
 	versionmessage = GetClientVersionMessage(self.version);
@@ -424,37 +435,50 @@ void PrintWelcomeMessage(entity pl)
 	if(modifications != "")
 		s = strcat(s, "^8\nactive modifications: ^3", modifications, "^8\n");
 
-	if(time < restart_countdown)
-		s = strcat(s, "\n^1Game starts in ", ftos(ceil(restart_countdown-time)), " seconds^7");
-
-	if((self.classname == "observer" || self.classname == "spectator") && self.version == cvar("gameversion")) {
-		if(!g_arena)
-			s = strcat(s,"^7\n\n\npress jump to play\npress attack to spectate other players\n\n");
-		else if(player_count < 2 && arena_roundbased)
-		{
-			s = strcat(s, "\n\n\n^1waiting for second player to start match^7\n\n");
-		}
+	if(g_tourney) {
+		if(!tourneyInMatchStage)
+			s = strcat(s, "\n^8The game is currently in ^3warmup-stage ^8!\n");
 		else
-		{
-			s = strcat(s, "\n\n\n");
-			if(champion)
-				s = strcat(s, "^7current champion is: ", champion.netname, "\n\n");
-			s = strcat(s,"^7press attack to spectate other players\n\n");
-		}
+			s = strcat(s, "\n^8The game is currently in ^3match-stage ^8!\n");
 	}
 
+	if(time < restart_countdown)
+		s = strcat(s, "\n^1Game starts in ", ftos(restartAnnouncer.cnt + 1), " seconds^7");
+
+	if(timeoutStatus != 0)
+		s = strcat(s, "\n\n", getTimeoutText(1));
 
 	s = strzone(s);
 
 	if (g_grappling_hook)
 		s = strcat(s, "\n\n^8grappling hook is enabled, press 'e' to use it\n");
 
-	if (cvar_string("_mutatormsg") != "") {
-		s = strcat(s, "\n\n^8special gameplay tips: ^7", cvar_string("_mutatormsg"));
+	if(cache_lastmutatormsg != cvar_string("g_mutatormsg"))
+	{
+		if(cache_lastmutatormsg)
+			strunzone(cache_lastmutatormsg);
+		if(cache_mutatormsg)
+			strunzone(cache_mutatormsg);
+		cache_lastmutatormsg = strzone(cvar_string("g_mutatormsg"));
+		cache_mutatormsg = strzone(wordwrap(cache_lastmutatormsg, 50));
 	}
 
-	if (cvar_string("_motd") != "") {
-		s = strcat(s, "\n\n^8MOTD: ^7", cvar_string("_motd"));
+	if (cache_mutatormsg != "") {
+		s = strcat(s, "\n\n^8special gameplay tips: ^7", cache_mutatormsg);
+	}
+	
+	if(cache_lastmotd != cvar_string("sv_motd"))
+	{
+		if(cache_lastmotd)
+			strunzone(cache_lastmotd);
+		if(cache_motd)
+			strunzone(cache_motd);
+		cache_lastmotd = strzone(cvar_string("sv_motd"));
+		cache_motd = strzone(wordwrap(cache_lastmotd, 50));
+	}
+
+	if (cache_motd != "") {
+		s = strcat(s, "\n\n^8MOTD: ^7", cache_motd);
 	}
 
 	s = strcat(s, "\n");
@@ -735,7 +759,6 @@ float FindSmallestTeam(entity pl, float ignore_pl)
 			error("Too few teams available for team deathmatch\n");
 	}
 
-
 	// count how many players are in each team
 	if(ignore_pl)
 		GetTeamCounts(pl);
@@ -821,7 +844,7 @@ float FindSmallestTeam(entity pl, float ignore_pl)
 	return smallestteam;
 }
 
-float JoinBestTeam(entity pl, float only_return_best)
+float JoinBestTeam(entity pl, float only_return_best, float forcebestteam)
 {
 	float smallest, selectedteam;
 
@@ -834,6 +857,7 @@ float JoinBestTeam(entity pl, float only_return_best)
 
 	if(g_domination)
 	{
+		// <div0> WHY? TODO
 		if(cvar("g_domination_default_teams") < 3)
 			c3 = 999999999;
 		if(cvar("g_domination_default_teams") < 4)
@@ -842,7 +866,7 @@ float JoinBestTeam(entity pl, float only_return_best)
 
 	// if we don't care what team he ends up on, put him on whatever team he entered as.
 	// if he's not on a valid team, then let other code put him on the smallest team
-	if(!cvar("g_campaign") && !cvar("g_balance_teams") && !cvar("g_balance_teams_force"))
+	if(!forcebestteam)
 	{
 		if(     c1 >= 0 && pl.team == COLOR_TEAM1)
 			selectedteam = pl.team;

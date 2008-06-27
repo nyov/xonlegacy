@@ -7,6 +7,8 @@
 ===========================================================================
 */
 
+.float antilag_debug;
+
 // VorteX: static frame globals
 float WFRAME_FIRE1 = 0;
 float WFRAME_FIRE2 = 1;
@@ -22,16 +24,24 @@ vector w_shotdir;
 // make sure you call makevectors first (FIXME?)
 void(entity ent, vector vecs, float antilag, float recoil, string snd) W_SetupShot =
 {
+	float nudge = 1; // added to traceline target and subtracted from result
 	local vector trueaimpoint;
-	traceline_hitcorpse(self, self.origin + self.view_ofs, self.origin + self.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, self);
+	local float oldsolid;
+	oldsolid = self.solid;
+	self.solid = SOLID_BBOX; // make all shot test traces bypass playerclip
+	traceline(self.origin + self.view_ofs, self.origin + self.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, self);
 	trueaimpoint = trace_endpos;
 
 	if (cvar("g_shootfromeye"))
-		w_shotorg = ent.origin + ent.view_ofs + v_forward * vecs_x;
+		w_shotorg = ent.origin + ent.view_ofs;
 	else if (cvar("g_shootfromcenter"))
-		w_shotorg = ent.origin + ent.view_ofs + v_forward * vecs_x + '0 0 1' * vecs_z;
+		w_shotorg = ent.origin + ent.view_ofs + '0 0 1' * vecs_z;
 	else
-		w_shotorg = ent.origin + ent.view_ofs + v_forward * vecs_x + v_right * vecs_y + v_up * vecs_z;
+		w_shotorg = ent.origin + ent.view_ofs + v_right * vecs_y + v_up * vecs_z;
+	// now move the shotorg forward as much as requested if possible
+	traceline(w_shotorg, w_shotorg + v_forward * (vecs_x + nudge), MOVE_NORMAL, self);
+	w_shotorg = trace_endpos - v_forward * nudge;
+	// calculate the shotdir from the chosen shotorg
 	w_shotdir = normalize(trueaimpoint - w_shotorg);
 
 	// explanation of g_antilag:
@@ -45,20 +55,65 @@ void(entity ent, vector vecs, float antilag, float recoil, string snd) W_SetupSh
 	// damage to the real player
 	if (antilag)
 	if (self.cursor_trace_ent)                 // client was aiming at someone
+	if (self.cursor_trace_ent != self)         // just to make sure
 	if (self.cursor_trace_ent.takedamage)      // and that person is killable
-	if (cvar("g_antilag"))
+	if (self.cursor_trace_ent.classname == "player") // and actually a player
+	if (cvar("g_antilag") == 1)
 	{
 		// verify that the shot would miss without antilag
 		// (avoids an issue where guns would always shoot at their origin)
-		traceline_hitcorpse(self, w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
+		traceline(w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
 		if (!trace_ent.takedamage)
 		{
 			// verify that the shot would hit if altered
-			traceline_hitcorpse(self, w_shotorg, self.cursor_trace_ent.origin, MOVE_NORMAL, self);
+			traceline(w_shotorg, self.cursor_trace_ent.origin, MOVE_NORMAL, self);
 			if (trace_ent == self.cursor_trace_ent)
-				w_shotdir = normalize(self.cursor_trace_ent.origin - w_shotorg);
+			{
+				// verify that the shot would hit in the past
+				if(self.antilag_debug)
+					antilag_takeback(self.cursor_trace_ent, time - self.antilag_debug);
+				else
+					antilag_takeback(self.cursor_trace_ent, time - self.ping * 0.001);
+
+				traceline(self.origin + self.view_ofs, self.origin + self.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
+				antilag_restore(self.cursor_trace_ent);
+
+				if(trace_ent == self.cursor_trace_ent)
+				{
+					// HIT!
+					w_shotdir = normalize(self.cursor_trace_ent.origin - w_shotorg);
+					dprint("ANTILAG HIT for ", self.netname, "\n");
+				}
+				else
+				{
+					// prydon cursor aimbot or odd network conditions
+					dprint("WARNING: antilag ghost trace for ", self.netname, " failed!\n");
+				}
+
+				if(cvar("developer") >= 2)
+				{
+					vector v, vplus, vel;
+					float X;
+					v     = antilag_takebackorigin(self.cursor_trace_ent, time - (self.ping * 0.001       ));
+					vplus = antilag_takebackorigin(self.cursor_trace_ent, time - (self.ping * 0.001 + 0.01));
+					vel = (vplus - v) * (1 / 0.01);
+					// solve: v + X * vel = closest to self.origin + self.view_ofs, v_forward axis
+					v     -= (self.origin + self.view_ofs);
+					// solve: v + X * vel = closest to v_forward axis
+					// project into 2D by subtracting v_forward components:
+					v   -= (v   * v_forward) * v_forward;
+					vel -= (vel * v_forward) * v_forward;
+					// solve: v + X * vel = closest to origin
+					// (v + X * vel)^2 closest to 0
+					// v^2 + 2 * X * (v * vel) + X^2 * vel^2 closest to 0
+					X = -(v * vel) / (vel * vel);
+					dprint("dead center needs adjustment of ", ftos(X * 1000), " (that is, ", ftos(self.ping + X * 1000), " instead of ", ftos(self.ping), "\n");
+				}
+			}
 		}
 	}
+
+	self.solid = oldsolid; // restore solid type (generally SOLID_SLIDEBOX)
 
 	if (!g_norecoil)
 		self.punchangle_x = recoil * -1;
@@ -325,10 +380,8 @@ void() w_clear =
 void() w_ready =
 {
 	if (self.weaponentity)
-	{
 		self.weaponentity.state = WS_READY;
-		weapon_thinkf(WFRAME_IDLE, 0.1, w_ready);
-	}
+	weapon_thinkf(WFRAME_IDLE, 1000000, w_ready);
 };
 
 // FIXME: add qw-style client-custom weaponrating (cl_weaponrating)?
@@ -370,6 +423,13 @@ void(float windex, string wname, float hudammo) weapon_setup =
 // perform weapon to attack (weaponstate and attack_finished check is here)
 float(float secondary, float attacktime) weapon_prepareattack =
 {
+	//if sv_ready_restart_after_countdown is set, don't allow the player to shoot
+	//if all players readied up and the countdown is running
+	if (cvar("sv_ready_restart_after_countdown"))
+		if(time < restart_countdown) {
+			return FALSE;
+		}
+	
 	if (!weapon_action(self.weapon, WR_CHECKAMMO1 + secondary))
 	{
 		self.switchweapon = w_getbestweapon(self);
@@ -377,14 +437,25 @@ float(float secondary, float attacktime) weapon_prepareattack =
 			self.cnt = self.weapon;
 		return FALSE;
 	}
+
+	if (timeoutStatus == 2) //don't allow the player to shoot while game is paused
+		return FALSE;
+
 	// don't fire if previous attack is not finished
-	if (ATTACK_FINISHED(self) > time)
+	if (ATTACK_FINISHED(self) > time + frametime * 0.5)
 		return FALSE;
 	// don't fire while changing weapon
 	if (self.weaponentity.state != WS_READY)
 		return FALSE;
 	self.weaponentity.state = WS_INUSE;
-	ATTACK_FINISHED(self) = max(time, ATTACK_FINISHED(self) + attacktime);
+	// if the weapon hasn't been firing continuously, reset the timer
+	if (ATTACK_FINISHED(self) < time - frametime * 1.5)
+	{
+		ATTACK_FINISHED(self) = time;
+		//dprint("resetting attack finished to ", ftos(time), "\n");
+	}
+	ATTACK_FINISHED(self) = ATTACK_FINISHED(self) + attacktime;
+	//dprint("attack finished ", ftos(ATTACK_FINISHED(self)), "\n");
 	return TRUE;
 };
 
@@ -417,8 +488,19 @@ void(float fr, float t, void() func) weapon_thinkf =
 	}
 
 	// VorteX: haste can be added here
-	self.weapon_nextthink = max(time, self.weapon_nextthink_lastframe + t);
+	if (self.weapon_think == w_ready)
+	{
+		self.weapon_nextthink = time;
+		//dprint("started firing at ", ftos(time), "\n");
+	}
+	if (self.weapon_nextthink < time - frametime * 1.5 || self.weapon_nextthink > time + frametime * 1.5)
+	{
+		self.weapon_nextthink = time;
+		//dprint("reset weapon animation timer at ", ftos(time), "\n");
+	}
+	self.weapon_nextthink = self.weapon_nextthink + t;
 	self.weapon_think = func;
+	//dprint("next ", ftos(self.weapon_nextthink), "\n");
 
 	if (fr == WFRAME_FIRE1 || fr == WFRAME_FIRE2)
 	if (t)
@@ -513,7 +595,7 @@ void(entity missile) W_SetupProjectileVelocity =
 		error("Unowned missile");
 
 	missile.velocity = W_CalculateProjectileVelocity(missile.owner.velocity, missile.velocity);
-} 
+}
 
 void(float wepcode, float minammo) weapon_register =
 {

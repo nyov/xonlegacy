@@ -7,9 +7,12 @@ void wordwrap_buffer_put(string s)
 
 string wordwrap(string s, float l)
 {
+	string r;
 	wordwrap_buffer = "";
 	wordwrap_cb(s, l, wordwrap_buffer_put);
-	return wordwrap_buffer;
+	r = wordwrap_buffer;
+	wordwrap_buffer = "";
+	return r;
 }
 
 #ifndef MENUQC
@@ -29,9 +32,41 @@ void wordwrap_sprint(string s, float l)
 	wordwrap_cb(s, l, wordwrap_buffer_sprint);
 	if(wordwrap_buffer != "")
 		sprint(self, strcat(wordwrap_buffer, "\n"));
+	wordwrap_buffer = "";
 	return;
 }
 #endif
+
+string unescape(string in)
+{
+	local float i, len;
+	local string str, s;
+
+	// but it doesn't seem to be necessary in my tests at least
+	in = strzone(in);
+
+	len = strlen(in);
+	str = "";
+	for(i = 0; i < len; ++i)
+	{
+		s = substring(in, i, 1);
+		if(s == "\\")
+		{
+			s = substring(in, i+1, 1);
+			if(s == "n")
+				str = strcat(str, "\n");
+			else if(s == "\\")
+				str = strcat(str, "\\");
+			else
+				str = strcat(str, substring(in, i, 2));
+			++i;
+		} else
+			str = strcat(str, s);
+	}
+
+	strunzone(in);
+	return str;
+}
 
 void wordwrap_cb(string s, float l, void(string) callback)
 {
@@ -47,6 +82,11 @@ void wordwrap_cb(string s, float l, void(string) callback)
 			callback("\n");
 			lleft = l;
 			i++;
+		}
+		else if (substring(s, i, 1) == "\n")
+		{
+			callback("\n");
+			lleft = l;
 		}
 		else if (substring(s, i, 1) == " ")
 		{
@@ -71,6 +111,8 @@ void wordwrap_cb(string s, float l, void(string) callback)
 				if (c == " ")
 					break;
 				if (c == "\\")
+					break;
+				if (c == "\n")
 					break;
 				// we need to keep this tempstring alive even if substring is
 				// called repeatedly, so call strcat even though we're not
@@ -214,4 +256,154 @@ vector colormapPaletteColor(float c, float isPants)
 					+ '0 0 1' * (0.502 + 0.498 * sin(time / 3.1415926536 + 1.0471975512));
 		default: return '0.000 0.000 0.000';
 	}
+}
+
+// unzone the string, and return it as tempstring. Safe to be called on string_null
+string fstrunzone(string s)
+{
+	string sc;
+	if not(s)
+		return s;
+	sc = strcat(s, "");
+	strunzone(s);
+	return sc;
+}
+
+// Databases (hash tables)
+#define DB_BUCKETS 8192
+void db_save(float db, string pFilename)
+{
+	float fh, i, n;
+	fh = fopen(pFilename, FILE_WRITE);
+	if(fh < 0)
+		error(strcat("Can't write DB to ", pFilename));
+	n = buf_getsize(db);
+	fputs(fh, strcat(ftos(DB_BUCKETS), "\n"));
+	for(i = 0; i < n; ++i)
+		fputs(fh, strcat(bufstr_get(db, i), "\n"));
+	fclose(fh);
+}
+
+float db_create()
+{
+	return buf_create();
+}
+
+float db_load(string pFilename)
+{
+	float db, fh, i, j, n;
+	string l;
+	db = buf_create();
+	if(db < 0)
+		return -1;
+	fh = fopen(pFilename, FILE_READ);
+	if(fh < 0)
+		return db;
+	if(stof(fgets(fh)) == DB_BUCKETS)
+	{
+		i = 0;
+		while((l = fgets(fh)))
+		{
+			if(l != "")
+				bufstr_set(db, i, l);
+			++i;
+		}
+	}
+	else
+	{
+		// different count of buckets?
+		// need to reorganize the database then (SLOW)
+		while((l = fgets(fh)))
+		{
+			n = tokenizebyseparator(l, "\\");
+			for(j = 2; j < n; j += 2)
+				db_put(db, uri_unescape(argv(j-1)), uri_unescape(argv(j)));
+		}
+	}
+	fclose(fh);
+	return db;
+}
+
+void db_dump(float db, string pFilename)
+{
+	float fh, i, j, n, m;
+	fh = fopen(pFilename, FILE_WRITE);
+	if(fh < 0)
+		error(strcat("Can't dump DB to ", pFilename));
+	n = buf_getsize(db);
+	fputs(fh, "0\n");
+	for(i = 0; i < n; ++i)
+	{
+		m = tokenizebyseparator(bufstr_get(db, i), "\\");
+		for(j = 2; j < m; j += 2)
+			fputs(fh, strcat("\\", argv(j-1), "\\", argv(j), "\n"));
+	}
+	fclose(fh);
+}
+
+void db_close(float db)
+{
+	buf_del(db);
+}
+
+string db_get(float db, string pKey)
+{
+	float h;
+	h = mod(crc16(FALSE, pKey), DB_BUCKETS);
+	return uri_unescape(infoget(bufstr_get(db, h), pKey));
+}
+
+void db_put(float db, string pKey, string pValue)
+{
+	float h;
+	h = mod(crc16(FALSE, pKey), DB_BUCKETS);
+	bufstr_set(db, h, infoadd(bufstr_get(db, h), pKey, uri_escape(pValue)));
+}
+
+void db_test()
+{
+	float db, i;
+	print("LOAD...\n");
+	db = db_load("foo.db");
+	print("LOADED. FILL...\n");
+	for(i = 0; i < DB_BUCKETS; ++i)
+		db_put(db, ftos(random()), "X");
+	print("FILLED. SAVE...\n");
+	db_save(db, "foo.db");
+	print("SAVED. CLOSE...\n");
+	db_close(db);
+	print("CLOSED.\n");
+}
+
+// Multiline text file buffers
+float buf_load(string pFilename)
+{
+	float buf, fh, i;
+	string l;
+	buf = buf_create();
+	if(buf < 0)
+		return -1;
+	fh = fopen(pFilename, FILE_READ);
+	if(fh < 0)
+		return buf;
+	i = 0;
+	while((l = fgets(fh)))
+	{
+		bufstr_set(buf, i, l);
+		++i;
+	}
+	fclose(fh);
+	return buf;
+}
+
+void buf_save(float buf, string pFilename)
+{
+	float fh, i, n;
+	fh = fopen(pFilename, FILE_WRITE);
+	if(fh < 0)
+		error(strcat("Can't write buf to ", pFilename));
+	n = buf_getsize(buf);
+	for(i = 0; i < n; ++i)
+		fputs(fh, strcat(bufstr_get(buf, i), "\n"));
+	fclose(fh);
 }

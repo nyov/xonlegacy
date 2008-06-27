@@ -1,10 +1,10 @@
 //=============================================================================
 
-/*QUAKED info_player_attacker (1 0 0) (-16 -16 -24) (16 16 45) INITIAL
+/*QUAKED spawnfunc_info_player_attacker (1 0 0) (-16 -16 -24) (16 16 45) INITIAL
 Normal attacker spawning location for Nexuiz Asssault
 -------- KEYS --------
 angle : direction in which player will look when spawning in the game. Does not apply to bots.
-target : this should point to a target_objective to decide when this spawning point is active.
+target : this should point to a spawnfunc_target_objective to decide when this spawning point is active.
 nobots : when set to 1, bots will never use this spawn point to respawn in the game.
 nohumans : when set to 1, human players will never use this spawn point to respawn in the game.
 notfree : when set to 1, entity will not spawn in "Free for all" and "Tournament" modes.
@@ -12,18 +12,18 @@ notteam : when set to 1, entity will not spawn in "Teamplay" and "CTF" modes.
 notsingle : when set to 1, entity will not spawn in Single Player mode (bot play mode).
 -------- SPAWNFLAGS --------
 INITIAL : makes the spawnpoint the initial place for the player to spawn at the beginning of the game.*/
-void info_player_attacker() {
-	info_player_deathmatch();
+void spawnfunc_info_player_attacker() {
+	spawnfunc_info_player_deathmatch();
 	self.team = COLOR_TEAM1; // red, gets swapped every round
 }
 
 //=============================================================================
 
-/*QUAKED info_player_defender (0 1 0) (-16 -16 -24) (16 16 45) INITIAL
+/*QUAKED spawnfunc_info_player_defender (0 1 0) (-16 -16 -24) (16 16 45) INITIAL
 Normal defender spawning location for Nexuiz Asssault
 -------- KEYS --------
 angle : direction in which player will look when spawning in the game. Does not apply to bots.
-target : this should point to a target_objective to decide when this spawning point is active.
+target : this should point to a spawnfunc_target_objective to decide when this spawning point is active.
 nobots : when set to 1, bots will never use this spawn point to respawn in the game.
 nohumans : when set to 1, human players will never use this spawn point to respawn in the game.
 notfree : when set to 1, entity will not spawn in "Free for all" and "Tournament" modes.
@@ -31,8 +31,8 @@ notteam : when set to 1, entity will not spawn in "Teamplay" and "CTF" modes.
 notsingle : when set to 1, entity will not spawn in Single Player mode (bot play mode).
 -------- SPAWNFLAGS --------
 INITIAL : makes the spawnpoint the initial place for the player to spawn at the beginning of the game.*/
-void info_player_defender() {
-	info_player_deathmatch();
+void spawnfunc_info_player_defender() {
+	spawnfunc_info_player_deathmatch();
 	self.team = COLOR_TEAM2; // blue, gets swapped every round
 }
 
@@ -49,19 +49,10 @@ void assault_objective_use() {
 }
 
 void assault_objective_think() {
-	local entity oldself;	
 	if(self.health < 0) {
 		//self.effects = 0;
-		local entity ent;
-		ent = find(world, targetname, self.target);
-		while(ent) {
-			oldself = self;
-			self = ent;
-			self.use();
-			self = oldself;
-			ent = find(ent, targetname, self.target);
-			
-		}
+		activator = self;
+		SUB_UseTargets();
 	} else {
 		//self.effects = EF_STARDUST;
 		self.nextthink = time + 0.1;
@@ -70,12 +61,12 @@ void assault_objective_think() {
 }
 //=============================================================================
 
-/*QUAKED target_objective (0 .5 0) (-8 -8 -8) (8 8 8)
+/*QUAKED spawnfunc_target_objective (0 .5 0) (-8 -8 -8) (8 8 8)
 Objective controller for Nexuiz Assault. When active it has 100 health. If it falls below 0 then
-it'll trigger the next targeted entity (usually the next objective or target_assault_roundend etc.)
+it'll trigger the next targeted entity (usually the next objective or spawnfunc_target_assault_roundend etc.)
 -------- KEYS --------
 targetname : point to e.g. next objective*/
-void target_objective() {
+void spawnfunc_target_objective() {
 	self.classname = "target_objective";
 	self.think = assault_objective_think;
 	self.use = assault_objective_use;
@@ -160,9 +151,9 @@ void assault_objective_decrease_use() {
 //=============================================================================
 
 /*QUAKED target_objective_decrease (0 .5 0) (-8 -8 -8) (8 8 8)
-When triggered decreases health of the targeted target_objective.
+When triggered decreases health of the targeted spawnfunc_target_objective.
 -------- KEYS --------
-targetname : point to a target_objective entity*/
+targetname : point to a spawnfunc_target_objective entity*/
 void target_objective_decrease() {
 
 	self.classname = "target_objective_decrease";
@@ -193,7 +184,10 @@ void assault_destructible_reset() {
 	self.colormod = '1 1 1';
 	self.cnt = 0; // not active
 	if(self.spawnflags)
+	{
+		activator = self;
 		self.use();
+	}
 }
 
 void assault_destructible_use() {
@@ -202,20 +196,11 @@ void assault_destructible_use() {
 }
 
 void assault_destructible_destroy() {
-	local entity oldself;
-	
 	self.model = "";
 	self.takedamage = DAMAGE_NO;
 	self.solid = SOLID_NOT;
-	local entity ent;
-	ent = find(world, targetname, self.target);
-	while(ent) {
-		oldself = self;
-		self = ent;
-		self.use();
-		self = oldself;
-		ent = find(ent, targetname, self.target);
-	}
+	activator = other;
+	SUB_UseTargets();
 }
 
 void assault_destructible_damage(entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force) {
@@ -243,7 +228,7 @@ void assault_destructible_damage(entity inflictor, entity attacker, float damage
 }
 
 // destructible walls that can be used to trigger target_objective_decrease
-void func_assault_destructible() {
+void spawnfunc_func_assault_destructible() {
 	if(!self.health)
 		self.health = 100;
 
@@ -283,7 +268,7 @@ void assault_wall_think() {
 	self.nextthink = time + 0.2;
 }
 
-void func_assault_wall() {
+void spawnfunc_func_assault_wall() {
 	self.classname = "func_assault_wall";
 	self.mdl = self.model;
 	setmodel(self, self.mdl);
@@ -302,7 +287,7 @@ void target_assault_roundend_use() {
 	self.winning = 1; // round has been won by attackers
 }
 
-void target_assault_roundend() {
+void spawnfunc_target_assault_roundend() {
 	if(!self.health)
 		self.health = 300; // 5 minutes
 
@@ -314,19 +299,11 @@ void target_assault_roundend() {
 }
 
 void assault_roundstart_use() {
-	local entity ent;
-	local entity oldself;
-	ent = find(world, targetname, self.target);
-	while(ent) {
-		oldself = self;
-		self = ent;
-		self.use();
-		self = oldself;
-		ent = find(ent, targetname, self.target);
-	}
+	activator = self;
+	SUB_UseTargets();
 }
 
-void target_assault_roundstart() {
+void spawnfunc_target_assault_roundstart() {
 	assault_attacker_team = COLOR_TEAM1;
 	self.classname = "target_assault_roundstart";
 	self.use = assault_roundstart_use;
@@ -410,7 +387,7 @@ void assault_new_round() {
 		ent = find(ent, classname, "target_objective_decrease");
 	} 
 
-	// reset all func_assault_destructible
+	// reset all spawnfunc_func_assault_destructible
 	ent = find(world, classname, "func_assault_destructible");
 	while (ent)
 	{

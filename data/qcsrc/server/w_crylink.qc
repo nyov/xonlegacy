@@ -1,84 +1,79 @@
-
 .float gravity;
 const vector proj_color = '1 1 1';
 
 .entity realowner;
+
 void W_Crylink_Touch (void)
 {
+	float finalhit;
+	float f;
 	if (trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
 	{
 		remove(self);
 		return;
 	}
-	RadiusDamage (self, self.realowner, cvar("g_balance_crylink_primary_damage"), cvar("g_balance_crylink_primary_edgedamage"), cvar("g_balance_crylink_primary_radius"), world, cvar("g_balance_crylink_primary_force"), IT_CRYLINK);
-	te_gunshotquad(self.origin);
-	remove (self);
-	/*
-	//te_smallflash(self.origin);
-	if (other.takedamage == DAMAGE_AIM)
+	pointparticles(particleeffectnum("crylink_impactbig"), self.origin, '0 0 0', 1);
+	finalhit = ((self.cnt <= 0) || (other.takedamage != DAMAGE_NO));
+	if(finalhit)
+		f = 1;
+	else
+		f = cvar("g_balance_crylink_primary_bouncedamagefactor");
+	if(self.alpha)
+		f *= self.alpha;
+	RadiusDamage (self, self.realowner, cvar("g_balance_crylink_primary_damage") * f, cvar("g_balance_crylink_primary_edgedamage") * f, cvar("g_balance_crylink_primary_radius"), world, cvar("g_balance_crylink_primary_force") * f, IT_CRYLINK);
+	if (finalhit)
 	{
 		remove (self);
 		return;
 	}
+	self.cnt = self.cnt - 1;
+	self.angles = vectoangles(self.velocity);
 	self.owner = world;
-	self.touch = SUB_Null;
-	setmodel (self, "models/plasma.mdl"); // precision set below
-	setsize (self, '0 0 0', '0 0 0');
-	self.gravity = 0;
-	self.glow_size = 0;
-	self.glow_color = 0;
-	self.think = SUB_Remove;
-	self.movetype = MOVETYPE_NONE;
-	self.effects = EF_LOWPRECISION;
-	SUB_SetFade(self, time, 1);
-	//remove (self);
-	*/
+	//self.scale = 1 + self.cnt;
 }
 
 void W_Crylink_Touch2 (void)
 {
+	float finalhit;
+	float f;
 	if (trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
 	{
 		remove(self);
 		return;
 	}
-	RadiusDamage (self, self.realowner, cvar("g_balance_crylink_secondary_damage"), cvar("g_balance_crylink_secondary_edgedamage"), cvar("g_balance_crylink_secondary_radius"), world, cvar("g_balance_crylink_secondary_force"), IT_CRYLINK);
-	te_gunshotquad(self.origin);
-	remove (self);
-	/*
-	//te_smallflash(self.origin);
-	if (other.takedamage == DAMAGE_AIM)
+	pointparticles(particleeffectnum("crylink_impact"), self.origin, '0 0 0', 1);
+	finalhit = ((self.cnt <= 0) || (other.takedamage != DAMAGE_NO));
+	if(finalhit)
+		f = 1;
+	else
+		f = cvar("g_balance_crylink_secondary_bouncedamagefactor");
+	if(self.alpha)
+		f *= self.alpha;
+	RadiusDamage (self, self.realowner, cvar("g_balance_crylink_secondary_damage") * f, cvar("g_balance_crylink_secondary_edgedamage") * f, cvar("g_balance_crylink_secondary_radius"), world, cvar("g_balance_crylink_secondary_force") * f, IT_CRYLINK);
+	if (finalhit)
 	{
 		remove (self);
 		return;
 	}
+	self.cnt = self.cnt - 1;
+	self.angles = vectoangles(self.velocity);
 	self.owner = world;
-	self.touch = SUB_Null;
-	setmodel (self, "models/plasma.mdl"); // precision set below
-	setsize (self, '0 0 0', '0 0 0');
-	self.gravity = 0;
-	self.glow_size = 0;
-	self.glow_color = 0;
-	self.think = SUB_Remove;
-	self.movetype = MOVETYPE_NONE;
-	self.effects = EF_LOWPRECISION;
-	SUB_SetFade(self, time, 1);
-	//remove (self);
-	*/
+//	self.scale = 1 + 1 * self.cnt;
 }
 
 void W_Crylink_Attack (void)
 {
 	local float counter, shots;
 	local entity proj;
+	local vector s;
 
 	if (cvar("g_use_ammunition"))
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_crylink_primary_ammo");
 
-	W_SetupShot (self, '11 8 -8', FALSE, 2, "weapons/crylink_fire.wav");
-	te_smallflash(w_shotorg);
+	W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/crylink_fire.wav");
 
 	shots = cvar("g_balance_crylink_primary_shots");
+	pointparticles(particleeffectnum("crylink_muzzleflash"), w_shotorg, w_shotdir * 1000, shots);
 	while (counter < shots)
 	{
 		proj = spawn ();
@@ -87,19 +82,38 @@ void W_Crylink_Attack (void)
 		proj.bot_dodge = TRUE;
 		proj.bot_dodgerating = cvar("g_balance_crylink_primary_damage");
 
-		proj.movetype = MOVETYPE_BOUNCE;
+		proj.movetype = MOVETYPE_BOUNCEMISSILE;
 		proj.solid = SOLID_BBOX;
-		proj.gravity = 0.001;
+		//proj.gravity = 0.001;
 
 		setmodel (proj, "models/plasmatrail.mdl"); // precision set below
 		setsize (proj, '0 0 0', '0 0 0');
 		setorigin (proj, w_shotorg);
 
-		proj.velocity = (w_shotdir + randomvec() * cvar("g_balance_crylink_primary_spread")) * cvar("g_balance_crylink_primary_speed");
+		s = '0 0 0';
+		if (counter == 0)
+			s = '0 0 0';
+		else if (counter == 1)
+			s = '0 0 1';
+		else if (counter == 2)
+			s = '0 -0.71 -0.71';
+		else if (counter == 3)
+			s = '0 0.71 -0.71';
+		else
+			s = randomvec();
+		s = s * cvar("g_balance_crylink_primary_spread");
+		proj.velocity = (w_shotdir + v_right * s_y + v_up * s_z) * cvar("g_balance_crylink_primary_speed");
+//		proj.velocity = (w_shotdir + randomvec() * cvar("g_balance_crylink_primary_spread")) * cvar("g_balance_crylink_primary_speed");
 		W_SetupProjectileVelocity(proj);
 		proj.touch = W_Crylink_Touch;
-		proj.think = SUB_Remove;
-		proj.nextthink = time + cvar("g_balance_crylink_primary_lifetime");
+		if(counter == 0)
+			SUB_SetFade(proj, time + cvar("g_balance_crylink_primary_middle_lifetime"), cvar("g_balance_crylink_primary_middle_fadetime"));
+		else if(counter <= 3)
+			SUB_SetFade(proj, time + cvar("g_balance_crylink_primary_star_lifetime"), cvar("g_balance_crylink_primary_star_fadetime"));
+		else
+			SUB_SetFade(proj, time + cvar("g_balance_crylink_primary_other_lifetime"), cvar("g_balance_crylink_primary_other_fadetime"));
+		proj.cnt = cvar("g_balance_crylink_primary_bounces");
+		proj.scale = 1 + 1 * proj.cnt;
 
 		proj.angles = vectoangles (proj.velocity);
 
@@ -120,10 +134,10 @@ void W_Crylink_Attack2 (void)
 	if (cvar("g_use_ammunition"))
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_crylink_secondary_ammo");
 
-	W_SetupShot (self, '11 8 -8', FALSE, 2, "weapons/crylink_fire.wav");
-	te_smallflash(w_shotorg);
+	W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/crylink_fire.wav");
 
 	shots = cvar("g_balance_crylink_secondary_shots");
+	pointparticles(particleeffectnum("crylink_muzzleflash"), w_shotorg, w_shotdir * 1000, shots);
 	while (counter < shots)
 	{
 		proj = spawn ();
@@ -132,9 +146,9 @@ void W_Crylink_Attack2 (void)
 		proj.bot_dodge = TRUE;
 		proj.bot_dodgerating = cvar("g_balance_crylink_secondary_damage");
 
-		proj.movetype = MOVETYPE_BOUNCE;
+		proj.movetype = MOVETYPE_BOUNCEMISSILE;
 		proj.solid = SOLID_BBOX;
-		proj.gravity = 0.001;
+		//proj.gravity = 0.001;
 
 		setmodel (proj, "models/plasmatrail.mdl"); // precision set below
 		setsize (proj, '0 0 0', '0 0 0');
@@ -143,8 +157,12 @@ void W_Crylink_Attack2 (void)
 		proj.velocity = (w_shotdir + (((counter + 0.5) / shots) * 2 - 1) * v_right * cvar("g_balance_crylink_secondary_spread")) * cvar("g_balance_crylink_secondary_speed");
 		W_SetupProjectileVelocity(proj);
 		proj.touch = W_Crylink_Touch2;
-		proj.think = SUB_Remove;
-		proj.nextthink = time + cvar("g_balance_crylink_secondary_lifetime");
+		if(counter == (shots - 1) / 2)
+			SUB_SetFade(proj, time + cvar("g_balance_crylink_secondary_middle_lifetime"), cvar("g_balance_crylink_secondary_middle_fadetime"));
+		else
+			SUB_SetFade(proj, time + cvar("g_balance_crylink_secondary_line_lifetime"), cvar("g_balance_crylink_secondary_line_fadetime"));
+		proj.cnt = cvar("g_balance_crylink_secondary_bounces");
+		proj.scale = 1 + 1 * proj.cnt;
 
 		proj.angles = vectoangles (proj.velocity);
 
@@ -164,14 +182,13 @@ void W_Crylink_Attack3 (void)
 {
 	if (cvar("g_use_ammunition"))
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_crylink_primary_ammo");
-	W_SetupShot (self, '11 8 -8', TRUE, 0, "weapons/crylink_fire.wav");
+	W_SetupShot (self, '25 8 -8', TRUE, 0, "weapons/crylink_fire.wav");
 
-	// use traceline_hitcorpse to make sure it can hit gibs and corpses too
-	traceline_hitcorpse(self, w_shotorg, w_shotorg + w_shotdir * 1000, FALSE, self);
+	traceline_antilag(self, w_shotorg, w_shotorg + w_shotdir * 1000, FALSE, self, self.ping * 0.001);
 
-	te_smallflash(w_shotorg);
-	te_plasmaburn(trace_endpos);
-	te_lightning2(self, w_shotorg, trace_endpos);
+	pointparticles(particleeffectnum("lightning_muzzleflash", w_shotorg, w_shotdir * 1000, 1);
+	pointparticles(particleeffectnum("lightning_impact", trace_endpos, trace_plane_normal * 1000, 1);
+	trailparticles(world, particleeffectnum("lightning_beam", w_shotorg, trace_endpos);
 
 	if (trace_fraction < 1)
 		Damage(trace_ent, self, self, cvar("g_balance_crylink_primary_damage"), IT_CRYLINK, trace_endpos, '0 0 0');
@@ -183,9 +200,9 @@ float(float req) w_crylink =
 	if (req == WR_AIM)
 	{
 		if (random() > 0.15)
-			self.button0 = bot_aim(cvar("g_balance_crylink_primary_speed"), 0, cvar("g_balance_crylink_primary_lifetime"), FALSE);
+			self.button0 = bot_aim(cvar("g_balance_crylink_primary_speed"), 0, cvar("g_balance_crylink_primary_middle_lifetime"), FALSE);
 		else
-			self.button3 = bot_aim(cvar("g_balance_crylink_secondary_speed"), 0, cvar("g_balance_crylink_secondary_lifetime"), FALSE);
+			self.button3 = bot_aim(cvar("g_balance_crylink_secondary_speed"), 0, cvar("g_balance_crylink_secondary_middle_lifetime"), FALSE);
 	}
 	else if (req == WR_THINK)
 	{

@@ -1,5 +1,4 @@
 void ReadyCount();
-string ValidateMap(string vote);
 void(entity e) DropFlag;
 string MapVote_Suggest(string m);
 
@@ -20,15 +19,14 @@ void Say(entity source, float teamsay, string msgin)
 	if(msgin == "")
 		return;
 
-	colorstr = Team_ColorCode(source.team);
-
-	if(!teams_matter)
+	if(source.classname != "player")
+		colorstr = "^0"; // black for spectators
+	else if(teams_matter)
+		colorstr = Team_ColorCode(source.team);
+	else
 		teamsay = FALSE;
 
 	if(intermission_running)
-		teamsay = FALSE;
-
-	if(source.classname != "player") // observers can't
 		teamsay = FALSE;
 
 	/*
@@ -102,9 +100,20 @@ void Say(entity source, float teamsay, string msgin)
 	}
 	else if(teamsay)
 	{
-		FOR_EACH_REALPLAYER(head)
+		if(source.classname == "player")
 		{
-			if(head.team == source.team)
+			FOR_EACH_REALPLAYER(head)
+			{
+				if(head.team == source.team)
+				{
+					sprint(head, msgstr);
+					centerprint(head, cmsgstr);
+				}
+			}
+		}
+		else
+		{
+			FOR_EACH_REALCLIENT(head) if(head.classname != "player")
 			{
 				sprint(head, msgstr);
 				centerprint(head, cmsgstr);
@@ -113,242 +122,29 @@ void Say(entity source, float teamsay, string msgin)
 	}
 	else
 	{
-		bprint(msgstr);
+		//when g_tourney is active and g_tourney_disable_spec_chat is set and game is in matchstage
+		//don't print the text from specs/observers to the players but only the other spectators
+		if(g_tourney && cvar("g_tourney_disable_spec_chat") && tourneyInMatchStage && source.classname != "player") {
+			FOR_EACH_REALCLIENT(head) if(head.classname != "player") {
+				sprint(head, msgstr);
+			}
+		}
+		else
+			bprint(msgstr);
 		//ServerConsoleEcho(substring(msgstr, 1, strlen(msgstr) - 2), TRUE);
 	}
 
 	strunzone(msgstr);
 }
 
-string GetKickVoteVictim_newcommand;
-entity GetKickVoteVictim(string vote, string cmd)
-{
-	float tokens;
-	float i, n;
-	string ns;
-	entity e;
-
-	tokens = tokenize(vote);
-	ns = "";
-
-	if(tokens == 2)
-		if(substring(argv(1), 0, 1) == "#")
-			ns = substring(argv(1), 1, 999);
-	
-	if(tokens == 3)
-		if(argv(1) == "#")
-			ns = argv(2);
-
-	if(ns != "")
-	{
-		n = stof(ns);
-		if(ns == ftos(n)) if(n >= 1) if(n <= maxclients)
-		{
-			for((e = world), (i = 0); i < n; ++i, (e = nextent(e)))
-				;
-			if(clienttype(e) == CLIENTTYPE_REAL)
-			{
-				GetKickVoteVictim_newcommand = strcat(argv(0), " # ", ns);
-				return e;
-			}
-		}
-	}
-
-	sprint(self, strcat("Usage: ", cmd, " ", argv(0), " #playernumber (as in \"status\")\n"));
-	return world;
-}
-
 void SV_ParseClientCommand(string s) {
 	local string cmd;
-	local entity e;
+	local float i;
 
 	tokenize(s);
 
-	if(argv(0) == "vote") {
-		if(argv(1) == "help") {
-			local string vmasterdis;
-			if(!cvar("sv_vote_master")) {
-				vmasterdis = " ^1(disabled)";
-			}
-			local string vcalldis;
-			if(!cvar("sv_vote_call")) {
-				vcalldis = " ^1(disabled)";
-			}
-			sprint(self, "^7You can use voting with \"^2cmd vote help^7\" \"^2cmd vote status^7\" \"^2cmd vote call ^3COMMAND ARGUMENTS^7\" \"^2cmd vote stop^7\" \"^2cmd vote master^7\" \"^2cmd vote do ^3COMMAND ARGUMENTS^7\" \"^2cmd vote yes^7\" \"^2cmd vote no^7\".\n");
-			sprint(self, "^7Or if your version is up to date you can use these aliases \"^2vhelp^7\" \"^2vstatus^7\" \"^2vcall ^3COMMAND ARGUMENTS^7\" \"^2vstop^7\" \"^2vmaster^7\" \"^2vdo ^3COMMAND ARGUMENTS^7\" \"^2vyes^7\" \"^2vno^7\".\n");
-			sprint(self, "^7\"^2help^7\" shows this info.\n");
-			sprint(self, "^7\"^2status^7\" shows if there is a vote called and who called it.\n");
-			sprint(self, strcat("^7\"^2call^7\" is used to call a vote. See the list of allowed commands.", vcalldis, "^7\n"));
-			sprint(self, "^7\"^2stop^7\" can be used by the vote caller or an admin to stop a vote and maybe correct it.\n");
-			sprint(self, strcat("^7\"^2master^7\" is used to call a vote to become a master.", vmasterdis, "^7\n"));
-			sprint(self, "^7\"^2do^7\" If you are a master you can execute a command without a vote. See the list of allowed commands.\n");
-			sprint(self, "^7\"^2yes^7\" and \"^2no^7\" to make your vote.\n");
-			sprint(self, "^7If more then 50% of the players vote yes the vote is accepted.\n");
-			sprint(self, "^7If more then 50% of the players vote no the vote is rejected.\n");
-			sprint(self, strcat("^7The vote will end after ", cvar_string("sv_vote_timeout"), "^7 seconds.\n"));
-			sprint(self, "^7You can call a vote for or execute these commands:\n");
-			sprint(self, strcat("^3", cvar_string("sv_vote_commands"), "^7 and maybe further ^3arguments^7\n"));
-		} else if(argv(1) == "status") {
-			if(votecalled) {
-				sprint(self, strcat("^7Vote for ", votecalledvote_display, "^7 called by ^7", votecaller.netname, "^7.\n"));
-			} else {
-				sprint(self, "^1No vote called.\n");
-			}
-		} else if(argv(1) == "call") {
-			if(cvar("sv_vote_call")) {
-				if(votecalled) {
-					sprint(self, "^1There is already a vote called.\n");
-				} else {
-					local string vote;
-					vote = VoteParse();
-					if(vote == "") {
-						sprint(self, "^1Your vote is empty. See help for more info.\n");
-					} else if(time < self.vote_next) {
-						sprint(self, strcat("^1You have to wait ^2", ftos(self.vote_next - time), "^1 seconds before you can again call a vote.\n"));
-					} else if(VoteAllowed(strcat1(argv(2)))) { // strcat seems to be necessary
-						// remap chmap to gotomap (forces intermission)
-						if(substring(vote, 0, 6) == "chmap ")
-							vote = strcat("gotomap ", substring(vote, 6, strlen(vote) - 6));
-						if(substring(vote, 0, 8) == "gotomap ")
-						{
-							if(!(vote = ValidateMap(substring(vote, 8, strlen(vote) - 8))))
-								return;
-							vote = strcat("gotomap ", vote);
-						}
-
-						// make kick and kickban votes a bit nicer (and reject them if formatted badly)
-						if(substring(vote, 0, 5) == "kick " || substring(vote, 0, 8) == "kickban ")
-						{
-							if(!(e = GetKickVoteVictim(vote, "vcall")))
-								return;
-							votecalledvote_display = strzone(strcat("^1", vote, " (^7", e.netname, "^1)"));
-							vote = GetKickVoteVictim_newcommand;
-						}
-						else
-						{
-							votecalledvote_display = strzone(strcat("^1", vote));
-						}
-						votecalledvote = strzone(vote);
-						votecalled = TRUE;
-						votecalledmaster = FALSE;
-						votecaller = self; // remember who called the vote
-						votefinished = time + cvar("sv_vote_timeout");
-						votecaller.vote_vote = 1; // of course you vote yes
-						votecaller.vote_next = time + cvar("sv_vote_wait");
-						bprint("\{1}^2* ^3", votecaller.netname, "^2 calls a vote for ", votecalledvote_display, "\n");
-						VoteCount(); // needed if you are the only one
-					} else {
-						sprint(self, "^1This vote is not ok. See help for more info.\n");
-					}
-				}
-			} else {
-				sprint(self, "^1Vote calling is NOT allowed.\n");
-			}
-		} else if(argv(1) == "stop") {
-			if(!votecalled) {
-				sprint(self, "^1No vote called.\n");
-			} else if(self == votecaller) { // the votecaller can stop a vote
-				VoteStop(self);
-			} else if(self.vote_master) { // masters can, too
-				VoteStop(self);
-			} else {
-				sprint(self, "^1You are not allowed to stop that Vote.\n");
-			}
-		} else if(argv(1) == "master") {
-			if(cvar("sv_vote_master")) {
-				if(votecalled) {
-					sprint(self, "^1There is already a vote called.\n");
-				} else {
-					votecalled = TRUE;
-					votecalledmaster = TRUE;
-					votecalledvote = strzone("XXX");
-					votecalledvote_display = strzone("^3master");
-					votecaller = self; // remember who called the vote
-					votefinished = time + cvar("sv_vote_timeout");
-					votecaller.vote_vote = 1; // of course you vote yes
-					votecaller.vote_next = time + cvar("sv_vote_wait");
-					bprint("\{1}^2* ^3", votecaller.netname, "^2 calls a vote to become ^3master^2.\n");
-					VoteCount(); // needed if you are the only one
-				}
-			} else {
-				sprint(self, "^1Vote to become master is NOT allowed.\n");
-			}
-		} else if(argv(1) == "do") {
-			if(argv(2) == "login") {
-				local string masterpwd;
-				masterpwd = cvar_string("sv_vote_master_password");
-				if(masterpwd != "") {
-					self.vote_master = (masterpwd == argv(3));
-					if(self.vote_master) {
-						ServerConsoleEcho(strcat("Accepted master login from ", self.netname), TRUE);
-						bprint("\{1}^2* ^3", self.netname, "^2 logged in as ^3master^2\n");
-					}
-					else
-						ServerConsoleEcho(strcat("REJECTED master login from ", self.netname), TRUE);
-				}
-				else
-					sprint(self, "^1You are NOT a master.\n");
-			} else if(self.vote_master) {
-				local string dovote, dovote_display;
-				dovote = VoteParse();
-				if(dovote == "") {
-					sprint(self, "^1Your command was empty. See help for more info.\n");
-				} else if(VoteAllowed(strcat1(argv(2)))) { // strcat seems to be necessary
-					if(substring(dovote, 0, 6) == "chmap ")
-						dovote = strcat("gotomap ", substring(dovote, 6, strlen(dovote) - 6));
-					if(substring(dovote, 0, 8) == "gotomap ")
-					{
-						if(!(dovote = ValidateMap(substring(dovote, 8, strlen(dovote) - 8))))
-							return;
-						dovote = strcat("gotomap ", dovote);
-					}
-
-					dovote_display = dovote;
-					if(substring(dovote, 0, 5) == "kick " || substring(dovote, 0, 8) == "kickban ")
-					{
-						if(!(e = GetKickVoteVictim(dovote, "vdo")))
-							return;
-						dovote_display = strzone(strcat("^1", dovote, " (^7", e.netname, "^1)"));
-						dovote = GetKickVoteVictim_newcommand;
-					}
-					bprint("\{1}^2* ^3", self.netname, "^2 used his ^3master^2 status to do \"^2", dovote_display, "^2\".\n");
-					localcmd(strcat(dovote, "\n"));
-				} else {
-					sprint(self, "^1This command is not ok. See help for more info.\n");
-				}
-			} else {
-				sprint(self, "^1You are NOT a master.\n");
-			}
-		} else if(argv(1) == "yes") {
-			if(!votecalled) {
-				sprint(self, "^1No vote called.\n");
-			} else if(self.vote_vote == 0
-				  || cvar("sv_vote_change")) {
-				sprint(self, "^1You accepted the vote.\n");
-				self.vote_vote = 1;
-				if(!cvar("sv_vote_singlecount")) {
-					VoteCount();
-				}
-			} else {
-				sprint(self, "^1You have already voted.\n");
-			}
-		} else if(argv(1) == "no") {
-			if(!votecalled) {
-				sprint(self, "^1No vote called.\n");
-			} else if(self.vote_vote == 0
-				  || cvar("sv_vote_change")) {
-				sprint(self, "^1You rejected the vote.\n");
-				self.vote_vote = -1;
-				if(!cvar("sv_vote_singlecount")) {
-					VoteCount();
-				}
-			} else {
-				sprint(self, "^1You have already voted.\n");
-			}
-		} else {
-			// ignore this?
-			sprint(self, "^1Unknown vote command.\n");
-		}
+	if(GameCommand_Vote(s, self)) {
+		return;
 	} else if(argv(0) == "autoswitch") {
 		// be backwards compatible with older clients (enabled)
 		self.autoswitch = ("0" != argv(1));
@@ -367,13 +163,13 @@ void SV_ParseClientCommand(string s) {
 		} else {
 			self.version = stof(argv(1));
 		}
-		if(self.version != cvar("gameversion"))	
+		if(self.version != cvar("gameversion"))
 		{
 			self.classname = "observer";
 			self.frags = -2;
 			PutClientInServer();
-		} else if(cvar("g_campaign") || cvar("g_balance_teams")) {
-			//JoinBestTeam(self, 0);
+		} else if(cvar("g_campaign") || cvar("g_balance_teams") || cvar("g_balance_teams_force")) {
+			//JoinBestTeam(self, FALSE, TRUE);
 		} else if(cvar("teamplay") && !cvar("sv_spectate")) {
 			self.classname = "observer";
 			stuffcmd(self,"menu_showteamselect\n");
@@ -392,42 +188,53 @@ void SV_ParseClientCommand(string s) {
 			WaypointSprite_PlayerDead();
 			DistributeFragsAmongTeam(self, self.team, 1.0);
 			self.classname = "observer";
+			if(blockSpectators)
+				sprint(self, strcat("^7You have to become a player within the next ", ftos(cvar("g_maxplayers_spectator_blocktime")), " seconds, otherwise you will be kicked, because spectators aren't allowed at this time!\n"));
 			PutClientInServer();
 		}
 	} else if(argv(0) == "join") {
 		if(!g_arena)
-		if (self.classname != "player")
+		if (self.classname != "player" && !lockteams)
 		{
-			self.classname = "player";
-			self.frags = 0;
-			bprint ("^4", self.netname, "^4 is playing now\n");
-			PutClientInServer();
+			if(isJoinAllowed()) {
+				self.classname = "player";
+				self.frags = 0;
+				bprint ("^4", self.netname, "^4 is playing now\n");
+				PutClientInServer();
+			}
+			else {
+				//player may not join because of g_maxplayers is set
+				centerprint_atprio(self, CENTERPRIO_MAPVOTE, PREVENT_JOIN_TEXT);
+			}
 		}
 	} else if( argv(0) == "selectteam" ) {
 		if( !cvar("teamplay") ) {
 			sprint( self, "selecteam can only be used in teamgames\n");
 		} else if(cvar("g_campaign")) {
 			//JoinBestTeam(self, 0);
-		} else if( argv(1) == "none" ) {
-			SV_ChangeTeam( 0 );
+		} else if(lockteams) {
+			sprint( self, "^7The game has already begun, you must wait until the next map to be able to join a team.\n");
 		} else if( argv(1) == "red" ) {
-			SV_ChangeTeam( COLOR_TEAM1 - 1 );
+			DoTeamChange(COLOR_TEAM1);
 		} else if( argv(1) == "blue" ) {
-			SV_ChangeTeam( COLOR_TEAM2 - 1 );
+			DoTeamChange(COLOR_TEAM2);
 		} else if( argv(1) == "yellow" ) {
-			SV_ChangeTeam( COLOR_TEAM3 - 1 );
+			DoTeamChange(COLOR_TEAM3);
 		} else if( argv(1) == "pink" ) {
-			SV_ChangeTeam( COLOR_TEAM4 - 1 );
+			DoTeamChange(COLOR_TEAM4);
 		} else if( argv(1) == "auto" ) {
-			self.team = -1;
-			JoinBestTeam( self, 0 );
+			DoTeamChange(-1);
 		} else {
 			sprint( self, strcat( "selectteam none/red/blue/yellow/pink/auto - \"", argv(1), "\" not recognised\n" ) );
 		}
 	} else if(argv(0) == "ready") {
 		if(cvar("sv_ready_restart"))
 		{
-			if(!restart_countdown)
+			if(timeoutStatus) {
+				return sprint(self, "^1You cannot reset the game while a timeout is active!\n");
+			}
+			
+			if(!restart_countdown || cvar("sv_ready_restart_repeatable"))
 			{
 				self.ready = TRUE;
 				bprint(self.netname, "^2 is ready\n");
@@ -437,21 +244,36 @@ void SV_ParseClientCommand(string s) {
 			}
 		}
 	} else if(argv(0) == "maplist") {
-		local float i, n;
+		local float n;
 		local string col;
 		n = tokenize(cvar_string("g_maplist"));
 		sprint(self, "^7Maps in list: ");
 		for(i = 0; i < n; ++i)
 		{
-			if(math_mod(i, 2))
+			if(mod(i, 2))
 				col = "^2";
 			else
 				col = "^3";
 			sprint(self, strcat(col, argv(i), " "));
 		}
 		sprint(self, "\n");
+#ifdef MAPINFO
+	} else if(argv(0) == "lsmaps") {
+		sprint(self, "^7Maps available: ");
+		for(i = 0; i < MapInfo_count; ++i)
+		{
+			if(mod(i, 2))
+				col = "^2";
+			else
+				col = "^3";
+			sprint(self, strcat(col, MapInfo_BSPName_ByID(i), " "));
+		}
+		sprint(self, "\n");
+#endif
 	} else if(argv(0) == "teamstatus") {
 		PrintScoreboard(self);
+	} else if(argv(0) == "voice") {
+		VoiceMessage(argv(1));
 	} else if(argv(0) == "say") {
 		Say(self, FALSE, substring(s, 4, strlen(s) - 4));
 		//clientcommand(self, formatmessage(s));
@@ -466,6 +288,21 @@ void SV_ParseClientCommand(string s) {
 			wordwrap_sprint(cmd, 1111);
 	} else if(argv(0) == "suggestmap") {
 		sprint(self, strcat(MapVote_Suggest(argv(1)), "\n"));
+	} else if(argv(0) == "calltimeout") {
+		if(cvar("sv_timeout")) {
+			if(self.classname == "player") {
+				if(votecalled)
+					sprint(self, "^7Error: you can not call a timeout while a vote is active!\n");
+				else
+					evaluateTimeoutCall();
+			}
+			else
+				sprint(self, "^7Error: only players can call a timeout!\n");
+		}
+	} else if(argv(0) == "resumegame") {
+		if(cvar("sv_timeout")) {
+			evaluateResumeGame();
+		}
 	} else {
 		cmd = argv(0);
 		/* checks not needed any more since DP has separated clientcommands and regular commands
@@ -495,209 +332,15 @@ void SV_ParseClientCommand(string s) {
 	}
 }
 
-string ValidateMap(string m)
-{
-#ifdef MAPINFO
-	m = MapInfo_FixName(m);
-	if(!m)
-	{
-		sprint(self, "This map is not available on this server.\n");
-		return string_null;
-	}
-#endif
-	if(!cvar("sv_vote_change_gametype"))
-		if(!IsSameGametype(m))
-		{
-			sprint(self, "This server does not allow changing the game type by map votes.\n");
-			return string_null;
-		}
-	if(!cvar("sv_vote_override_mostrecent"))
-		if(Map_IsRecent(m))
-		{
-			sprint(self, "This server does not allow for recent maps to be played again. Please be patient for some rounds.\n");
-			return string_null;
-		}
-#ifdef MAPINFO
-	if(!MapInfo_CheckMap(m))
-	{
-		sprint(self, strcat("^1Invalid mapname, \"^3", m, "^1\" does not support the current game mode.\n"));
-		return string_null;
-	}
-#else
-	if(!TryFile(strcat("maps/", m, ".mapcfg")))
-	{
-		sprint(self, strcat("^1Invalid mapname, \"^3", m, "^1\" does not exist on this server.\n"));
-		return string_null;
-	}
-#endif
-
-	return m;
-}
-
-
-void VoteThink() {
-	if(votefinished > 0 // a vote was called
-	    && time > votefinished) // time is up
-	{
-		VoteCount();
-	}
-}
-
-string VoteParse() {
-	local float index;
-	index = 3;
-	local string vote;
-	vote = argv(2);
-	while(argv(index) != "") {
-		vote = strcat(vote, " ", argv(index));
-		index++;
-	}
-
-	// necessary for some of the string operations
-	vote = strzone(vote);
-
-	// now we remove some things that could be misused
-	index = 0;
-	local float found;
-	found = FALSE;
-	local float votelength;
-	votelength = strlen(vote);
-	while(!found && index < votelength)
-	{
-		local string badchar;
-		badchar = substring(vote, index, 1);
-		if(badchar == ";"
-		   || badchar == "\r"
-		   || badchar == "\n")
-		{
-			found = TRUE;
-		} else {
-			index++;
-		}
-	}
-	return substring(vote, 0, index);
-}
-
-float VoteAllowed(string votecommand) {
-	tokenize(cvar_string("sv_vote_commands"));
-	local float index;
-	index = 0;
-	while(argv(index) != "") {
-		local string allowed;
-		allowed = argv(index);
-		if(votecommand == allowed) {
-			return TRUE;
-		}
-		index++;
-	}
-	return FALSE;
-}
-
-void VoteReset() {
-	local entity player;
-
-	FOR_EACH_CLIENT(player)
-	{
-		player.vote_vote = 0;
-		centerprint_expire(player, CENTERPRIO_VOTE);
-	}
-
-	if(votecalled)
-	{
-		strunzone(votecalledvote);
-		strunzone(votecalledvote_display);
-	}
-
-	votecalled = FALSE;
-	votecalledmaster = FALSE;
-	votefinished = 0;
-}
-
-void VoteAccept() {
-	bprint("\{1}^2* ^3", votecaller.netname, "^2's vote for ^1", votecalledvote_display, "^2 was accepted\n");
-	if(votecalledmaster)
-	{
-		votecaller.vote_master = 1;
-	} else {
-		localcmd(strcat(votecalledvote, "\n"));
-	}
-	votecaller.vote_next = 0; // people like your votes, no wait for next vote
-	VoteReset();
-}
-
-void VoteReject() {
-	bprint("\{1}^2* ^3", votecaller.netname, "^2's vote for ", votecalledvote_display, "^2 was rejected\n");
-	VoteReset();
-}
-
-void VoteTimeout() {
-	bprint("\{1}^2* ^3", votecaller.netname, "^2's vote for ", votecalledvote_display, "^2 timed out\n");
-	VoteReset();
-}
-
-void VoteStop(entity stopper) {
-	bprint("\{1}^2* ^3", stopper.netname, "^2 stopped ^3", votecaller.netname, "^2's vote\n");
-	if(stopper == votecaller) {
-		// no wait for next vote so you can correct your vote
-		votecaller.vote_next = 0;
-	}
-	VoteReset();
-}
-
-void VoteNag() {
-	if(votecalled)
-		if(self.vote_vote == 0)
-			centerprint_atprio(self, CENTERPRIO_VOTE, strcat("^7^3", votecaller.netname, "^2 called a vote for ", votecalledvote_display, "\n\n^2You have not voted yet!\n^2HINT: By default, F1 is yes and F2 is no."));
-}
-
-void VoteCount() {
-	local float playercount;
-	playercount = 0;
-	local float yescount;
-	yescount = 0;
-	local float nocount;
-	nocount = 0;
-	local entity player;
-
-	FOR_EACH_REALCLIENT(player)
-	{
-		if(player.vote_vote < 0) {
-			nocount++;
-		} else if(player.vote_vote > 0) {
-			yescount++;
-		}
-		playercount++;
-	}
-
-	if((playercount == 1) && votecalledmaster) {
-		// if only one player is on the server becoming vote
-		// master is not allowed.  This could be used for
-		// trolling or worse. 'self' is the user who has
-		// called the vote because this function is called
-		// by SV_ParseClientCommand. Maybe all voting should
-		// be disabled for a single player?
-		sprint(self, "^1You are the only player on this server so you can not become vote master.\n");
-		votecaller.vote_next = 0;
-		VoteReset();
-	} else if((playercount / 2) < yescount) { // vote accepted
-		VoteAccept();
-	} else if((playercount / 2) < nocount) { // vote rejected
-		VoteReject();
-	} else if(time > votefinished) { // vote timedout
-		if(cvar("sv_vote_simple_majority"))
-			if(yescount > nocount)
-				VoteAccept();
-			else if(nocount > yescount)
-				VoteReject();
-			else
-				VoteTimeout();
-		else
-			VoteTimeout();
-	} // else still running
-}
-
-float timelimit_orig;
-
+/**
+ * Counts how many players are ready. If not enough players are ready, the function
+ * does nothing. If all players are ready, the timelimit will be extended and the
+ * restart_countdown variable is set to allow other functions like PlayerPostThink
+ * to detect that the countdown is now active. If the cvar sv_ready_restart_after_countdown
+ * is not set the map will be resetted.
+ * 
+ * Function is called after the server receives a 'ready' sign from a player.
+ */
 void ReadyCount()
 {
 	local entity e;
@@ -710,26 +353,246 @@ void ReadyCount()
 			r += 1;
 	}
 
+	if(cvar("sv_ready_restart_nag")) {
+		if(!readyNagActive) {
+			readyNagger = spawn();
+			readyNagger.think = readyNagger_Think;
+			readyNagger.cnt = cvar("sv_ready_restart_nag_duration");
+			readyNagger.nextthink = time;
+			readyNagActive = 1;
+		}
+	}
+
 	if(!p || r < p)
 		return;
 
 	bprint("^1Server is restarting...\n");
-	
-	// no arena, assault & onslaught support yet...
-	if(g_arena | g_assault | g_onslaught | gameover | intermission_running)
+
+	// no arena, assault support yet...
+	if(g_arena | g_assault | gameover | intermission_running)
 		localcmd("restart\n");
 
+	if(readyNagActive) { //if every player is ready, remove the ready-nagger again
+		readyNagActive = 0;
+		remove(readyNagger);
+	}
+
+	if(g_tourney) {
+		tourneyInMatchStage = 1; //once the game is restarted the game is in match stage
+		//reset weapons and ammo, health and armor to default:
+		start_items = IT_LASER | IT_SHOTGUN;
+		start_switchweapon = WEP_SHOTGUN;
+		start_ammo_shells = cvar("g_start_ammo_shells");
+		start_ammo_nails = cvar("g_start_ammo_nails");
+		start_ammo_rockets = cvar("g_start_ammo_rockets");
+		start_ammo_cells = cvar("g_start_ammo_cells");
+		start_health = cvar("g_balance_health_start");
+		start_armorvalue = cvar("g_balance_armor_start");
+	}
+
 	restart_countdown = time + RESTART_COUNTDOWN;
-	if(0<cvar("timelimit"))
+	restart_mapalreadyrestarted = 0; //reset this var, needed when cvar sv_ready_restart_repeatable is in use
+	//reset the .ready status of all players (also spectators)
+	FOR_EACH_CLIENT(e)
+	{
+		e.ready = 0;
+	}
+	if(0<cvar("timelimit") || (g_tourney && cvar("g_tourney_warmup_unlimited_time")) )
 	{
 		// remember original timelimit on first restart
 		if(!timelimit_orig)
 			timelimit_orig = cvar("timelimit");
-		cvar_set("timelimit", ftos(timelimit_orig + ceil(restart_countdown)/60));
+		//only set the new timelimit if, when loading the map, a timelimit was really set
+		if(timelimit_orig)
+			cvar_set("timelimit", ftos(timelimit_orig + ceil(restart_countdown)/60));
+	}
+	if(cvar("teamplay_lockonrestart") && teams_matter) {
+		lockteams = 1;
+		bprint("^1The teams are now locked.\n");
+	}
+	
+	//initiate the restart-countdown-announcer entity
+	restartAnnouncer = spawn();
+	restartAnnouncer.think = restartAnnouncer_Think;
+	restartAnnouncer.nextthink = time;
+	restartAnnouncer.cnt = RESTART_COUNTDOWN;
+	
+	//after a restart every players number of allowed timeouts gets reset, too
+	if(cvar("sv_timeout"))
+	{
+		FOR_EACH_REALPLAYER(e)
+		{
+			e.allowedTimeouts = cvar("sv_timeout_number");
+		}
 	}
 
-	reset_map();
+	//play the prepareforbattle sound to everyone
+	sound(world, CHAN_AUTO, "announcer/robotic/prepareforbattle.wav", 1, ATTN_NONE);
+
+	//reset map immediately if this cvar is not set
+	if (!cvar("sv_ready_restart_after_countdown"))
+		reset_map();
 	
 	if(cvar("sv_eventlog"))
 		GameLogEcho(":restart", FALSE);
+}
+
+/**
+ * Centerprints the information to all players who didn't ready up yet to do so.
+ */
+void readyNagger_Think() {
+	local entity plr;
+	if(self.cnt <= 0) { //have a break showing the ready nag
+		//make sure that the old ready-nag-centerprint isn't shown too long:
+		FOR_EACH_REALCLIENT(plr) {
+			if(plr.classname == "player") {
+				if (!plr.ready)
+					centerprint_atprio(plr, CENTERPRIO_SPAM, "");
+			}
+		}
+		self.cnt = cvar("sv_ready_restart_nag_duration");
+		self.nextthink = time + cvar("sv_ready_restart_nag_interval");
+	}
+	else {
+		//show the ready nagging to all players who aren't ready yet
+		FOR_EACH_REALCLIENT(plr) {
+			if(plr.classname == "player") {
+				if (!plr.ready) {
+					centerprint_atprio(plr, CENTERPRIO_SPAM, "^2Please ready up (F4 by default)!");
+					//play reminder sound once the centerprint appears for the first time after the pause:
+					if (self.cnt == cvar("sv_ready_restart_nag_duration"))
+						play2(plr, "misc/talk2.wav");
+				}
+			}
+		}
+
+		self.nextthink = time + 1;
+		self.cnt -= 1;
+	}
+}
+
+/**
+ * Shows the restart countdown for all players.
+ * Plays the countdown sounds for the seconds 3, 2 1, begin for everyone.
+ * Restarts the map after the countdown is over (and cvar sv_ready_restart_after_countdown
+ * is set to 1).
+ */
+void restartAnnouncer_Think() {
+	local entity plr;
+	local string s;
+	if(self.cnt <= 0) { //show the "Begin" message and
+		if (cvar("sv_ready_restart_after_countdown")) {
+			restart_mapalreadyrestarted = 1;
+			reset_map();
+		}
+
+		FOR_EACH_REALCLIENT(plr) {
+			if(plr.classname == "player") {
+				s = strcat(NEWLINES, "^1Begin!");
+				centerprint(plr, s);
+			}
+		}
+		sound(world, CHAN_AUTO, "announcer/robotic/begin.wav", 1, ATTN_NONE);
+
+		remove(self);
+		return;
+	}
+	else {
+		FOR_EACH_REALCLIENT(plr) {
+			if(plr.classname == "player") {
+				s = strcat(NEWLINES, "^1Game starts in ", ftos(self.cnt), " seconds");
+				centerprint(plr, s);
+			}
+		}
+
+		if(self.cnt <= 3) {
+			sound(world, CHAN_AUTO, strcat("announcer/robotic/", ftos(self.cnt), ".ogg"), 1, ATTN_NONE);
+		}
+		self.nextthink = time + 1;
+		self.cnt -= 1;
+	}
+}
+
+/**
+ * Checks whether the player who calls the timeout is allowed to do so.
+ * If so, it initializes the timeout countdown. It also checks whether another
+ * timeout was already running at this time and reacts correspondingly.
+ *
+ * affected globals/fields: .allowedTimeouts, remainingTimeoutTime, remainingLeadTime,
+ *                          timeoutInitiator, timeoutStatus, timeoutHandler
+ *
+ * This function is called when a player issues the calltimeout command.
+ */
+void evaluateTimeoutCall() {
+	if (g_tourney && !tourneyInMatchStage && !cvar("g_tourney_warmup_allow_timeout"))
+		return sprint(self, "^7Error: You can not call a timeout in warmup-stage!\n");
+	if (time < restart_countdown )
+		return sprint(self, "^7Error: You can not call a timeout while the map is being restarted!\n");
+	if (timeoutStatus != 2) {
+		//if the map uses a timelimit make sure that timeout cannot be called right before the map ends
+		if (cvar("timelimit")) {
+			//a timelimit was used
+			local float myTl;
+			if (cvar("timelimit"))
+				myTl = cvar("timelimit");
+			else
+				myTl = timelimit_orig;
+
+			local float lastPossibleTimeout;
+			lastPossibleTimeout = (myTl*60) - cvar("sv_timeout_leadtime") - 1;
+
+			if (lastPossibleTimeout < time)
+				return sprint(self, "^7Error: It is too late to call a timeout now!\n");
+		}
+	}
+	//player may not call a timeout if he has no calls left
+	if (self.allowedTimeouts < 1)
+		return sprint(self, "^7Error: You already used all your timeout calls for this map!\n");
+	//now all required checks are passed
+	self.allowedTimeouts -= 1;
+	bprint(self.netname, " ^7called a timeout (", ftos(self.allowedTimeouts), " timeouts left)!\n"); //write a bprint who started the timeout (and how many he has left)
+	remainingTimeoutTime = cvar("sv_timeout_length");
+	remainingLeadTime = cvar("sv_timeout_leadtime");
+	timeoutInitiator = self;
+	if (timeoutStatus == 0) { //if another timeout was already active, don't change its status (which was 1 or 2) to 1, only change it to 1 if no timeout was active yet
+		timeoutStatus = 1;
+		//create the timeout indicator which centerprints the information to all players and takes care of pausing/unpausing
+		timeoutHandler = spawn();
+		timeoutHandler.think = timeoutHandler_Think;
+	}
+	timeoutHandler.nextthink = time; //always let the entity think asap
+
+	//inform all connected clients about the timeout call
+	sound(world, CHAN_AUTO, "announcer/robotic/timeoutcalled.wav", 1, ATTN_NONE);
+}
+
+/**
+ * Checks whether a player is allowed to resume the game. If he is allowed to do it,
+ * and the lead time for the timeout is still active, this countdown just will be aborted (the
+ * game will never be paused). Otherwise the remainingTimeoutTime will be set to the corresponding
+ * value of the cvar sv_timeout_resumetime.
+ *
+ * This function is called when a player issues the resumegame command.
+ */
+void evaluateResumeGame() {
+	if (!timeoutStatus)
+		return sprint(self, "^7Error: There is no active timeout which could be aborted!\n");
+	if (self != timeoutInitiator)
+		return sprint(self, "^7Error: You may not abort the active timeout. Only the player who called it can do that!\n");
+	if (timeoutStatus == 1) {
+		remainingTimeoutTime = timeoutStatus = 0;
+		timeoutHandler.nextthink = time; //timeoutHandler has to take care of it immediately
+		bprint(strcat("^7The timeout was aborted by ", self.netname, " !\n"));
+	}
+	else if (timeoutStatus == 2) {
+		//only shorten the remainingTimeoutTime if it makes sense
+		if( remainingTimeoutTime > (cvar("sv_timeout_resumetime") + 1) ) {
+			bprint(strcat("^1Attention: ^7", self.netname, " resumed the game! Prepare for battle!\n"));
+			remainingTimeoutTime = cvar("sv_timeout_resumetime");
+			timeoutHandler.nextthink = time; //timeoutHandler has to take care of it immediately
+		}
+		else
+			sprint(self, "^7Error: Your resumegame call was discarded!\n");
+
+	}
 }

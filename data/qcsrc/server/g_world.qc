@@ -1,11 +1,14 @@
 float SPAWNFLAG_NO_WAYPOINTS_FOR_ITEMS = 1;
 string redirection_target;
+float world_initialized;
 
 string GetMapname();
 string GetGametype();
 void GotoNextMap();
 void ShuffleMaplist()
 float() DoNextMapOverride;
+
+.string fog;
 
 void SetDefaultAlpha()
 {
@@ -54,7 +57,83 @@ void fteqcc_testbugs()
 	world.frags = 0;
 }
 
-void GotoFirstMap()
+/**
+ * Takes care of pausing and unpausing the game.
+ * Centerprints the information about an upcoming or active timeout to all active
+ * players. Also plays reminder sounds.
+ */
+void timeoutHandler_Think() {
+	local string timeStr;
+	local entity plr;
+	if (timeoutStatus == 1) {
+		if (remainingLeadTime > 0) {
+			//centerprint the information to every player
+			timeStr = getTimeoutText(0);
+			FOR_EACH_REALCLIENT(plr) {
+				if(plr.classname == "player") {
+					centerprint_atprio(plr, CENTERPRIO_SPAM, timeStr);
+				}
+			}
+			remainingLeadTime -= 1;
+			//think again in 1 second:
+			self.nextthink = time + 1;
+		}
+		else {
+			//now pause the game:
+			timeoutStatus = 2;
+			cvar_set("slowmo", ftos(TIMEOUT_SLOWMO_VALUE));
+			//copy .v_angle to .lastV_angle for every player in order to fix their view during pause (see PlayerPreThink)
+			FOR_EACH_REALPLAYER(plr) {
+				plr.lastV_angle = plr.v_angle;
+			}
+			self.nextthink = time;
+		}
+	}
+	else if (timeoutStatus == 2) {
+		if (remainingTimeoutTime > 0) {
+			timeStr = getTimeoutText(0);
+			FOR_EACH_REALCLIENT(plr) {
+				if(plr.classname == "player") {
+					centerprint_atprio(plr, CENTERPRIO_SPAM, timeStr);
+				}
+			}
+			if(remainingTimeoutTime == cvar("sv_timeout_resumetime")) { //play a warning sound when only <sv_timeout_resumetime> seconds are left
+				sound(world, CHAN_AUTO, "announcer/robotic/prepareforbattle.wav", 1, ATTN_NONE);
+			}
+			remainingTimeoutTime -= 1;
+			self.nextthink = time + TIMEOUT_SLOWMO_VALUE;
+		}
+		else {
+			//unpause the game again
+			remainingTimeoutTime = timeoutStatus = 0;
+			cvar_set("slowmo", ftos(orig_slowmo));
+			//and unlock the fixed view again once there is no timeout active anymore
+			FOR_EACH_REALPLAYER(plr) {
+				plr.fixangle = FALSE;
+			}
+			//get rid of the countdown message
+			FOR_EACH_REALCLIENT(plr) {
+				if(plr.classname == "player") {
+					centerprint_atprio(plr, CENTERPRIO_SPAM, "");
+				}
+			}
+			remove(self);
+			return;
+		}
+		
+	}
+	else if (timeoutStatus == 0) { //if a player called the resumegame command (which set timeoutStatus to 0 already)
+		FOR_EACH_REALCLIENT(plr) {
+			if(plr.classname == "player") {
+				centerprint_atprio(plr, CENTERPRIO_SPAM, "");
+			}
+		}
+		remove(self);
+		return;
+	}
+}
+
+float GotoFirstMap()
 {
 	if(cvar("_sv_init"))
 	{
@@ -65,8 +144,8 @@ void GotoFirstMap()
 		tokenizebyseparator(cvar_string("g_maplist"), " ");
 #else
 		tokenize(cvar_string("g_maplist"));
-#endif
 		if(argv(0) != GetMapname())
+#endif
 		{
 			cvar_set("nextmap", argv(0));
 
@@ -77,18 +156,36 @@ void GotoFirstMap()
 
 			if(!DoNextMapOverride())
 				GotoNextMap();
+
+			return 1;
 		}
 	}
+	return 0;
 }
 
 float world_already_spawned;
-void worldspawn (void)
+void spawnfunc_worldspawn (void)
 {
+	float fd, l;
+	string s;
+
 	dprint_load(); // load dprint status from cvar
 
 	if(world_already_spawned)
 		error("world already spawned - you may have EXACTLY ONE worldspawn!");
 	world_already_spawned = TRUE;
+
+	if(GotoFirstMap())
+		return;
+
+#ifdef MAPINFO
+	MapInfo_LoadMapSettings(mapname);
+#endif
+
+	if(sv_cheats)
+		ServerProgsDB = db_create();
+	else
+		ServerProgsDB = db_load("server.db");
 
 	/*
 	TODO sound pack system
@@ -135,16 +232,18 @@ void worldspawn (void)
 	// 11 SLOW PULSE NOT FADE TO BLACK
 	lightstyle(11, "abcdefghijklmnopqrrqponmlkjihgfedcba");
 
-	// styles 32-62 are assigned by the light program for switchable lights
+	// styles 32-62 are assigned by the spawnfunc_light program for switchable lights
 
 	// 63 testing
 	lightstyle(63, "a");
 
+	// for setting by mapinfo
+	q3acompat_machineshotgunswap = cvar("sv_q3acompat_machineshotgunswap");
+	cvar_set("sv_q3acompat_machineshotgunswap", "0");
+
 	player_count = 0;
 	lms_lowest_lives = 0;
 	lms_next_place = 0;
-
-	GotoFirstMap();
 
 	bot_waypoints_for_items = cvar("g_waypoints_for_items");
 	if(bot_waypoints_for_items == 1)
@@ -175,8 +274,6 @@ void worldspawn (void)
 	GameLogInit(); // prepare everything
 	if(cvar("sv_eventlog"))
 	{
-		local string s;
-		GameLogEcho(":logversion:2", FALSE);
 		s = strcat(cvar_string("sv_eventlog_files_counter"), ".");
 		s = strcat(s, ftos(random()));
 #ifdef MAPINFO
@@ -222,13 +319,48 @@ void worldspawn (void)
 
 	Ban_LoadBans();
 
+	//initialise globals related to sv_timeout
+	sys_ticrate = cvar("sys_ticrate");
+	orig_slowmo = cvar("slowmo");
+
 #ifdef MAPINFO
 	MapInfo_Enumerate();
 	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 1);
 #endif
+
+	//if tourney is used map starts in warmup mode. if this mode shall stay unlimited, reset timelimit, but save the original one
+	if(g_tourney && cvar("g_tourney_warmup_unlimited_time")) {
+		timelimit_orig = cvar("timelimit");
+		cvar_set("timelimit", "0");
+	}
+
+	fd = fopen(strcat("maps/", mapname, ".cfg"), FILE_READ);
+	if(fd != -1)
+	{
+		while((s = fgets(fd)))
+		{
+			l = tokenize(s);
+			if(l < 2)
+				continue;
+			if(argv(0) != "fog")
+				continue;
+			s = "";
+			while(l >= 2)
+			{
+				--l;
+				s = strcat(argv(l), " ", s);
+			}
+			s = substring(s, 0, strlen(s) - 1);
+			print("Found ^1DEPRECATED^7 fog command in .cfg file: ", s, "\n");
+			world.fog = strzone(s);
+		}
+		fclose(fd);
+	}
+
+	world_initialized = 1;
 }
 
-void light (void)
+void spawnfunc_light (void)
 {
 	//makestatic (self); // Who the f___ did that?
 	remove(self);
@@ -322,8 +454,22 @@ float GetMaplistPosition()
 
 float MapHasRightSize(string map)
 {
-	// open map size restriction file
 	float fh;
+	if(currentbots || cvar("bot_number") || player_count < cvar("minplayers"))
+	if(cvar("g_maplist_check_waypoints"))
+	{
+		dprint("checkwp "); dprint(map);
+		fh = fopen(strcat("maps/", map, ".waypoints"), FILE_READ);
+		if(fh < 0)
+		{
+			dprint(": no waypoints\n");
+			return FALSE;
+		}
+		dprint(": has waypoints\n");
+		fclose(fh);
+	}
+
+	// open map size restriction file
 	dprint("opensize "); dprint(map);
 	fh = fopen(strcat("maps/", map, ".sizes"), FILE_READ);
 	if(fh >= 0)
@@ -350,14 +496,14 @@ float MapHasRightSize(string map)
 	return TRUE;
 }
 
-#ifdef MAPINFO
-#else
 string Map_Filename(float position)
 {
-	// FIXME unused
+#ifdef MAPINFO
+	return strcat("maps/", argv(position), ".bsp");
+#else
 	return strcat("maps/", argv(position), ".mapcfg");
-}
 #endif
+}
 
 string strwords(string s, float w)
 {
@@ -397,21 +543,21 @@ float(float position, float pass) Map_Check =
 		if(Map_IsRecent(map_next))
 			return 0;
 	}
-#ifdef MAPINFO
-	if(MapInfo_CheckMap(argv(position)))
-#else
 	filename = Map_Filename(position);
+#ifdef MAPINFO
+	if(MapInfo_CheckMap(map_next))
+#else
 	if(TryFile(filename))
 #endif
 	{
 		if(pass == 2)
 			return 1;
-		if(MapHasRightSize(argv(position)))
+		if(MapHasRightSize(map_next))
 			return 1;
 		return 0;
 	}
 	else
-		dprint( "Couldn't find '", filename, "'..\n" );
+		dprint( "Couldn't select '", filename, "'..\n" );
 
 	return 0;
 }
@@ -448,8 +594,6 @@ void() GameResetCfg =
 
 	localcmd("exec game_reset.cfg\n");
 #endif
-
-	Ban_SaveBans();
 };
 
 void() Map_Goto =
@@ -475,7 +619,7 @@ float() MaplistMethod_Iterate = // usual method
 		for(i = 1; i < Map_Count; ++i)
 		{
 			float mapindex;
-			mapindex = math_mod(i + Map_Current, Map_Count);
+			mapindex = mod(i + Map_Current, Map_Count);
 			if(Map_Check(mapindex, pass))
 				return mapindex;
 		}
@@ -499,7 +643,7 @@ float() MaplistMethod_Random = // random map selection
 	for(i = 0; i <= imax; ++i)
 	{
 		float mapindex;
-		mapindex = math_mod(Map_Current + ceil(random() * (Map_Count - 1)), Map_Count); // any OTHER map
+		mapindex = mod(Map_Current + ceil(random() * (Map_Count - 1)), Map_Count); // any OTHER map
 		if(Map_Check(mapindex, 1))
 			return mapindex;
 	}
@@ -513,9 +657,6 @@ float(float exponent) MaplistMethod_Shuffle = // more clever shuffling
 	float i, j, imax, insertpos;
 
 	imax = 42;
-
-	if(Map_Count <= 1)
-		return 0; // only one map, then always play this one
 
 	for(i = 0; i <= imax; ++i)
 	{
@@ -620,8 +761,6 @@ string() GetNextMap =
 
 float() DoNextMapOverride =
 {
-	Ban_SaveBans();
-
 	if(cvar("g_campaign"))
 	{
 		CampaignPostIntermission();
@@ -881,6 +1020,7 @@ void(float final) DumpStats =
 
 void FixIntermissionClient(entity e)
 {
+	string s;
 	if(!e.autoscreenshot) // initial call
 	{
 		e.angles = e.v_angle;
@@ -893,9 +1033,12 @@ void FixIntermissionClient(entity e)
 		e.takedamage = DAMAGE_NO;
 		if(e.weaponentity)
 			e.weaponentity.effects = EF_NODRAW;
-		stuffcmd(e, "\nscr_printspeed 1000000\n");
 		if(clienttype(e) == CLIENTTYPE_REAL)
 		{
+			stuffcmd(e, "\nscr_printspeed 1000000\n");
+			s = cvar_string("sv_intermission_cdtrack");
+			if(s != "")
+				stuffcmd(e, strcat("\ncd loop ", s, "\n"));
 			msg_entity = e;
 			WriteByte(MSG_ONE, SVC_INTERMISSION);
 		}
@@ -929,9 +1072,12 @@ void() NextLevel =
 	else
 		intermission_exittime = -1;
 
+	/*
 	WriteByte (MSG_ALL, SVC_CDTRACK);
 	WriteByte (MSG_ALL, 3);
 	WriteByte (MSG_ALL, 3);
+	// done in FixIntermission
+	*/
 
 	//pos = FindIntermission ();
 
@@ -985,6 +1131,7 @@ CheckRules_Player
 Exit deathmatch games upon conditions
 ============
 */
+.float fogtime;
 void() CheckRules_Player =
 {
 	if (gameover)	// someone else quit the game already
@@ -993,7 +1140,15 @@ void() CheckRules_Player =
 	if(self.deadflag == DEAD_NO)
 		self.play_time += frametime;
 
-	// fixme: don't check players; instead check dom_team and ctf_team entities
+	if(sv_foginterval)
+	if(world.fog)
+	if(time > self.fogtime)
+	{
+		stuffcmd(self, strcat("\nfog ", world.fog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
+		self.fogtime = time + sv_foginterval;
+	}
+
+	// fixme: don't check players; instead check spawnfunc_dom_team and spawnfunc_ctf_team entities
 	//   (div0: and that in CheckRules_World please)
 };
 
@@ -1045,6 +1200,15 @@ void(.float field, float value) AddWinners =
 	FOR_EACH_PLAYER(head)
 		if(head.field == value)
 			head.winning = 1;
+}
+
+// clear frags for all players but the team given (when they ran out of spawnpoints)
+void(.float field, float value) ClearFragsForEveryoneBut =
+{
+	entity head;
+	FOR_EACH_PLAYER(head)
+		if(head.field != value)
+			head.frags = max(head.frags, 0);
 }
 
 // clear the .winning flags
@@ -1125,8 +1289,8 @@ float() WinningCondition_Assault =
 	else
 	{
 		SetWinners(team, COLOR_TEAM1);
-	}	
-		
+	}
+
 	local entity ent;
 	ent = find(world, classname, "target_assault_roundend");
 	if(ent)
@@ -1152,7 +1316,7 @@ float() WinningCondition_Assault =
 				cvar_set("timelimit", ftos((2*time)/60));
 				assault_new_round();
 			}
-		}		
+		}
 	}
 
 	return status;
@@ -1511,6 +1675,76 @@ void ShuffleMaplist()
 	cvar_set("g_maplist", result);
 }
 
+float WinningCondition_RanOutOfSpawns()
+{
+	entity head;
+
+	if(!have_team_spawns)
+		return WINNING_NO;
+
+	if(!some_spawn_has_been_used)
+		return WINNING_NO;
+
+	team1_score = team2_score = team3_score = team4_score = 0;
+
+	FOR_EACH_PLAYER(head) if(head.deadflag == DEAD_NO)
+	{
+		if(head.team == COLOR_TEAM1)
+			team1_score = 1;
+		else if(head.team == COLOR_TEAM2)
+			team2_score = 1;
+		else if(head.team == COLOR_TEAM3)
+			team3_score = 1;
+		else if(head.team == COLOR_TEAM4)
+			team4_score = 1;
+	}
+
+	for(head = world; (head = find(head, classname, "info_player_deathmatch")) != world; )
+	{
+		if(head.team == COLOR_TEAM1)
+			team1_score = 1;
+		else if(head.team == COLOR_TEAM2)
+			team2_score = 1;
+		else if(head.team == COLOR_TEAM3)
+			team3_score = 1;
+		else if(head.team == COLOR_TEAM4)
+			team4_score = 1;
+	}
+
+	ClearWinners();
+	if(team1_score + team2_score + team3_score + team4_score == 0)
+	{
+		checkrules_equality = TRUE;
+		return WINNING_YES;
+	}
+	else if(team1_score + team2_score + team3_score + team4_score == 1)
+	{
+		if(team1_score)
+		{
+			AddWinners(team, COLOR_TEAM1);
+			ClearFragsForEveryoneBut(team, COLOR_TEAM1);
+		}
+		if(team2_score)
+		{
+			AddWinners(team, COLOR_TEAM2);
+			ClearFragsForEveryoneBut(team, COLOR_TEAM2);
+		}
+		if(team3_score)
+		{
+			AddWinners(team, COLOR_TEAM3);
+			ClearFragsForEveryoneBut(team, COLOR_TEAM3);
+		}
+		if(team4_score)
+		{
+			AddWinners(team, COLOR_TEAM4);
+			ClearFragsForEveryoneBut(team, COLOR_TEAM4);
+		}
+		return WINNING_YES;
+	}
+	else
+		return WINNING_NO;
+}
+
 /*
 ============
 CheckRules_World
@@ -1579,8 +1813,12 @@ void() CheckRules_World =
 		sound(world, CHAN_AUTO, "announcer/robotic/1minuteremains.wav", 1, ATTN_NONE);
 	}
 
-	status = WINNING_NO;
-	if(g_assault)
+	status = WinningCondition_RanOutOfSpawns();
+	if(status == WINNING_YES)
+	{
+		bprint("Hey! Someone ran out of spawns!\n");
+	}
+	else if(g_assault)
 	{
 		status = WinningCondition_Assault();
 	}
@@ -1661,6 +1899,7 @@ string mapvote_message;
 
 #define MAPVOTE_COUNT 10
 float mapvote_count;
+float mapvote_count_real;
 string mapvote_maps[MAPVOTE_COUNT];
 float mapvote_maps_suggested[MAPVOTE_COUNT];
 string mapvote_suggestions[MAPVOTE_COUNT];
@@ -1669,6 +1908,8 @@ float mapvote_maxlen;
 float mapvote_voters;
 float mapvote_votes[MAPVOTE_COUNT];
 float mapvote_run;
+float mapvote_detail;
+float mapvote_abstain;
 .float mapvote;
 
 void MapVote_ClearAllVotes()
@@ -1690,10 +1931,11 @@ string MapVote_Suggest(string m)
 	m = MapInfo_FixName(m);
 	if(!m)
 		return "The map you suggested is not available on this server.";
-#endif
+#else
 	if(!cvar("g_maplist_votable_suggestions_change_gametype"))
 		if(!IsSameGametype(m))
 			return "This server does not allow changing the game type by map suggestions.";
+#endif
 	if(!cvar("g_maplist_votable_override_mostrecent"))
 		if(Map_IsRecent(m))
 			return "This server does not allow for recent maps to be played again. Please be patient for some rounds.";
@@ -1720,7 +1962,8 @@ string MapVote_Suggest(string m)
 	if(mapvote_suggestions[i] != "")
 		strunzone(mapvote_suggestions[i]);
 	mapvote_suggestions[i] = strzone(m);
-	GameLogEcho(strcat(":vote:suggested:", m, ":", ftos(self.playerid), ":", self.netname), TRUE);
+	if(cvar("sv_eventlog"))
+		GameLogEcho(strcat(":vote:suggested:", m, ":", ftos(self.playerid)), TRUE);
 	return strcat("Suggestion of ", m, " accepted.");
 }
 
@@ -1746,9 +1989,15 @@ void MapVote_Init()
 
 	MapVote_ClearAllVotes();
 
-	nmax = min(MAPVOTE_COUNT, cvar("g_maplist_votable"));
-	smax = min(nmax, cvar("g_maplist_votable_suggestions"));
 	mapvote_count = 0;
+	mapvote_detail = !cvar("g_maplist_votable_nodetail");
+	mapvote_abstain = cvar("g_maplist_votable_abstain");
+
+	if(mapvote_abstain)
+		nmax = min(MAPVOTE_COUNT - 1, cvar("g_maplist_votable"));
+	else
+		nmax = min(MAPVOTE_COUNT, cvar("g_maplist_votable"));
+	smax = min(nmax, cvar("g_maplist_votable_suggestions"));
 
 	for(i = 0; i < 100 && mapvote_count < smax; ++i)
 		MapVote_AddVotable(mapvote_suggestions[ceil(random() * mapvote_suggestion_ptr) - 1], TRUE);
@@ -1769,11 +2018,15 @@ void MapVote_Init()
 			MapVote_AddVotable(GetNextMap(), FALSE);
 	}
 
+	mapvote_count_real = mapvote_count;
+	if(mapvote_abstain)
+		MapVote_AddVotable("don't care", 0);
+
 	//dprint("mapvote count is ", ftos(mapvote_count), "\n");
 
 	mapvote_keeptwotime = time + cvar("g_maplist_votable_keeptwotime");
 	mapvote_timeout = time + cvar("g_maplist_votable_timeout");
-	if(mapvote_count < 3 || mapvote_keeptwotime <= time)
+	if(mapvote_count_real < 3 || mapvote_keeptwotime <= time)
 		mapvote_keeptwotime = 0;
 	mapvote_message = "Choose a map and press its key!";
 }
@@ -1781,19 +2034,29 @@ float MapVote_Finished(float mappos)
 {
 	string result;
 	float i;
+	float didntvote;
 
-	result = strcat(":vote:finished:", mapvote_maps[mappos]);
-	result = strcat(result, ":", ftos(mapvote_votes[mappos]), "::");
-	for(i = 0; i < mapvote_count; ++i)
-		if(i != mappos)
+	if(cvar("sv_eventlog"))
+	{
+		result = strcat(":vote:finished:", mapvote_maps[mappos]);
+		result = strcat(result, ":", ftos(mapvote_votes[mappos]), "::");
+		didntvote = mapvote_voters;
+		for(i = 0; i < mapvote_count; ++i)
 			if(mapvote_maps[i] != "")
 			{
-				result = strcat(result, ":", mapvote_maps[i]);
-				result = strcat(result, ":", ftos(mapvote_votes[i]));
+				didntvote -= mapvote_votes[i];
+				if(i != mappos)
+				{
+					result = strcat(result, ":", mapvote_maps[i]);
+					result = strcat(result, ":", ftos(mapvote_votes[i]));
+				}
 			}
-	GameLogEcho(result, FALSE);
-	if(mapvote_maps_suggested[mappos])
-		GameLogEcho(strcat(":vote:suggestion_accepted:", mapvote_maps[mappos]), FALSE);
+		result = strcat(result, ":didn't vote:", ftos(didntvote));
+
+		GameLogEcho(result, FALSE);
+		if(mapvote_maps_suggested[mappos])
+			GameLogEcho(strcat(":vote:suggestion_accepted:", mapvote_maps[mappos]), FALSE);
+	}
 
 	FOR_EACH_REALCLIENT(other)
 		FixClientCvars(other);
@@ -1831,10 +2094,15 @@ float MapVote_CheckRules_2()
 	float i;
 	float firstPlace, secondPlace;
 	float firstPlaceVotes, secondPlaceVotes;
+	float mapvote_voters_real;
 	string result;
 
+	mapvote_voters_real = mapvote_voters;
+	if(mapvote_abstain)
+		mapvote_voters_real -= mapvote_votes[mapvote_count - 1];
+
 	RandSel_Init();
-	for(i = 0; i < mapvote_count; ++i) if(mapvote_maps[i] != "")
+	for(i = 0; i < mapvote_count_real; ++i) if(mapvote_maps[i] != "")
 		RandSel_Add(mapvote_votes[i], i);
 	firstPlace = randsel_value;
 	firstPlaceVotes = randsel_priority;
@@ -1842,7 +2110,7 @@ float MapVote_CheckRules_2()
 	//dprint("First place votes: ", ftos(firstPlaceVotes), "\n");
 
 	RandSel_Init();
-	for(i = 0; i < mapvote_count; ++i) if(mapvote_maps[i] != "")
+	for(i = 0; i < mapvote_count_real; ++i) if(mapvote_maps[i] != "")
 		if(i != firstPlace)
 			RandSel_Add(mapvote_votes[i], i);
 	secondPlace = randsel_value;
@@ -1853,29 +2121,39 @@ float MapVote_CheckRules_2()
 	if(firstPlace == -1)
 		error("No first place in map vote... WTF?");
 
-	if(secondPlace == -1 || time > mapvote_timeout || (mapvote_voters - firstPlaceVotes) < firstPlaceVotes)
+	if(secondPlace == -1 || time > mapvote_timeout || (mapvote_voters_real - firstPlaceVotes) < firstPlaceVotes)
 		return MapVote_Finished(firstPlace);
 
 	if(mapvote_keeptwotime)
-		if(time > mapvote_keeptwotime || (mapvote_voters - firstPlaceVotes - secondPlaceVotes) < secondPlaceVotes)
+		if(time > mapvote_keeptwotime || (mapvote_voters_real - firstPlaceVotes - secondPlaceVotes) < secondPlaceVotes)
 		{
+			float didntvote;
 			mapvote_message = "Now decide between the TOP TWO!";
 			mapvote_keeptwotime = 0;
 			result = strcat(":vote:keeptwo:", mapvote_maps[firstPlace]);
 			result = strcat(result, ":", ftos(firstPlaceVotes));
 			result = strcat(result, ":", mapvote_maps[secondPlace]);
 			result = strcat(result, ":", ftos(secondPlaceVotes), "::");
+			didntvote = mapvote_voters;
 			for(i = 0; i < mapvote_count; ++i)
-				if(i != firstPlace)
-					if(i != secondPlace)
-						if(mapvote_maps[i] != "")
+				if(mapvote_maps[i] != "")
+				{
+					didntvote -= mapvote_votes[i];
+					if(i != firstPlace)
+						if(i != secondPlace)
 						{
 							result = strcat(result, ":", mapvote_maps[i]);
 							result = strcat(result, ":", ftos(mapvote_votes[i]));
-							strunzone(mapvote_maps[i]);
-							mapvote_maps[i] = "";
+							if(i < mapvote_count_real)
+							{
+								strunzone(mapvote_maps[i]);
+								mapvote_maps[i] = "";
+							}
 						}
-			GameLogEcho(result, FALSE);
+				}
+			result = strcat(result, ":didn't vote:", ftos(didntvote));
+			if(cvar("sv_eventlog"))
+				GameLogEcho(result, FALSE);
 		}
 
 	return FALSE;
@@ -1886,12 +2164,14 @@ void MapVote_Tick()
 	string tmp;
 	float i;
 	float keeptwo;
+	float totalvotes;
 
 	keeptwo = mapvote_keeptwotime;
 	MapVote_CheckRules_1(); // count
 	if(MapVote_CheckRules_2()) // decide
 		return;
 
+	totalvotes = 0;
 	FOR_EACH_REALCLIENT(other)
 	{
 		// hide scoreboard again
@@ -1905,14 +2185,6 @@ void MapVote_Tick()
 				msg_entity = other;
 				WriteByte(MSG_ONE, SVC_FINALE);
 				WriteString(MSG_ONE, "");
-				/*
-				for(i = 0; i < mapvote_count; ++i)
-					if(mapvote_maps[i] != "")
-					{
-						tmp = mapvote_maps[i];
-						sprint(other, strcat("map voting: type ^1impulse ", ftos(i+1), "^7 to vote for ", tmp, "\n"));
-					}
-				*/
 			}
 		}
 
@@ -1928,6 +2200,9 @@ void MapVote_Tick()
 			if(mapvote_maps[other.impulse - 1] != "")
 				other.mapvote = other.impulse;
 		other.impulse = 0;
+
+		if(other.mapvote)
+			++totalvotes;
 	}
 
 	MapVote_CheckRules_1(); // just count
@@ -1937,6 +2212,8 @@ void MapVote_Tick()
 		// display voting screen
 		msgstr = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
 		msgstr = substring(msgstr, 0, strlen(msgstr) - mapvote_count);
+		if(mapvote_abstain)
+			msgstr = substring(msgstr, 1, strlen(msgstr) - 1);
 		msgstr = strcat(msgstr, mapvote_message);
 		msgstr = strcat(msgstr, "\n\n");
 		for(i = 0; i < mapvote_count; ++i)
@@ -1946,19 +2223,30 @@ void MapVote_Tick()
 			{
 				tmp = mapvote_maps[i];
 				tmp = strpad(mapvote_maxlen, tmp);
-				tmp = strcat(ftos(math_mod(i + 1, 10)), ": ", tmp);
-				tmp = strcat(tmp, " ^2(", ftos(mapvote_votes[i]), " vote");
-				if(mapvote_votes[i] != 1)
-					tmp = strcat(tmp, "s");
-				tmp = strcat(tmp, ")");
-				tmp = strpad(mapvote_maxlen + 15, tmp);
+				tmp = strcat(ftos(mod(i + 1, 10)), ": ", tmp);
+ 				if(mapvote_detail)
+ 				{
+ 					tmp = strcat(tmp, " ^2(", ftos(mapvote_votes[i]), " vote");
+ 					if(mapvote_votes[i] != 1)
+ 						tmp = strcat(tmp, "s");
+ 					tmp = strcat(tmp, ")");
+ 					tmp = strpad(mapvote_maxlen + 15, tmp);
+ 				}
+				if(mapvote_abstain)
+					if(i == mapvote_count - 1)
+						msgstr = strcat(msgstr, "\n");
 				if(other.mapvote == i + 1)
 					msgstr = strcat(msgstr, "^3> ", tmp, "\n");
 				else
 					msgstr = strcat(msgstr, "^7  ", tmp, "\n");
 			}
+
+ 		msgstr = strcat(msgstr, "\n\n^2", ftos(totalvotes), " vote");
+ 		if(totalvotes != 1)
+ 			msgstr = strcat(msgstr, "s");
+ 		msgstr = strcat(msgstr, " cast");
 		i = ceil(mapvote_timeout - time);
-		msgstr = strcat(msgstr, "\n\n", ftos(i), " second");
+ 		msgstr = strcat(msgstr, "\n", ftos(i), " second");
 		if(i != 1)
 			msgstr = strcat(msgstr, "s");
 		msgstr = strcat(msgstr, " left");
@@ -2065,7 +2353,7 @@ float RedirectionThink()
 	if(!redirection_timeout)
 	{
 		cvar_set("sv_public", "-2");
-		redirection_timeout = time + 0.5; // this will only try twice... should be able to keep more clients
+		redirection_timeout = time + 0.6; // this will only try twice... should be able to keep more clients
 		if(redirection_target == "self")
 			bprint("^3SERVER NOTICE:^7 restarting the server\n");
 		else
@@ -2094,4 +2382,23 @@ float RedirectionThink()
 		localcmd("\nwait; wait; wait; quit\n");
 
 	return TRUE;
+}
+
+void SV_Shutdown()
+{
+	if(world_initialized)
+	{
+		world_initialized = 0;
+		print("Saving persistent data...\n");
+		Ban_SaveBans();
+		if(!sv_cheats)
+			db_save(ServerProgsDB, "server.db");
+		print("done!\n");
+		// tell the bot system the game is ending now
+		bot_endgame();
+	}
+	else
+	{
+		print("NOTE: crashed before even initializing the world, not saving persistent data\n");
+	}
 }

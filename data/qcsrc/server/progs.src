@@ -3,6 +3,7 @@
 sys.qh
 builtins.qh
 constants.qh
+../common/constants.qh
 defs.qh		// Should rename this, it has fields and globals
 
 extensions.qh
@@ -17,6 +18,10 @@ campaign.qh
 ipban.qh
 
 keyhunt.qh
+
+antilag.qh
+
+vote.qh
 
 miscfunctions.qc
 
@@ -66,15 +71,14 @@ w_hagar.qc
 w_rocketlauncher.qc
 
 t_items.qc
-t_halflife.qc
-t_quake3.qc
-t_quake.qc
 cl_weapons.qc
 //g_tetris.qc
 cl_impulse.qc
+
 cl_player.qc
 cl_client.qc
 t_plats.qc
+antilag.qc
 
 ctf.qc
 domination.qc
@@ -84,6 +88,8 @@ g_hook.qc
 t_swamp.qc
 
 clientcommands.qc
+
+vote.qc
 
 campaign.qc
 ../common/campaign_file.qc
@@ -99,3 +105,10 @@ assault.qc
 ipban.qc
 
 ../common/mapinfo.qc
+
+
+
+
+t_quake3.qc
+t_halflife.qc
+t_quake.qc

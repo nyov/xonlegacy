@@ -36,11 +36,6 @@ textures/cmp1-dm8/e8trimlight2_pur
 		blendfunc filter
 		tcGen lightmap
 	}
-	{
-		map textures/cmp1-dm8/e8trimlight2_pur.blend.tga
-		blendfunc add
-		rgbGen wave sin 0.7 0.2 0 0.3
-	}
 }
 
 textures/cmp1-dm8/e8tinylightpur
@@ -55,11 +50,6 @@ textures/cmp1-dm8/e8tinylightpur
 		map $lightmap
 		blendfunc filter
 		tcGen lightmap
-	}
-	{
-		map textures/cmp1-dm8/e8tinylightpur.blend.tga
-		blendfunc add
-		rgbGen wave noise 0.5 0.3 0 0.2
 	}
 }
 
@@ -76,11 +66,6 @@ textures/cmp1-dm8/e8lighttrim_b_pur
 		blendfunc filter
 		tcGen lightmap
 	}
-	{
-		map textures/cmp1-dm8/e8lighttrim_pur.blend.tga
-		blendfunc add
-		rgbGen wave sin 0.4 0.2 0 0.2
-	}
 }
 
 textures/cmp1-dm8/e8lighttrim_pur
@@ -95,11 +80,6 @@ textures/cmp1-dm8/e8lighttrim_pur
 		map $lightmap
 		blendfunc filter
 		tcGen lightmap
-	}
-	{
-		map textures/cmp1-dm8/e8lighttrim_p.blend.tga
-		blendfunc add
-		rgbGen wave sin 0.4 0.2 0 0.2
 	}
 }
 
@@ -186,4 +166,22 @@ textures/cmp1-dm8/ame7glass
 		blendfunc filter
 		tcGen lightmap
 	}
+}
+textures/cmp1-dm8/ame7glass_reflect
+{
+	qer_editorimage textures/cmp1-dm8/ame7light.tga
+	surfaceparm nomarks
+	surfaceparm trans
+	qer_trans 0.5
+	{
+		map textures/cmp1-dm8/ame7light.tga
+		blendfunc blend
+		tcGen environment
+	}
+	{
+		map $lightmap
+		blendfunc filter
+		tcGen lightmap
+	}
+	dp_reflect 0 1 0.4 1 0.5
 }

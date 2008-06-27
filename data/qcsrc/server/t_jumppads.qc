@@ -118,12 +118,19 @@ void() trigger_push_touch =
 	if (other.deadflag && other.classname == "player")
 		return;
 
+	if(self.target)
+		self.movedir = trigger_push_calculatevelocity(other.origin, self.enemy, self.height);
+
+	other.flags = other.flags - (other.flags & FL_ONGROUND);
+	// reset tracking of oldvelocity for impact damage (sudden velocity changes)
+	other.oldvelocity = other.velocity = self.movedir;
+
 	if (other.classname == "player")
 	{
 		if(self.pushltime < time)  // prevent "snorring" sound when a player hits the jumppad more than once
 		{
 			// flash when activated
-			te_smallflash(other.origin);
+			pointparticles(particleeffectnum("jumppad_activate"), other.origin, other.velocity, 1);
 			sound (other, CHAN_ITEM, self.noise, 1, ATTN_NORM);
 			self.pushltime = time + 0.2;
 		}
@@ -137,20 +144,17 @@ void() trigger_push_touch =
 					found = TRUE;
 			if(!found)
 			{
-				other.(jumppadsused[math_mod(other.jumppadcount, NUM_JUMPPADSUSED)]) = self;
+				other.(jumppadsused[mod(other.jumppadcount, NUM_JUMPPADSUSED)]) = self;
 				other.jumppadcount = other.jumppadcount + 1;
 			}
 		}
 		else
 			other.jumppadcount = TRUE;
+
+		if(self.message)
+			centerprint(other, self.message);
 	}
 
-	if(self.target)
-		self.movedir = trigger_push_calculatevelocity(other.origin, self.enemy, self.height);
-
-	other.flags = other.flags - (other.flags & FL_ONGROUND);
-	// reset tracking of oldvelocity for impact damage (sudden velocity changes)
-	other.oldvelocity = other.velocity = self.movedir;
 	// reset tracking of who pushed you into a hazard (for kill credit)
 	other.pushltime = 0;
 
@@ -194,7 +198,7 @@ void() trigger_push_findtarget =
 	else
 		flighttime = 0;
 
-	// calculate the destination and spawn a teleporter waypoint
+	// calculate the destination and spawn a teleporter spawnfunc_waypoint
 	e = spawn();
 	setorigin(e, org);
 	setsize(e, PL_MIN, PL_MAX);
@@ -218,7 +222,7 @@ void() trigger_push_findtarget =
  *            values to target a point on the ceiling.
  *   movedir: if target is not set, this * speed * 10 is the velocity to be reached.
  */
-void() trigger_push =
+void() spawnfunc_trigger_push =
 {
 	if (self.angles != '0 0 0')
 		SetMovedir ();
@@ -245,6 +249,6 @@ void() trigger_push =
 	self.nextthink = time + 0.2;
 };
 
-void() target_push = {};
-void() info_notnull = {};
-void() target_position = {};
+void() spawnfunc_target_push = {};
+void() spawnfunc_info_notnull = {};
+void() spawnfunc_target_position = {};

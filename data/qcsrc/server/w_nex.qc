@@ -1,33 +1,33 @@
 
 void W_Nex_Attack (void)
 {
-	//w_shotorg = self.origin + self.view_ofs + v_forward * 5 + v_right * 14 + v_up * -7;
-	W_SetupShot (self, '5 14 -8', TRUE, 5, "weapons/nexfire.wav");
+	float flying;
+	if not(g_minstagib || g_instagib)
+		flying = IsFlying(self); // do this BEFORE to make the trace values from FireRailgunBullet last
+
+	W_SetupShot (self, '25 4 -4', TRUE, 5, "weapons/nexfire.wav");
+	//W_SetupShot (self, '25 8 -8', TRUE, 2, "weapons/nexfire.wav"); // TODO: move model down a little
 
 	// assure that nexdamage is high enough in minstagib
-	if (g_minstagib)
+	if (g_minstagib || g_instagib)
 		FireRailgunBullet (w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, 1000, 800, IT_NEX);
 	else
+	{
+		yoda = 0;
 		FireRailgunBullet (w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, cvar("g_balance_nex_damage"), cvar("g_balance_nex_force"), IT_NEX);
 
-	// show as if shot started outside of gun
-	// muzzleflash light
-	//te_smallflash (w_shotorg + w_shotdir * 24);
+		if(yoda)
+			if(flying)
+				announce(self, "announcer/male/yoda.ogg");
+	}
+
+	pointparticles(particleeffectnum("nex_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
+
 	// beam effect
-	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-	WriteByte (MSG_BROADCAST, 76);
-	WriteCoord (MSG_BROADCAST, w_shotorg_x + w_shotdir_x * 18);
-	WriteCoord (MSG_BROADCAST, w_shotorg_y + w_shotdir_y * 18);
-	WriteCoord (MSG_BROADCAST, w_shotorg_z + w_shotdir_z * 18);
-	WriteCoord (MSG_BROADCAST, trace_endpos_x);
-	WriteCoord (MSG_BROADCAST, trace_endpos_y);
-	WriteCoord (MSG_BROADCAST, trace_endpos_z);
-	WriteCoord (MSG_BROADCAST, 0);
-	WriteCoord (MSG_BROADCAST, 0);
-	WriteCoord (MSG_BROADCAST, 0);
+	trailparticles(world, particleeffectnum("nex_beam"), w_shotorg, trace_endpos);
 	// flash and burn the wall
 	if (trace_ent.solid == SOLID_BSP && !(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
-		te_plasmaburn (trace_endpos - w_shotdir * 6);
+		pointparticles(particleeffectnum("nex_impact"), trace_endpos - w_shotdir * 6, '0 0 0', 1);
 	// play a sound
 	PointSound (trace_endpos, "weapons/neximpact.wav", 1, ATTN_NORM);
 
@@ -38,22 +38,6 @@ void W_Nex_Attack (void)
 		else
 			self.ammo_cells = self.ammo_cells - cvar("g_balance_nex_ammo");
 	}
-
-	/*
-	local entity flash;
-	flash = spawn ();
-	setorigin (flash, self.origin + self.view_ofs + v_forward * 33 + v_right * 14 + v_up * -7);
-	flash.angles = vectoangles (w_shotdir);
-	//setattachment(flash, self.weaponentity, "bone01");
-	//flash.origin = '150 0 0';
-	//setattachment(flash, self.weaponentity, "");
-	//flash.origin = '150 -16 -8';
-	//flash.angles_z = 90;
-	//flash.scale = 4;
-	setmodel (flash, "models/nexflash.md3"); // precision set below
-	SUB_SetFade (flash, time, 0.4);
-	flash.effects = flash.effects | EF_ADDITIVE | EF_FULLBRIGHT | EF_LOWPRECISION;
-	*/
 }
 
 
@@ -69,67 +53,67 @@ void minstagib_ammocheck (void)
 		{
 			centerprint(self, "you're dead now...\n");
 			Damage(self, self, self, 5, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/terminated.ogg");
+			announce(self, "announcer/robotic/terminated.ogg");
 		}
 		if (self.health == 10)
 		{
 			centerprint(self, "^11^7 second left to find some ammo\n");
 			Damage(self, self, self, 5, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/1.ogg");
+			announce(self, "announcer/robotic/1.ogg");
 		}
 		if (self.health == 20)
 		{
 			centerprint(self, "^12^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/2.ogg");
+			announce(self, "announcer/robotic/2.ogg");
 		}
 		if (self.health == 30)
 		{
 			centerprint(self, "^13^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/3.ogg");
+			announce(self, "announcer/robotic/3.ogg");
 		}
 		if (self.health == 40)
 		{
 			centerprint(self, "^14^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/4.ogg");
+			announce(self, "announcer/robotic/4.ogg");
 		}
 		if (self.health == 50)
 		{
 			centerprint(self, "^15^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/5.ogg");
+			announce(self, "announcer/robotic/5.ogg");
 		}
 		if (self.health == 60)
 		{
 			centerprint(self, "^36^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/6.ogg");
+			announce(self, "announcer/robotic/6.ogg");
 		}
 		if (self.health == 70)
 		{
 			centerprint(self, "^37^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/7.ogg");
+			announce(self, "announcer/robotic/7.ogg");
 		}
 		if (self.health == 80)
 		{
 			centerprint(self, "^38^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/8.ogg");
+			announce(self, "announcer/robotic/8.ogg");
 		}
 		if (self.health == 90)
 		{
 			centerprint(self, "^39^7 seconds left to find some ammo\n");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/9.ogg");
+			announce(self, "announcer/robotic/9.ogg");
 		}
 		if (self.health == 100)
 		{
 			centerprint(self, "get some ammo or\nyou'll be dead in ^310^7 seconds...");
 			Damage(self, self, self, 10, DEATH_NOAMMO, self.origin, '0 0 0');
-			play2(self, "announcer/robotic/10.ogg");
+			announce(self, "announcer/robotic/10.ogg");
 		}
 	}
 	self.minstagib_nextthink = time + 1;
@@ -180,6 +164,8 @@ float(float req) w_nex =
 		precache_model ("models/weapons/w_nex.zym");
 		precache_sound ("weapons/nexfire.wav");
 		precache_sound ("weapons/neximpact.wav");
+		if(g_minstagib)
+			w_laser(WR_PRECACHE);
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_NEX, "nex", IT_CELLS);
@@ -193,6 +179,11 @@ float(float req) w_nex =
 	else if (req == WR_CHECKAMMO2)
 		return FALSE;
 	else if (req == WR_REGISTER)
-		weapon_register(WEP_NEX, cvar("g_balance_nex_ammo"));
+	{
+		if(g_minstagib)
+			weapon_register(WEP_NEX, 1);
+		else
+			weapon_register(WEP_NEX, cvar("g_balance_nex_ammo"));
+	}
 	return TRUE;
 };

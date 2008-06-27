@@ -13,18 +13,17 @@ void W_Shotgun_Attack (void)
 	f = cvar("g_balance_shotgun_primary_force");
 	spread = cvar("g_balance_shotgun_primary_spread");
 
-	W_SetupShot (self, '11 8 -8', TRUE, 5, "weapons/shotgun_fire.wav");
+	W_SetupShot (self, '25 8 -8', TRUE, 5, "weapons/shotgun_fire.wav");
 	for (sc = 0;sc < bullets;sc = sc + 1)
 		fireBullet (w_shotorg, w_shotdir, spread, d, f, IT_SHOTGUN, sc < 3);
 	if (cvar("g_use_ammunition"))
 		self.ammo_shells = self.ammo_shells - cvar("g_balance_shotgun_primary_ammo");
 
-	W_Smoke(w_shotorg + v_forward * 8, v_forward, 12);
-	//te_smallflash(w_shotorg);
+	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 1000, cvar("g_balance_shotgun_primary_ammo"));
 
 	// casing code
 	if (cvar("g_casings") >= 1)
-		SpawnCasing (w_shotorg, ((random () * 50 + 50) * v_right) - ((random () * 25 + 25) * v_forward) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
+		SpawnCasing (w_shotorg, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
 
 	// muzzle flash for 1st person view
 	flash = spawn();
@@ -50,24 +49,38 @@ void W_Shotgun_Attack2 (void)
 	float	d;
 	float	f;
 	float	spread;
+	local entity flash;
 
 	bullets = cvar("g_balance_shotgun_secondary_bullets");
 	d = cvar("g_balance_shotgun_secondary_damage");
 	f = cvar("g_balance_shotgun_secondary_force");
 	spread = cvar("g_balance_shotgun_secondary_spread");
 
-	W_SetupShot (self, '11 8 -8', TRUE, 5, "weapons/shotgun_fire.wav");
+	W_SetupShot (self, '25 8 -8', TRUE, 5, "weapons/shotgun_fire.wav");
 	for (sc = 0;sc < bullets;sc = sc + 1)
 		fireBullet (w_shotorg, w_shotdir, spread, d, f, IT_SHOTGUN, sc < 3);
 	if (cvar("g_use_ammunition"))
 		self.ammo_shells = self.ammo_shells - cvar("g_balance_shotgun_secondary_ammo");
 
-	W_Smoke(w_shotorg + v_forward * 8, v_forward, 12);
-	//te_smallflash(w_shotorg);
+	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 1000, cvar("g_balance_shotgun_secondary_ammo"));
 
 	// casing code
 	if (cvar("g_casings") >= 1)
-		SpawnCasing (w_shotorg, ((random () * 50 + 50) * v_right) - ((random () * 25 + 25) * v_forward) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
+		SpawnCasing (w_shotorg, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
+
+	flash = spawn();
+	setorigin(flash, '53 5 0');
+	setmodel(flash, "models/uziflash.md3"); // precision set below
+	setattachment(flash, self.weaponentity, "bone01");
+	flash.owner = self;
+	flash.viewmodelforclient = self;
+	flash.customizeentityforclient = CL_Weaponentity_CustomizeEntityForClient;
+	flash.scale = 1.2;
+	flash.think = SUB_Remove;
+	flash.nextthink = time + 0.06;
+	flash.angles_z = flash.v_angle_z + random() * 180;
+	flash.alpha = 1;
+	flash.effects = EF_ADDITIVE | EF_FULLBRIGHT | EF_LOWPRECISION;
 }
 
 // weapon frames
@@ -106,6 +119,7 @@ float(float req) w_shotgun =
 	}
 	else if (req == WR_PRECACHE)
 	{
+		precache_model ("models/uziflash.md3");
 		precache_model ("models/tracer.mdl");
 		precache_model ("models/weapons/g_shotgun.md3");
 		precache_model ("models/weapons/v_shotgun.md3");

@@ -1,6 +1,3 @@
-//void Item_ClearRespawnEffect (void) {
-//	self.effects = self.effects - (self.effects & EF_STARDUST);
-//}
 
 .float max_armorvalue;
 
@@ -11,12 +8,8 @@ void Item_Respawn (void)
 	sound (self, CHAN_VOICE, "misc/itemrespawn.wav", 1, ATTN_NORM);	// play respawn sound
 	setorigin (self, self.origin);
 
-	// LordHavoc: replaced respawn stardust effect with a custom te_wizspike
-	te_wizspike(self.origin + self.mins_z * '0 0 1' + '0 0 48');
-	//// Savage: Add simple Respawn effect and make sure it gets removed
-	//self.effects = self.effects | EF_STARDUST;
-	//self.think = Item_ClearRespawnEffect;
-	//self.nextthink = time + 0.1;
+	//pointparticles(particleeffectnum("item_respawn"), self.origin + self.mins_z * '0 0 1' + '0 0 48', '0 0 0', 1);
+	pointparticles(particleeffectnum("item_respawn"), self.origin + 0.5 * (self.mins + self.maxs), '0 0 0', 1);
 }
 
 void Item_Touch (void)
@@ -54,9 +47,9 @@ void Item_Touch (void)
 			// play some cool sounds ;)
 			centerprint(other, "\n");
 			if(other.health <= 5)
-				play2(other, "announcer/robotic/lastsecond.ogg");
+				announce(other, "announcer/robotic/lastsecond.ogg");
 			else if(other.health < 50)
-				play2(other, "announcer/robotic/narrowly.ogg");
+				announce(other, "announcer/robotic/narrowly.ogg");
 			// sound not available
 			// else if(self.items == IT_CELLS)
 			//	play2(other, "announce/robotic/ammo.ogg");
@@ -192,9 +185,6 @@ void Item_Touch (void)
 	if (!pickedup)
 		return;
 
-	// Savage: Remove the respawn effect if still present
-	self.effects = self.effects - (self.effects & EF_STARDUST);
-
 	sound (self, CHAN_BODY, self.noise, 1, ATTN_NORM);
 	sound (other, CHAN_AUTO, self.item_pickupsound, 1, ATTN_NORM);
 
@@ -250,22 +240,22 @@ float(entity player, entity item) commodity_pickupevalfunc =
 	// find out how much more ammo/armor/health the player can hold
 	if (item.ammo_shells)
 	if (player.ammo_shells < g_pickup_shells_max)
-		c = c + 1 - min(player.ammo_shells / g_pickup_shells_max, 1);
+		c = c + max(0, 1 - player.ammo_shells / g_pickup_shells_max);
 	if (item.ammo_nails)
 	if (player.ammo_nails < g_pickup_nails_max)
-		c = c + 1 - min(player.ammo_nails / g_pickup_nails_max, 1);
+		c = c + max(0, 1 - player.ammo_nails / g_pickup_nails_max);
 	if (item.ammo_rockets)
 	if (player.ammo_rockets < g_pickup_rockets_max)
-		c = c + 1 - min(player.ammo_rockets / g_pickup_rockets_max, 1);
+		c = c + max(0, 1 - player.ammo_rockets / g_pickup_rockets_max);
 	if (item.ammo_cells)
 	if (player.ammo_cells < g_pickup_cells_max)
-		c = c + 1 - min(player.ammo_cells / g_pickup_cells_max, 1);
+		c = c + max(0, 1 - player.ammo_cells / g_pickup_cells_max);
 	if (item.armorvalue)
 	if (player.armorvalue < item.max_armorvalue)
-		c = c + 1 - min(player.armorvalue / item.max_armorvalue, 1);
+		c = c + max(0, 1 - player.armorvalue / item.max_armorvalue);
 	if (item.health)
 	if (player.health < item.max_health)
-		c = c + 1 - min(player.health / item.max_health, 1);
+		c = c + max(0, 1 - player.health / item.max_health);
 
 	if (cvar("deathmatch") == 2) // weapon stay is on, so weapons the player already has are of no interest
 	if (item.flags & FL_WEAPON)
@@ -282,8 +272,93 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 {
 	startitem_failed = FALSE;
 
-	if (self.classname != "droppedweapon")
+	// is it a dropped weapon?
+	if (self.classname == "droppedweapon")
 	{
+		// it's a dropped weapon
+		self.movetype = MOVETYPE_TOSS;
+		self.solid = SOLID_TRIGGER;
+		// Savage: remove thrown items after a certain period of time ("garbage collection")
+		self.think = RemoveItem;
+		self.nextthink = time + 60;
+		// don't drop if in a NODROP zone (such as lava)
+		traceline(self.origin, self.origin, MOVE_NORMAL, self);
+		if (trace_dpstartcontents & DPCONTENTS_NODROP)
+		{
+			startitem_failed = TRUE;
+			remove(self);
+			return;
+		}
+	}
+	else
+	{
+		// it's a level item
+		if(self.spawnflags & 1)
+			self.noalign = 1;
+		if (self.noalign)
+			self.movetype = MOVETYPE_NONE;
+		else
+			self.movetype = MOVETYPE_TOSS;
+		self.solid = SOLID_TRIGGER;
+		// do item filtering according to game mode and other things
+		if (!self.noalign)
+		{
+			// first nudge it off the floor a little bit to avoid math errors
+			setorigin(self, self.origin + '0 0 1');
+			// set item size before we spawn a spawnfunc_waypoint
+			if((itemflags & FL_POWERUP) || self.health || self.armorvalue)
+				setsize (self, '-16 -16 0', '16 16 48');
+			else
+				setsize (self, '-16 -16 0', '16 16 32');
+			// note droptofloor returns FALSE if stuck/or would fall too far
+			droptofloor();
+			waypoint_spawnforitem(self);
+		}
+
+		if(teams_matter)
+		{
+			if(self.notteam)
+			{
+				print("removed non-teamplay ", self.classname, "\n");
+				startitem_failed = TRUE;
+				remove (self);
+				return;
+			}
+		}
+		else
+		{
+			if(self.notfree)
+			{
+				print("removed non-FFA ", self.classname, "\n");
+				startitem_failed = TRUE;
+				remove (self);
+				return;
+			}
+		}
+
+		if(self.notq3a)
+		{
+			// We aren't TA or something like that, so we keep the Q3A entities
+			print("removed non-Q3A ", self.classname, "\n");
+			startitem_failed = TRUE;
+			remove (self);
+			return;
+		}
+
+		/*
+		 * can't do it that way, as it would break maps
+		 * TODO make a target_give like entity another way, that perhaps has
+		 * the weapon name in a key
+		if(self.targetname)
+		{
+			// target_give not yet supported; maybe later
+			print("removed targeted ", self.classname, "\n");
+			startitem_failed = TRUE;
+			remove (self);
+			return;
+		}
+		*/
+
 		if(cvar("spawn_debug") >= 2)
 		{
 			entity otheritem;
@@ -299,70 +374,41 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 			self.is_item = TRUE;
 		}
 
-		waypoint_spawnforitem(self);
-
 		itemsInMap |= itemid;
-	}
 
-	if (!(cvar("g_pickup_items") && !g_nixnex) && !g_minstagib &&
-			itemid != IT_STRENGTH && itemid != IT_INVINCIBLE && itemid != IT_HEALTH)
-	{
-		startitem_failed = TRUE;
-		remove (self);
-		return;
-	}
-
-	if (g_minstagib)
-	{
-		// don't remove dropped items and powerups
-		if (self.classname != "droppedweapon" &&
-		    self.classname != "minstagib")
-		{
-			startitem_failed = TRUE;
-			remove (self);
-			return;
-		}
-	}
-
-	if(g_lms && (self.classname != "droppedweapon"))
-	{
-		startitem_failed = TRUE;
-		remove(self);
-		return;
-	}
-
-	if(g_instagib || g_rocketarena)
-	{
-		startitem_failed = TRUE;
-		remove(self);
-		return;
-	}
-
-	if (self.classname == "droppedweapon")
-	{
-		// don't drop if in a NODROP zone (such as lava)
-		traceline(self.origin, self.origin, MOVE_NORMAL, self);
-		if (trace_dpstartcontents & DPCONTENTS_NODROP)
+		if(g_lms || g_instagib || g_rocketarena)
 		{
 			startitem_failed = TRUE;
 			remove(self);
 			return;
 		}
-	}
+		else if (g_minstagib)
+		{
+			// don't remove dropped items and powerups
+			if (self.classname != "minstagib")
+			{
+				startitem_failed = TRUE;
+				remove (self);
+				return;
+			}
+		}
+		else if ((!cvar("g_pickup_items") || g_nixnex) && itemid != IT_STRENGTH && itemid != IT_INVINCIBLE && itemid != IT_HEALTH)
+		{
+			startitem_failed = TRUE;
+			remove (self);
+			return;
+		}
 
-	if (self.classname != "droppedweapon")
-	{
 		precache_model (itemmodel);
 		precache_sound (pickupsound);
 		precache_sound ("misc/itemrespawn.wav");
+
+		if(itemid & (IT_STRENGTH | IT_INVINCIBLE | IT_HEALTH | IT_ARMOR | IT_KEY1 | IT_KEY2 |
+					IT_ROCKET_LAUNCHER | IT_HAGAR | IT_NEX | IT_CRYLINK | IT_ELECTRO |
+					IT_GRENADE_LAUNCHER | IT_UZI | IT_SHOTGUN | IT_LASER))
+			self.target = "###item###"; // for finding the nearest item using find()
 	}
 
-	if(itemid & (IT_STRENGTH | IT_INVINCIBLE | IT_HEALTH | IT_ARMOR | IT_KEY1 | IT_KEY2 |
-				IT_ROCKET_LAUNCHER | IT_HAGAR | IT_NEX | IT_CRYLINK | IT_ELECTRO |
-				IT_GRENADE_LAUNCHER | IT_UZI | IT_SHOTGUN | IT_LASER) && self.classname != "droppedweapon")
-	{
-		self.target = "###item###"; // for finding the nearest item using find()
-	}
 	self.bot_pickup = TRUE;
 	self.bot_pickupevalfunc = pickupevalfunc;
 	self.bot_pickupbasevalue = pickupbasevalue;
@@ -375,13 +421,6 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 	self.netname = itemname;
 	self.items = itemid;
 	self.flags = FL_ITEM | itemflags;
-	if(self.spawnflags & 1)
-		self.noalign = 1;
-	if (self.noalign)
-		self.movetype = MOVETYPE_NONE;
-	else
-		self.movetype = MOVETYPE_TOSS;
-	self.solid = SOLID_TRIGGER;
 	self.touch = Item_Touch;
 	setmodel (self, self.mdl); // precision set below
 	self.effects |= EF_LOWPRECISION;
@@ -393,20 +432,6 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 	{
 		// neutral team color for pickup weapons
 		self.colormap = 160 * 1024 + 160;
-	}
-
-	// Savage: remove thrown items after a certain period of time ("garbage collection")
-	if (self.classname == "droppedweapon")
-	{
-		self.think = RemoveItem;
-		self.nextthink = time + 60;
-	}
-	else if (!self.noalign)
-	{
-		// first nudge it off the floor a little bit to avoid math errors
-		setorigin(self, self.origin + '0 0 1');
-		// note droptofloor returns FALSE if stuck/or would fall too far
-		droptofloor();
 	}
 
 	if (cvar("g_fullbrightitems"))
@@ -488,50 +513,73 @@ void minst_remove_item (void) {
 		remove(self);
 }
 
-void weapon_uzi (void) {
+float weaponswapping;
+
+void spawnfunc_weapon_shotgun (void);
+void spawnfunc_weapon_uzi (void) {
+	if(!weaponswapping)
+	if(q3acompat_machineshotgunswap)
+	if(self.classname != "droppedweapon")
+	{
+		weaponswapping = TRUE;
+		spawnfunc_weapon_shotgun();
+		weaponswapping = FALSE;
+		return;
+	}
+
 	if(!self.ammo_nails)
 		self.ammo_nails = cvar("g_pickup_nails");
-	StartItem ("models/weapons/g_uzi.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_UZI), IT_UZI, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_uzi.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_UZI), IT_UZI, FL_WEAPON, weapon_pickupevalfunc, 5000);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_UZI, WR_PRECACHE);
 }
 
-void weapon_shotgun (void) {
+void spawnfunc_weapon_shotgun (void) {
+	if(!weaponswapping)
+	if(q3acompat_machineshotgunswap)
+	if(self.classname != "droppedweapon")
+	{
+		weaponswapping = TRUE;
+		spawnfunc_weapon_uzi();
+		weaponswapping = FALSE;
+		return;
+	}
+
 	if(!self.ammo_shells)
 		self.ammo_shells = cvar("g_pickup_shells");
-	StartItem ("models/weapons/g_shotgun.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_SHOTGUN), IT_SHOTGUN, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_shotgun.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_SHOTGUN), IT_SHOTGUN, FL_WEAPON, weapon_pickupevalfunc, 2500);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_SHOTGUN, WR_PRECACHE);
 }
 
-void weapon_grenadelauncher (void)
+void spawnfunc_weapon_grenadelauncher (void)
 {
 	if(!self.ammo_rockets)
 		self.ammo_rockets = cvar("g_pickup_rockets");
-	StartItem ("models/weapons/g_gl.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_GRENADE_LAUNCHER), IT_GRENADE_LAUNCHER, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_gl.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_GRENADE_LAUNCHER), IT_GRENADE_LAUNCHER, FL_WEAPON, weapon_pickupevalfunc, 5000);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_GRENADE_LAUNCHER, WR_PRECACHE);
 }
 
-void weapon_electro (void)
+void spawnfunc_weapon_electro (void)
 {
 	if(!self.ammo_cells)
 		self.ammo_cells = cvar("g_pickup_cells");
-	StartItem ("models/weapons/g_electro.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_ELECTRO), IT_ELECTRO, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_electro.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_ELECTRO), IT_ELECTRO, FL_WEAPON, weapon_pickupevalfunc, 5000);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_ELECTRO, WR_PRECACHE);
 }
 
-void weapon_crylink (void)
+void spawnfunc_weapon_crylink (void)
 {
 	if(!self.ammo_cells)
 		self.ammo_cells = cvar("g_pickup_cells");
-	StartItem ("models/weapons/g_crylink.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_CRYLINK), IT_CRYLINK, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_crylink.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_CRYLINK), IT_CRYLINK, FL_WEAPON, weapon_pickupevalfunc, 2500);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_CRYLINK, WR_PRECACHE);
 }
 
-void weapon_nex (void)
+void spawnfunc_weapon_nex (void)
 {
 	float nextime;
 	if (g_minstagib)
@@ -548,21 +596,21 @@ void weapon_nex (void)
 		nextime = 15 * nextime;
 	else
 		nextime = 15;
-	StartItem ("models/weapons/g_nex.md3", "weapons/weaponpickup.wav", nextime, W_Name(WEP_NEX), IT_NEX, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_nex.md3", "weapons/weaponpickup.wav", nextime, W_Name(WEP_NEX), IT_NEX, FL_WEAPON, weapon_pickupevalfunc, 10000);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_NEX, WR_PRECACHE);
 }
 
-void weapon_hagar (void)
+void spawnfunc_weapon_hagar (void)
 {
 	if(!self.ammo_rockets)
 		self.ammo_rockets = cvar("g_pickup_rockets");
-	StartItem ("models/weapons/g_hagar.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_HAGAR), IT_HAGAR, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_hagar.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_HAGAR), IT_HAGAR, FL_WEAPON, weapon_pickupevalfunc, 5000);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_HAGAR, WR_PRECACHE);
 }
 
-void weapon_rocketlauncher (void)
+void spawnfunc_weapon_rocketlauncher (void)
 {
 	if (g_minstagib)
 	{
@@ -573,68 +621,105 @@ void weapon_rocketlauncher (void)
 	}
 	if(!self.ammo_rockets)
 		self.ammo_rockets = g_pickup_rockets;
-	StartItem ("models/weapons/g_rl.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_ROCKET_LAUNCHER), IT_ROCKET_LAUNCHER, FL_WEAPON, weapon_pickupevalfunc, 1000);
+	StartItem ("models/weapons/g_rl.md3", "weapons/weaponpickup.wav", 15, W_Name(WEP_ROCKET_LAUNCHER), IT_ROCKET_LAUNCHER, FL_WEAPON, weapon_pickupevalfunc, 10000);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(WEP_ROCKET_LAUNCHER, WR_PRECACHE);
 }
 
-void item_rockets (void) {
+void spawnfunc_item_rockets (void) {
 	if(!self.ammo_rockets)
 		self.ammo_rockets = g_pickup_rockets;
-	StartItem ("models/items/a_rockets.md3", "misc/itempickup.wav", 15, "rockets", IT_ROCKETS, 0, commodity_pickupevalfunc, 100);
+	StartItem ("models/items/a_rockets.md3", "misc/itempickup.wav", 15, "rockets", IT_ROCKETS, 0, commodity_pickupevalfunc, 3000);
 }
 
-void item_bullets (void) {
+void spawnfunc_item_shells (void);
+void spawnfunc_item_bullets (void) {
+	if(!weaponswapping)
+	if(q3acompat_machineshotgunswap)
+	if(self.classname != "droppedweapon")
+	{
+		weaponswapping = TRUE;
+		spawnfunc_item_shells();
+		weaponswapping = FALSE;
+		return;
+	}
+
 	if(!self.ammo_nails)
 		self.ammo_nails = g_pickup_nails;
-	StartItem ("models/items/a_bullets.mdl", "misc/itempickup.wav", 15, "bullets", IT_NAILS, 0, commodity_pickupevalfunc, 100);
+	StartItem ("models/items/a_bullets.mdl", "misc/itempickup.wav", 15, "bullets", IT_NAILS, 0, commodity_pickupevalfunc, 2000);
 }
 
-void item_cells (void) {
+void spawnfunc_item_cells (void) {
 	if(!self.ammo_cells)
 		self.ammo_cells = g_pickup_cells;
-	StartItem ("models/items/a_cells.md3", "misc/itempickup.wav", 15, "cells", IT_CELLS, 0, commodity_pickupevalfunc, 100);
+	StartItem ("models/items/a_cells.md3", "misc/itempickup.wav", 15, "cells", IT_CELLS, 0, commodity_pickupevalfunc, 2000);
 }
 
-void item_shells (void) {
+void spawnfunc_item_shells (void) {
+	if(!weaponswapping)
+	if(q3acompat_machineshotgunswap)
+	if(self.classname != "droppedweapon")
+	{
+		weaponswapping = TRUE;
+		spawnfunc_item_bullets();
+		weaponswapping = FALSE;
+		return;
+	}
+
 	if(!self.ammo_shells)
 		self.ammo_shells = g_pickup_shells;
-	StartItem ("models/items/a_shells.md3", "misc/itempickup.wav", 15, "shells", IT_SHELLS, 0, commodity_pickupevalfunc, 100);
+	StartItem ("models/items/a_shells.md3", "misc/itempickup.wav", 15, "shells", IT_SHELLS, 0, commodity_pickupevalfunc, 500);
 }
 
-void item_armor1 (void) {
+void spawnfunc_item_armor_small (void) {
 	if(!self.armorvalue)
-		self.armorvalue = g_pickup_armorshard;
+		self.armorvalue = g_pickup_armorsmall;
 	if(!self.max_armorvalue)
-		self.max_armorvalue = g_pickup_armorshard_max;
-	StartItem ("models/items/g_a1.md3", "misc/armor1.wav", 15, "Armor Shard", IT_ARMOR_SHARD, 0, commodity_pickupevalfunc, 100);
+		self.max_armorvalue = g_pickup_armorsmall_max;
+	StartItem ("models/items/g_a1.md3", "misc/armor1.wav", 15, "5 Armor", IT_ARMOR_SHARD, 0, commodity_pickupevalfunc, 1000);
 }
 
-void item_armor25 (void) {
+void spawnfunc_item_armor_medium (void) {
 	if(!self.armorvalue)
-		self.armorvalue = g_pickup_armor;
+		self.armorvalue = g_pickup_armormedium;
 	if(!self.max_armorvalue)
-		self.max_armorvalue = g_pickup_armor_max;
-	StartItem ("models/items/g_a25.md3", "misc/armor25.wav", 30, "Armor", IT_ARMOR, 0, commodity_pickupevalfunc, 2000);
+		self.max_armorvalue = g_pickup_armormedium_max;
+	StartItem ("models/items/g_armormedium.md3", "misc/armor1.wav", 30, "25 Armor", IT_ARMOR, 0, commodity_pickupevalfunc, 20000);
 }
 
-void item_health1 (void) {
+void spawnfunc_item_armor_large (void) {
+	if(!self.armorvalue)
+		self.armorvalue = g_pickup_armorlarge;
+	if(!self.max_armorvalue)
+		self.max_armorvalue = g_pickup_armorlarge_max;
+	StartItem ("models/items/g_a25.md3", "misc/armor25.wav", 30, "100 Armor", IT_ARMOR, 0, commodity_pickupevalfunc, 20000);
+}
+
+void spawnfunc_item_health_small (void) {
 	if(!self.max_health)
-		self.max_health = g_pickup_healthshard_max;
+		self.max_health = g_pickup_healthsmall_max;
 	if(!self.health)
-		self.health = g_pickup_healthshard;
-	StartItem ("models/items/g_h1.md3", "misc/minihealth.wav", 15, "5 Health", IT_5HP, 0, commodity_pickupevalfunc, 100);
+		self.health = g_pickup_healthsmall;
+	StartItem ("models/items/g_h1.md3", "misc/minihealth.wav", 15, "5 Health", IT_5HP, 0, commodity_pickupevalfunc, 20000);
 }
 
-void item_health25 (void) {
+void spawnfunc_item_health_medium (void) {
 	if(!self.max_health)
-		self.max_health = g_pickup_health_max;
+		self.max_health = g_pickup_healthmedium_max;
 	if(!self.health)
-		self.health = g_pickup_health;
-	StartItem ("models/items/g_h25.md3", "misc/mediumhealth.wav", 15, "25 Health", IT_25HP, 0, commodity_pickupevalfunc, 500);
+		self.health = g_pickup_healthmedium;
+	StartItem ("models/items/g_h25.md3", "misc/mediumhealth.wav", 15, "25 Health", IT_25HP, 0, commodity_pickupevalfunc, 20000);
 }
 
-void item_health100 (void) {
+void spawnfunc_item_health_large (void) {
+	if(!self.max_health)
+		self.max_health = g_pickup_healthlarge_max;
+	if(!self.health)
+		self.health = g_pickup_healthlarge;
+	StartItem ("models/items/g_h50.md3", "misc/mediumhealth.wav", 15, "50 Health", IT_25HP, 0, commodity_pickupevalfunc, 20000);
+}
+
+void spawnfunc_item_health_mega (void) {
 	if(!cvar("g_powerup_superhealth"))
 		return;
 
@@ -648,11 +733,18 @@ void item_health100 (void) {
 			self.max_health = g_pickup_healthmega_max;
 		if(!self.health)
 			self.health = g_pickup_healthmega;
-		StartItem ("models/items/g_h100.md3", "misc/megahealth.wav", 30, "100 Health", IT_HEALTH, 0, commodity_pickupevalfunc, 2000);
+		StartItem ("models/items/g_h100.md3", "misc/megahealth.wav", 30, "100 Health", IT_HEALTH, 0, commodity_pickupevalfunc, 20000);
 	}
 }
 
-void item_strength (void) {
+// support old misnamed entities
+void spawnfunc_item_armor1() { spawnfunc_item_armor_small(); }  // FIXME: in Quake this is green armor, in Nexuiz maps it is an armor shard
+void spawnfunc_item_armor25() { spawnfunc_item_armor_large(); }
+void spawnfunc_item_health1() { spawnfunc_item_health_small(); }
+void spawnfunc_item_health25() { spawnfunc_item_health_medium(); }
+void spawnfunc_item_health100() { spawnfunc_item_health_mega(); }
+
+void spawnfunc_item_strength (void) {
 	if(!cvar("g_powerup_strength"))
 		return;
 
@@ -664,11 +756,11 @@ void item_strength (void) {
 	} else {
 		precache_sound("weapons/strength_fire.wav");
 		self.strength_finished = 30;
-		self.effects = EF_ADDITIVE;StartItem ("models/items/g_strength.md3", "misc/powerup.wav", 120, "Strength Powerup", IT_STRENGTH, FL_POWERUP, generic_pickupevalfunc, 10000);
+		self.effects = EF_ADDITIVE;StartItem ("models/items/g_strength.md3", "misc/powerup.wav", 120, "Strength Powerup", IT_STRENGTH, FL_POWERUP, generic_pickupevalfunc, 100000);
 	}
 }
 
-void item_invincible (void) {
+void spawnfunc_item_invincible (void) {
 	if(!cvar("g_powerup_shield"))
 		return;
 
@@ -680,13 +772,13 @@ void item_invincible (void) {
 	} else {
 		self.invincible_finished = 30;
 		self.effects = EF_ADDITIVE;
-		StartItem ("models/items/g_invincible.md3", "misc/powerup_shield.wav", 120, "Invulnerability", IT_INVINCIBLE, FL_POWERUP, generic_pickupevalfunc, 10000);
+		StartItem ("models/items/g_invincible.md3", "misc/powerup_shield.wav", 120, "Invulnerability", IT_INVINCIBLE, FL_POWERUP, generic_pickupevalfunc, 100000);
 	}
 }
 //void item_speed (void) {self.speed_finished = 30;StartItem ("models/items/g_speed.md3", "misc/powerup.wav", 120, "Speed Powerup", IT_SPEED, FL_POWERUP, generic_pickupevalfunc, 10000);}
 //void item_slowmo (void) {self.slowmo_finished = 30;StartItem ("models/items/g_slowmo.md3", "misc/powerup.wav", 120, "Slow Motion", IT_SLOWMO, FL_POWERUP, generic_pickupevalfunc, 10000);}
 
-void item_minst_cells (void) {
+void spawnfunc_item_minst_cells (void) {
 	if (g_minstagib)
 	{
 		minst_no_auto_cells = 1;
@@ -697,18 +789,37 @@ void item_minst_cells (void) {
 }
 
 // compatibility:
-void item_quad (void) {self.classname = "item_strength";item_strength();}
+void spawnfunc_item_quad (void) {self.classname = "item_strength";spawnfunc_item_strength();}
 
-void misc_models (void)
+void spawnfunc_misc_models (void)
 {
 	precache_model (self.model);
 	setmodel (self, self.model); // precision set by mapper
 	setsize (self, self.mins, self.maxs);
 }
 
+void func_wall_use (void)
+{
+	if(teams_matter)
+	{
+		if(activator.team)
+			self.colormap = (activator.team - 1) * 0x11;
+		else
+			self.colormap = 0x00;
+	}
+	else
+		self.colormap = ceil(random() * 256) - 1;
+	self.colormap |= 1024; // RENDER_COLORMAPPED
+}
 
-
-
+void spawnfunc_func_wall (void)
+{
+	precache_model (self.model);
+	setmodel (self, self.model); // precision set by mapper
+	setsize (self, self.mins, self.maxs);
+	self.solid = SOLID_BSP;
+	self.use = func_wall_use;
+}
 
 floatfield Item_CounterField(float it)
 {
@@ -749,14 +860,14 @@ void Item_SpawnByItemCode(float it)
 {
 	switch(it)
 	{
-		case IT_SHOTGUN:          weapon_shotgun(); break;
-		case IT_UZI:              weapon_uzi(); break;
-		case IT_GRENADE_LAUNCHER: weapon_grenadelauncher(); break;
-		case IT_ELECTRO:          weapon_electro(); break;
-		case IT_CRYLINK:          weapon_crylink(); break;
-		case IT_NEX:              weapon_nex(); break;
-		case IT_HAGAR:            weapon_hagar(); break;
-		case IT_ROCKET_LAUNCHER:  weapon_rocketlauncher(); break;
+		case IT_SHOTGUN:          spawnfunc_weapon_shotgun(); break;
+		case IT_UZI:              spawnfunc_weapon_uzi(); break;
+		case IT_GRENADE_LAUNCHER: spawnfunc_weapon_grenadelauncher(); break;
+		case IT_ELECTRO:          spawnfunc_weapon_electro(); break;
+		case IT_CRYLINK:          spawnfunc_weapon_crylink(); break;
+		case IT_NEX:              spawnfunc_weapon_nex(); break;
+		case IT_HAGAR:            spawnfunc_weapon_hagar(); break;
+		case IT_ROCKET_LAUNCHER:  spawnfunc_weapon_rocketlauncher(); break;
 		// add all other item spawn functions here
 		default:
 			error("requested item can't be spawned");

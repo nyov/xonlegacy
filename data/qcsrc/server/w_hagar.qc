@@ -3,8 +3,7 @@ void W_Hagar_Explode (void)
 	vector	org2;
 	float b;
 	org2 = findbetterlocation (self.origin, 12);
-	te_explosion (org2);
-	//effect (org2, "models/sprites/hagar.spr", 0, 12, 35);
+	pointparticles(particleeffectnum("hagar_explode"), org2, '0 0 0', 1);
 	b = crandom();
 	if (b<-0.7)
 		sound (self, CHAN_BODY, "weapons/hagexp1.wav", 1, ATTN_NORM);
@@ -14,7 +13,7 @@ void W_Hagar_Explode (void)
 		sound (self, CHAN_BODY, "weapons/hagexp3.wav", 1, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_hagar_primary_damage"), cvar("g_balance_hagar_primary_edgedamage"), cvar("g_balance_hagar_primary_radius"), world, cvar("g_balance_hagar_primary_force"), IT_HAGAR);
+	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_primary_damage"), cvar("g_balance_hagar_primary_edgedamage"), cvar("g_balance_hagar_primary_radius"), world, cvar("g_balance_hagar_primary_force"), IT_HAGAR);
 
 	remove (self);
 }
@@ -24,8 +23,7 @@ void W_Hagar_Explode2 (void)
 	vector	org2;
 	float b;
 	org2 = findbetterlocation (self.origin, 12);
-	te_explosion (org2);
-	//effect (org2, "models/sprites/hagar.spr", 0, 12, 35);
+	pointparticles(particleeffectnum("hagar_explode"), org2, '0 0 0', 1);
 	b = crandom();
 	if (b<-0.7)
 		sound (self, CHAN_BODY, "weapons/hagexp1.wav", 1, ATTN_NORM);
@@ -35,7 +33,7 @@ void W_Hagar_Explode2 (void)
 		sound (self, CHAN_BODY, "weapons/hagexp3.wav", 1, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_hagar_secondary_damage"), cvar("g_balance_hagar_secondary_edgedamage"), cvar("g_balance_hagar_secondary_radius"), world, cvar("g_balance_hagar_secondary_force"), IT_HAGAR);
+	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_secondary_damage"), cvar("g_balance_hagar_secondary_edgedamage"), cvar("g_balance_hagar_secondary_radius"), world, cvar("g_balance_hagar_secondary_force"), IT_HAGAR);
 
 	remove (self);
 }
@@ -65,6 +63,9 @@ void W_Hagar_Touch2 (void)
 		self.think();
 	} else {
 		self.cnt++;
+		pointparticles(particleeffectnum("hagar_bounce"), self.origin, self.velocity, 1);
+		self.angles = vectoangles (self.velocity);
+		self.owner = world;
 	}
 }
 
@@ -81,10 +82,13 @@ void W_Hagar_Attack (void)
 
 	if (cvar("g_use_ammunition"))
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_hagar_primary_ammo");
-	W_SetupShot (self, '11 5 -8', FALSE, 2, "weapons/hagar_fire.wav");
+	W_SetupShot (self, '25 5 -8', FALSE, 2, "weapons/hagar_fire.wav");
+	//W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/hagar_fire.wav"); // TODO: move model a little to the right
+
+	pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
-	missile.owner = self;
+	missile.owner = missile.realowner = self;
 	missile.classname = "missile";
 	missile.bot_dodge = TRUE;
 	missile.bot_dodgerating = cvar("g_balance_hagar_primary_damage");
@@ -101,6 +105,7 @@ void W_Hagar_Attack (void)
 	//missile.health = 10;
 	//missile.event_damage = W_Hagar_Damage;
 	missile.effects = EF_LOWPRECISION;
+	missile.modelflags = MF_GRENADE;
 
 	missile.movetype = MOVETYPE_FLY;
 	missile.velocity = (w_shotdir + randomvec() * cvar("g_balance_hagar_primary_spread")) * cvar("g_balance_hagar_primary_speed");
@@ -116,10 +121,13 @@ void W_Hagar_Attack2 (void)
 
 	if (cvar("g_use_ammunition"))
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_hagar_secondary_ammo");
-	W_SetupShot (self, '11 5 -8', FALSE, 2, "weapons/hagar_fire.wav");
+	W_SetupShot (self, '25 5 -8', FALSE, 2, "weapons/hagar_fire.wav");
+	//W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/hagar_fire.wav"); // TODO: move model a little to the right
+
+	pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
-	missile.owner = self;
+	missile.owner = missile.realowner = self;
 	missile.classname = "missile";
 	missile.bot_dodge = TRUE;
 	missile.bot_dodgerating = cvar("g_balance_hagar_secondary_damage");
@@ -137,6 +145,7 @@ void W_Hagar_Attack2 (void)
 	//missile.health = 10;
 	//missile.event_damage = W_Hagar_Damage;
 	missile.effects = EF_LOWPRECISION;
+	missile.modelflags = MF_GRENADE;
 
 	missile.movetype = MOVETYPE_BOUNCEMISSILE;
 	missile.velocity = (w_shotdir + randomvec() * cvar("g_balance_hagar_secondary_spread")) * cvar("g_balance_hagar_secondary_speed");

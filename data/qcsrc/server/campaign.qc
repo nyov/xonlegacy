@@ -49,10 +49,13 @@ void() CampaignPostInit =
 	// now some sanity checks
 	string thismapname, wantedmapname;
 	thismapname = GetMapname();
+	wantedmapname = campaign_gametype[0];
 #ifdef MAPINFO
+	// TODO check game type
+	if(MapInfo_CurrentGametype() != MapInfo_Type_FromString(wantedmapname))
+		return CampaignBailout("wrong game type!");
 	wantedmapname = campaign_mapname[0];
 #else
-	wantedmapname = campaign_gametype[0];
 	wantedmapname = strcat(wantedmapname, "_", campaign_mapname[0]);
 #endif
 	if(wantedmapname != thismapname)
@@ -145,6 +148,8 @@ void() CampaignPreIntermission =
 			// I have won
 			savevar = strcat("g_campaign", campaign_name, "_won");
 			CampaignSaveCvar(savevar, 1);
+			// advance level (for menu to show it right)
+			CampaignSaveCvar(campaign_index_var, campaign_level + 1);
 		}
 		else if(campaign_level == cvar(campaign_index_var))
 		{
@@ -161,7 +166,7 @@ void() CampaignPostIntermission =
 	if(campaign_won && campaign_entries < 2)
 	{
 		// last map won!
-		localcmd("togglemenu\n");
+		localcmd("togglemenu 1\n");
 		CampaignFile_Unload();
 		return;
 	}
