@@ -1,9 +1,0 @@
-Quark
-models/player/quark
-0
-models/player/crash.zym
-
-Robot Fighter
-
-Weight: 305 lb
-Age: 3 years
