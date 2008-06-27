@@ -1,0 +1,125 @@
+**Team Leaders:
+
+Lee Vermeulen
+*Project Founder and Co-Designer
+
+Forest "LordHavoc" Hale
+*Lead Programmer and Co-Designer
+
+SavageX
+*Project Maintainer
+
+Rudolf "div0" Polzer
+* Programmer
+
+
+
+**Development Team
+
+Andreas "Black" Kirsch
+*Programmer
+
+Stephan "esteel" Stahl
+*Programmer
+
+Peter "Morphed" Pielak
+*Artist
+
+Paul "Strahlemann" Evers
+*Level Designer
+
+
+
+**Past Team Members
+*In alphabetical order
+*(nickname or surname)
+
+Kurt Dereli
+*Artist
+
+Yves "EviLair" Allaire
+*Artist
+
+Fabien "H. Reaper" Tschirhart
+*Level Designer
+
+"Innovati"
+*Artist
+
+KadaverJack
+*Programmer
+
+MauveBib
+*Bot Programmer
+
+Rick "Rat" Kelley
+*Lead Animator, Skinner
+
+Gottfried "Toddd" Hofmann
+*Sound FX
+
+Marko "Urre" Permanto
+*Bot Programmer
+
+Dan "Wazat" Hale
+*Programmer
+
+Garth "Zombie" Hendy
+*Level Designer
+
+
+
+**Thanks:
+
+Gerd "Elysis" Raudenbusch - Music
+Braden "meoblast001" Walters - Music
+Amos "torus" Dudley - Announcer voices
+William "Willis" Weilep - Master server host
+Tyler "-z-" Mulligan - Site Design
+
+Qantourisc
+Tymo
+Spirit
+Attila "WW3" Houtkooper
+GreEn`mArine
+Dan "Digger" Korostelev
+Kristian "morfar" Johansson
+leileilol
+Jody Gallagher
+Donkey
+Vortex
+Juergen "LowDragon" Timm
+Sajt
+Supajoe
+lcatlnx
+Zenex
+Q1 Retexturing Project
+Tomaz
+Jitspoe
+"Parapraxis"
+NoelCower
+Brain Younds
+Spike
+Petithomme
+Tei
+Munyul
+Mathieu "Elric" Olivier
+SomeGuy
+Lee David Ash
+Shank
+FrikaC
+Dustin Geeraert
+Steve Vermeulen
+Edgenetwork
+Clinton "Kaziganthe" Freeman
+Jakob "tZork" Markstrom Grohn
+BigMac
+Mephisto
+michaelb
+dstrek
+Netzwerg
+Ulrich Galbraith
+Christian Ice
+Wolfgang "Blub\0" Bumiller
+FruitieX
+Edward "Ed" Holness

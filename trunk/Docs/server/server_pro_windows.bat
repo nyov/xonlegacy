@@ -1,0 +1,8 @@
+@echo off
+
+setlocal
+set executable=nexuiz -dedicated
+
+%~d0
+cd "%~p0"
+.\%executable% -game pro +exec server.cfg %*
