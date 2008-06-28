@@ -236,14 +236,14 @@ elsif($cmd eq 'commit')
 	system 'vim .commitmsg';
 	print "Hit Enter if OK to commit, Ctrl-C otherwise...\n";
 	my $ok = <STDIN>;
-	if(system 'svn commit -F .commitmsg')
+	if(!system 'svn commit -F .commitmsg')
 	{
 		unlink '.commitmsg';
 	}
 }
 elsif($cmd eq 'revert')
 {
-	if(system 'svn revert -R .')
+	if(!system 'svn revert -R .')
 	{
 		unlink '.commitmsg';
 	}
