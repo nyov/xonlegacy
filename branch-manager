@@ -162,6 +162,17 @@ sub GetMasterRev()
 	return $1;
 }
 
+sub GetLog($$)
+{
+	my ($first, $last) = @_;
+	my $log = OutputOf 'svn log -r#1:#2 #3', $first, $last, $conf{master};
+	$log =~ s/^-*$//gm;
+	$log =~ s/\n+/\n/gs;
+	$log =~ s/^\n//s;
+	$log =~ s/\n$//s;
+	return $log;
+}
+
 my ($cmd, @args) = @ARGV;
 $cmd = 'help' if not defined $cmd;
 
@@ -186,10 +197,8 @@ elsif($cmd eq 'unmerged')
 	for(GetUnappliedRanges(GetMasterRev()))
 	{
 		my ($a, $b) = @$_;
-		my $log = OutputOf 'svn log -r#1:#2 #3', $a, $b, $conf{master};
-		$log =~ s/^-*$//gm;
-		$log =~ s/\n+/\n/gs;
-		if($log =~ /^\n?$/s)
+		my $log = GetLog $a, $b;
+		if($log eq '')
 		{
 			push @autoadd, [$a, $b];
 			next;
@@ -221,7 +230,7 @@ elsif($cmd eq 'merge')
 	
 	open my $fh, '>', '.commitmsg'
 		or die "open .commitmsg";
-	print $fh OutputOf 'svn log -r#1:#2 #3', $first, $last, $conf{master};
+	print $fh GetLog $first, $last;
 	close $fh;
 
 	WriteSettings();
@@ -241,7 +250,7 @@ elsif($cmd eq 'undo')
 
 	open my $fh, '>', '.commitmsg'
 		or die "open .commitmsg";
-	print $fh OutputOf 'svn log -r#1:#2 #3', $first, $last, $conf{master};
+	print $fh "undo the following merge:\n", GetLog $first, last;
 	close $fh;
 
 	WriteSettings();
