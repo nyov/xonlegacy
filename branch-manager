@@ -227,6 +227,9 @@ elsif($cmd eq 'merge')
 	AddPatch $first, $last;
 
 	print OutputOf 'svn merge -r#1:#2 #3', ($first - 1), $last, $conf{master};
+	print "You may also want to run $0 unmerged to fill possible revision holes\n";
+	print "Make sure there are no conflicts, then run $0 commit\n";
+	print "To abort, use $0 revert\n";
 	
 	open my $fh, '>', '.commitmsg'
 		or die "open .commitmsg";
@@ -247,6 +250,8 @@ elsif($cmd eq 'undo')
 	RemovePatch $first, $last;
 
 	print OutputOf 'svn merge -r#2:#1 #3', ($first - 1), $last, $conf{master};
+	print "Make sure there are no conflicts, then run $0 commit\n";
+	print "To abort, use $0 revert\n";
 
 	open my $fh, '>', '.commitmsg'
 		or die "open .commitmsg";
@@ -286,8 +291,8 @@ Usage:
   $0 init masterrepo rev
   $0 info
   $0 unmerged
-  $0 merge rev1 rev2
-  $0 undo rev1 rev2
+  $0 merge rev1 [rev2]
+  $0 undo rev1 [rev2]
   $0 commit
   $0 revert
 EOF
