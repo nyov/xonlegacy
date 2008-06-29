@@ -182,14 +182,29 @@ if($cmd eq 'info')
 elsif($cmd eq 'unmerged')
 {
 	LoadSettings();
+	my @autoadd = ();
 	for(GetUnappliedRanges(GetMasterRev()))
 	{
 		my ($a, $b) = @$_;
-		print "Unapplied: $a to $b\n";
 		my $log = OutputOf 'svn log -r#1:#2 #3', $a, $b, $conf{master};
+		$log =~ s/^-*$//gm;
+		$log =~ s/\n+/\n/gs;
+		if($log =~ /^\n?$/s)
+		{
+			push @autoadd, [$a, $b];
+			next;
+		}
 		$log =~ s/^/  /gm;
+		print "Unapplied: $a to $b\n";
 		print "$log\n\n";
 	}
+	for(@autoadd)
+	{
+		my ($a, $b) = @$_;
+		print "Autofilled revision hole $a to $b\n";
+		AddPatch $a, $b;
+	}
+	WriteSettings() if @autoadd;
 }
 elsif($cmd eq 'merge')
 {
