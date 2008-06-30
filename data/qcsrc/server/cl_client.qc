@@ -648,7 +648,7 @@ void PutClientInServer (void)
 		self.bot_attack = TRUE;
 
 		self.statdraintime = time + 5;
-		self.button0 = self.button1 = self.button2 = self.button3 = 0;
+		self.BUTTON_ATCK = self.BUTTON_JUMP = self.BUTTON_ATCK2 = 0;
 
 		if(self.killcount == -666) {
 			self.killcount = 0;
@@ -700,7 +700,9 @@ SetNewParms
 */
 void SetNewParms (void)
 {
-
+	// initialize parms for a new player
+	print("SetNewParms\n");
+	parm1 = -(86400 * 366);
 }
 
 /*
@@ -710,7 +712,23 @@ SetChangeParms
 */
 void SetChangeParms (void)
 {
+	// save parms for level change
+	print("SetChangeParms\n");
+	parm1 = self.parm_idlesince - time;
+}
 
+/*
+=============
+DecodeLevelParms
+=============
+*/
+void DecodeLevelParms (void)
+{
+	// load parms
+	print("DecodeLevelParms\n");
+	self.parm_idlesince = parm1;
+	if(self.parm_idlesince == -(86400 * 366))
+		self.parm_idlesince = time;
 }
 
 /*
@@ -917,6 +935,7 @@ Called when a client connects to the server
 =============
 */
 string ColoredTeamName(float t);
+void DecodeLevelParms (void);
 //void dom_player_join_team(entity pl);
 void ClientConnect (void)
 {
@@ -930,6 +949,8 @@ void ClientConnect (void)
 		bprint(s);
 		return;
 	}
+
+	DecodeLevelParms();
 
 	self.classname = "player_joining";
 	self.flags = self.flags | FL_CLIENT;
@@ -1132,7 +1153,7 @@ void ClientDisconnect (void)
 	GetCvars(-1);
 }
 
-.float buttonchat;
+.float BUTTON_CHAT;
 void() ChatBubbleThink =
 {
 	self.nextthink = time;
@@ -1143,7 +1164,7 @@ void() ChatBubbleThink =
 		return;
 	}
 	setorigin(self, self.owner.origin + '0 0 15' + self.owner.maxs_z * '0 0 1');
-	if (self.owner.buttonchat && !self.owner.deadflag)
+	if (self.owner.BUTTON_CHAT && !self.owner.deadflag)
 		self.model = self.mdl;
 	else
 		self.model = "";
@@ -1180,7 +1201,7 @@ void() TeamBubbleThink =
 		return;
 	}
 //	setorigin(self, self.owner.origin + '0 0 15' + self.owner.maxs_z * '0 0 1');  // bandwidth hog. setattachment does this now
-	if (self.owner.buttonchat || self.owner.deadflag || self.owner.killindicator)
+	if (self.owner.BUTTON_CHAT || self.owner.deadflag || self.owner.killindicator)
 		self.model = "";
 	else
 		self.model = self.mdl;
@@ -1685,12 +1706,12 @@ float vercmp(string v1, string v2)
 void ObserverThink()
 {
 	if (self.flags & FL_JUMPRELEASED) {
-		if (self.button2 && self.version == cvar("gameversion")) {
+		if (self.BUTTON_JUMP && self.version == cvar("gameversion")) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			LeaveSpectatorMode();
 			return;
-		} else if(self.button0 && self.version == cvar("gameversion")) {
+		} else if(self.BUTTON_ATCK && self.version == cvar("gameversion")) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			if(SpectateNext() == 1) {
@@ -1698,11 +1719,11 @@ void ObserverThink()
 			}
 		}
 	} else {
-		if (!(self.button0 || self.button2)) {
+		if (!(self.BUTTON_ATCK || self.BUTTON_JUMP)) {
 			self.flags = self.flags | FL_JUMPRELEASED;
 		}
 	}
-	if(self.button4)
+	if(self.BUTTON_ZOOM)
 		self.wantswelcomemessage = 0;
 	if(self.wantswelcomemessage)
 		PrintWelcomeMessage(self);
@@ -1711,12 +1732,12 @@ void ObserverThink()
 void SpectatorThink()
 {
 	if (self.flags & FL_JUMPRELEASED) {
-		if (self.button2 && self.version == cvar("gameversion")) {
+		if (self.BUTTON_JUMP && self.version == cvar("gameversion")) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			LeaveSpectatorMode();
 			return;
-		} else if(self.button0) {
+		} else if(self.BUTTON_ATCK) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			if(SpectateNext() == 1) {
@@ -1725,7 +1746,7 @@ void SpectatorThink()
 				self.classname = "observer";
 				PutClientInServer();
 			}
-		} else if (self.button3) {
+		} else if (self.BUTTON_ATCK2) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			self.classname = "observer";
@@ -1735,11 +1756,11 @@ void SpectatorThink()
 				PutObserverInServer();
 		}
 	} else {
-		if (!(self.button0 || self.button3)) {
+		if (!(self.BUTTON_ATCK || self.BUTTON_ATCK2)) {
 			self.flags = self.flags | FL_JUMPRELEASED;
 		}
 	}
-	if(self.button4)
+	if(self.BUTTON_ZOOM)
 		self.wantswelcomemessage = 0;
 	if(self.wantswelcomemessage)
 		PrintWelcomeMessage(self);
@@ -1824,7 +1845,7 @@ void PlayerPreThink (void)
 
 		CheckRules_Player();
 
-		if(self.button7)
+		if(self.BUTTON_INFO)
 			PrintWelcomeMessage(self);
 
 		if(g_lms || !cvar("sv_spectate"))
@@ -1862,7 +1883,7 @@ void PlayerPreThink (void)
 		{
 			float button_pressed, force_respawn;
 			player_anim();
-			button_pressed = (self.button0 || self.button2 || self.button3 || self.button6 || self.buttonuse);
+			button_pressed = (self.BUTTON_ATCK || self.BUTTON_JUMP || self.BUTTON_ATCK2 || self.BUTTON_HOOK || self.BUTTON_USE);
 			force_respawn = (g_lms || cvar("g_forced_respawn"));
 			if (self.deadflag == DEAD_DYING)
 			{
@@ -1923,7 +1944,7 @@ void PlayerPreThink (void)
 			}
 		}
 
-		if (self.button5 && !self.hook.state)
+		if (self.BUTTON_CROUCH && !self.hook.state)
 		{
 			if (!self.crouch)
 			{
@@ -1963,8 +1984,8 @@ void PlayerPreThink (void)
 				if(zoomspeed < 0.5 || zoomspeed > 16)
 					zoomspeed = 3.5;
 
-			zoomdir = self.button4;
-			if(self.button3)
+			zoomdir = self.BUTTON_ZOOM;
+			if(self.BUTTON_ATCK2)
 				if(self.weapon == WEP_NEX)
 					if(!g_minstagib)
 						zoomdir = 1;
@@ -2032,12 +2053,39 @@ PlayerPostThink
 Called every frame for each client after the physics are run
 =============
 */
+.float idlekick_lasttimeleft;
 void PlayerPostThink (void)
 {
 	// Savage: Check for nameless players
 	if (strlen(self.netname) < 1) {
 		self.netname = "Player";
 		stuffcmd(self, "seta _cl_name Player\n");
+	}
+
+	if(sv_maxidle)
+	{
+		float timeleft;
+		timeleft = ceil(sv_maxidle - (time - self.parm_idlesince));
+		if(timeleft <= 0)
+		{
+			bprint("^3", self.netname, "^3 was kicked for idling.\n");
+			play2(self, "announcer/robotic/terminated.ogg");
+			dropclient(self);
+			return;
+		}
+		else if(timeleft <= 10)
+		{
+			if(timeleft != self.idlekick_lasttimeleft)
+			{
+				centerprint_atprio(self, CENTERPRIO_IDLEKICK, strcat("^3Stop idling!\n^3Disconnecting in ", ftos(timeleft), "..."));
+				play2(self, strcat("announcer/robotic/", ftos(timeleft), ".ogg"));
+			}
+		}
+		else
+		{
+			centerprint_expire(self, CENTERPRIO_IDLEKICK);
+		}
+		self.idlekick_lasttimeleft = timeleft;
 	}
 
 	if(self.classname == "player") {

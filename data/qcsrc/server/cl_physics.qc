@@ -110,13 +110,24 @@ void() CheckWaterJump =
 	}
 };
 
+.vector movement_old;
+.float buttons_old;
 
 void Nixnex_GiveCurrentWeapon();
 void SV_PlayerPhysics()
 {
 	local vector wishvel, wishdir, v;
-	local float wishspeed, f, maxspd_mod, spd, maxairspd, airaccel, swampspd_mod, shtest_score;
+	local float wishspeed, f, maxspd_mod, spd, maxairspd, airaccel, swampspd_mod, shtest_score, buttons;
 	string temps;
+
+	buttons = self.BUTTON_ATCK + 2 * self.BUTTON_JUMP + 4 * self.BUTTON_ATCK2 + 8 * self.BUTTON_ZOOM + 16 * self.BUTTON_CROUCH + 32 * self.BUTTON_HOOK + 64 * self.BUTTON_USE;
+	if(buttons != self.buttons_old)
+		self.parm_idlesince = time;
+	self.buttons_old = buttons;
+
+	if(self.movement != self.movement_old)
+		self.parm_idlesince = time;
+	self.movement_old = self.movement;
 
 	if(time > self.shtest_next)
 	{
@@ -218,7 +229,7 @@ void SV_PlayerPhysics()
 
 	if(self.classname == "player")
 	{
-		if (self.button2)
+		if (self.BUTTON_JUMP)
 			PlayerJump ();
 		else
 			self.flags = self.flags | FL_JUMPRELEASED;
@@ -346,7 +357,7 @@ void SV_PlayerPhysics()
 		}
 
 		if (self.velocity_x || self.velocity_y)
-		if (!(self.flags & FL_JUMPRELEASED) || !self.button2)
+		if (!(self.flags & FL_JUMPRELEASED) || !self.BUTTON_JUMP)
 		{
 			v = self.velocity;
 			v_z = 0;
