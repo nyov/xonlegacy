@@ -1,7 +1,7 @@
 
 // generic weapons table
 // add new weapons here
-float(float wpn, float wrequest) weapon_action =
+float weapon_action(float wpn, float wrequest)
 {
 	if (wpn == WEP_LASER)
 		return w_laser(wrequest);
@@ -72,7 +72,7 @@ float W_AmmoItemCode(float wpn)
 }
 
 // think function for tossed weapons
-void() thrown_wep_think
+void thrown_wep_think()
 {
 	self.solid = SOLID_TRIGGER;
 	self.owner = world;
@@ -81,7 +81,7 @@ void() thrown_wep_think
 };
 
 // toss current weapon
-void(vector velo, vector delta, float doreduce) W_ThrowWeapon
+void W_ThrowWeapon(vector velo, vector delta, float doreduce)
 {
 	local float w, ammo;
 	local entity wep, e;
@@ -151,7 +151,7 @@ void(vector velo, vector delta, float doreduce) W_ThrowWeapon
 };
 
 // switch between weapons
-void(float imp) W_SwitchWeapon
+void W_SwitchWeapon(float imp)
 {
 	if (self.weapon != imp)
 	if (client_hasweapon(self, imp, TRUE, TRUE))
@@ -162,7 +162,7 @@ void(float imp) W_SwitchWeapon
 };
 
 // next weapon
-void() W_NextWeapon =
+void W_NextWeapon()
 {
 	local float weaponwant, maxtries;
 
@@ -190,7 +190,7 @@ void() W_NextWeapon =
 };
 
 // prev weapon
-void() W_PreviousWeapon =
+void W_PreviousWeapon()
 {
 	local float weaponwant, maxtries;
 
@@ -218,7 +218,7 @@ void() W_PreviousWeapon =
 };
 
 // Bringed back weapon frame
-void() W_WeaponFrame =
+void W_WeaponFrame()
 {
 	if((arena_roundbased && time < warmup) || ((time < restart_countdown) && !cvar("sv_ready_restart_after_countdown")))
 		return;

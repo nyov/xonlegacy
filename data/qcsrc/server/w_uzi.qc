@@ -1,6 +1,5 @@
 // leilei's fancy muzzleflash stuff
-void() W_Uzi_Flash_Go;
-void() W_Uzi_Flash_Go {
+void W_Uzi_Flash_Go() {
 	if (self.frame > 10){
 		SUB_Remove();
 		return;
@@ -75,7 +74,7 @@ void W_Uzi_Attack (void)
 }
 
 // weapon frames
-void()	uzi_fire1_02 =
+void uzi_fire1_02()
 {
 	if(self.weapon != self.switchweapon) // abort immediately if switching
 	{
@@ -101,7 +100,7 @@ void()	uzi_fire1_02 =
 		weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_uzi_sustained_refire"), w_ready);
 };
 
-float(float req) w_uzi =
+float w_uzi(float req)
 {
 	if (req == WR_AIM)
 		if(vlen(self.origin-self.enemy.origin) < 3000 - bound(0, skill, 10) * 200)
