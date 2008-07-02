@@ -19,6 +19,7 @@ float g_tourney;
 float tourneyInMatchStage;
 
 float sv_cheats;
+float sv_gentle;
 float sv_foginterval;
 
 entity	activator;
