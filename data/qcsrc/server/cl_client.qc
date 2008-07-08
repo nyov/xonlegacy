@@ -701,7 +701,6 @@ SetNewParms
 void SetNewParms (void)
 {
 	// initialize parms for a new player
-	print("SetNewParms\n");
 	parm1 = -(86400 * 366);
 }
 
@@ -713,7 +712,6 @@ SetChangeParms
 void SetChangeParms (void)
 {
 	// save parms for level change
-	print("SetChangeParms\n");
 	parm1 = self.parm_idlesince - time;
 }
 
@@ -725,7 +723,6 @@ DecodeLevelParms
 void DecodeLevelParms (void)
 {
 	// load parms
-	print("DecodeLevelParms\n");
 	self.parm_idlesince = parm1;
 	if(self.parm_idlesince == -(86400 * 366))
 		self.parm_idlesince = time;
