@@ -173,6 +173,12 @@ sub GetLog($$)
 	return $log;
 }
 
+sub GetDiff($$)
+{
+	my ($first, $last) = @_;
+	return OutputOf 'svn diff -r#1:#2 #3', $first-1, $last, $conf{master};
+}
+
 my ($cmd, @args) = @ARGV;
 $cmd = 'help' if not defined $cmd;
 
@@ -189,6 +195,33 @@ if($cmd eq 'info')
 		my ($a, $b) = @$_;
 		print "Unapplied: $a to $b\n";
 	}
+}
+elsif($cmd eq 'unmerged-diff')
+{
+	LoadSettings();
+	my @autoadd = ();
+	for(GetUnappliedRanges(GetMasterRev()))
+	{
+		my ($a, $b) = @$_;
+		my $log = GetLog $a, $b;
+		if($log eq '')
+		{
+			push @autoadd, [$a, $b];
+			next;
+		}
+		$log =~ s/^/  /gm;
+		print "Unapplied: $a to $b\n";
+		print "$log\n";
+		print GetDiff $a, $b;
+		print "\n";
+	}
+	for(@autoadd)
+	{
+		my ($a, $b) = @$_;
+		print "Autofilled revision hole $a to $b\n";
+		AddPatch $a, $b;
+	}
+	WriteSettings() if @autoadd;
 }
 elsif($cmd eq 'unmerged')
 {
@@ -218,6 +251,8 @@ elsif($cmd eq 'unmerged')
 elsif($cmd eq 'merge')
 {
 	my ($first, $last) = @args;
+	die "Usage: $0 merge first last"
+		if not defined $first;
 	$last = $first if not defined $last;
 
 	die "There is an uncommitted merge"
@@ -241,6 +276,8 @@ elsif($cmd eq 'merge')
 elsif($cmd eq 'undo')
 {
 	my ($first, $last) = @args;
+	die "Usage: $0 undo first last"
+		if not defined $first;
 	$last = $first if not defined $last;
 	
 	die "There is an uncommitted merge"
@@ -291,6 +328,7 @@ Usage:
   $0 init masterrepo rev
   $0 info
   $0 unmerged
+  $0 unmerged-diff
   $0 merge rev1 [rev2]
   $0 undo rev1 [rev2]
   $0 commit
