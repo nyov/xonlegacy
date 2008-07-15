@@ -365,7 +365,7 @@ sub recv($)
 	my ($self) = @_;
 	for(;;)
 	{
-		my $s = $self->{connector}->recv()
+		my $s = $self->{connector}->recv();
 		die "read error\n"
 			if not defined $s;
 		length $s
@@ -647,7 +647,7 @@ $channels{dp} = new Channel::QW(my $dpsock = new Connection::Socket(udp => $conf
 $config{dp_listen} = $dpsock->sockname();
 print "Listening on $config{dp_listen}\n";
 
-$channels->{irc}->throttle(0.5, 5);
+$channels{irc}->throttle(0.5, 5);
 
 
 # Utility routine to write to a channel by name, also outputting what's been written and some status

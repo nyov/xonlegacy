@@ -255,6 +255,9 @@ elsif($cmd eq 'merge')
 		if not defined $first;
 	$last = $first if not defined $last;
 
+	die "Usage: $0 merge first last"
+		if "$first$last" =~ /[^0-9]/;
+
 	die "There is an uncommitted merge"
 		if -f '.commitmsg';
 
@@ -279,6 +282,10 @@ elsif($cmd eq 'undo')
 	die "Usage: $0 undo first last"
 		if not defined $first;
 	$last = $first if not defined $last;
+
+	die "Usage: $0 merge first last"
+		if "$first$last" =~ /[^0-9]/;
+
 	
 	die "There is an uncommitted merge"
 		if -f '.commitmsg';
