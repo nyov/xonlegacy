@@ -1094,6 +1094,9 @@ void(entity e) DropFlag;
 void ClientDisconnect (void)
 {
 	float save;
+
+	bot_clientdisconnect();
+
 	if(cvar("sv_eventlog"))
 		GameLogEcho(strcat(":part:", ftos(self.playerid)), FALSE);
 	bprint ("^4",self.netname);
