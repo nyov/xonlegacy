@@ -175,6 +175,15 @@ void spawnfunc_worldspawn (void)
 		error("world already spawned - you may have EXACTLY ONE worldspawn!");
 	world_already_spawned = TRUE;
 
+	local entity head;
+	head = nextent(world);
+	maxclients = 0;
+	while(head)
+	{
+		++maxclients;
+		head = nextent(head);
+	}
+
 	if(GotoFirstMap())
 		return;
 
@@ -262,15 +271,6 @@ void spawnfunc_worldspawn (void)
 	//if (g_domination)
 	//	dom_init();
 
-	local entity head;
-	head = nextent(world);
-	maxclients = 0;
-	while(head)
-	{
-		maxclients++;
-		head = nextent(head);
-	}
-
 	GameLogInit(); // prepare everything
 	if(cvar("sv_eventlog"))
 	{
@@ -357,6 +357,7 @@ void spawnfunc_worldspawn (void)
 		fclose(fd);
 	}
 
+	next_pingtime = time + 5;
 	world_initialized = 1;
 }
 
@@ -1315,8 +1316,12 @@ float WinningCondition_Assault()
 			}
 			else
 			{
+				local entity oldself;
+				oldself = self;
+				self = ent;
 				cvar_set("timelimit", ftos((2*time)/60));
 				assault_new_round();
+				self = oldself;
 			}
 		}
 	}
@@ -1485,7 +1490,7 @@ float WinningConditionBase_Teamplay(float fraglimit)
 			AddWinners(team, COLOR_TEAM4);
 	}
 
-	if(!g_runematch && !g_domination)
+	if(!g_runematch && !g_domination && !g_ctf)
 		if(tdm_max_score != tdm_old_score)
 		{
 			if(tdm_max_score == fraglimit - 1)
@@ -1557,6 +1562,23 @@ float WinningCondition_MaxTeamMax(float fraglimit)
 	}
 
 	return WinningConditionBase_Teamplay(fraglimit);
+}
+
+float WinningCondition_CTF(float capturelimit, float fraglimit)
+{
+	if(cvar("g_ctf_win_mode") == 2)
+		return WinningCondition_MaxTeamSum(fraglimit);
+	
+	team1_score = caps_team1;
+	team2_score = caps_team2;
+	team3_score = team4_score = 0;
+
+	if(team1_score == team2_score && cvar("g_ctf_win_mode"))
+	{
+		return WinningCondition_MaxTeamSum(0);
+	}
+
+	return WinningConditionBase_Teamplay(capturelimit);
 }
 
 void print_to(entity e, string s)
@@ -1759,6 +1781,7 @@ void CheckRules_World()
 	local float status;
 	local float timelimit;
 	local float fraglimit;
+	local float capturelimit;
 
 	VoteThink();
 	MapVote_Think();
@@ -1787,6 +1810,7 @@ void CheckRules_World()
 
 	timelimit = cvar("timelimit") * 60;
 	fraglimit = cvar("fraglimit");
+	capturelimit = cvar("capturelimit");
 
 	if(checkrules_overtimeend)
 	{
@@ -1832,6 +1856,10 @@ void CheckRules_World()
 	{
 		status = WinningCondition_Onslaught();
 	}
+	else if(g_ctf)
+	{
+		status = WinningCondition_CTF(capturelimit, fraglimit);
+	}
 	else
 	{
 		if(teams_matter)
@@ -1868,38 +1896,13 @@ void CheckRules_World()
 		NextLevel();
 };
 
-float randsel_value;
-float randsel_priority;
-float randsel_count;
-void RandSel_Init()
-{
-	randsel_value = -1;
-	randsel_priority = -1;
-	randsel_count = -1;
-}
-void RandSel_Add(float priority, float value)
-{
-	if(priority > randsel_priority)
-	{
-		randsel_priority = priority;
-		randsel_value = value;
-		randsel_count = 1;
-	}
-	else if(priority == randsel_priority)
-	{
-		randsel_count += 1;
-		if(ceil(random() * randsel_count) == 1)
-			randsel_value = value;
-	}
-}
-
 float mapvote_nextthink;
 float mapvote_initialized;
 float mapvote_keeptwotime;
 float mapvote_timeout;
 string mapvote_message;
+string mapvote_screenshot_dir;
 
-#define MAPVOTE_COUNT 10
 float mapvote_count;
 float mapvote_count_real;
 string mapvote_maps[MAPVOTE_COUNT];
@@ -1912,6 +1915,7 @@ float mapvote_votes[MAPVOTE_COUNT];
 float mapvote_run;
 float mapvote_detail;
 float mapvote_abstain;
+float mapvote_dirty;
 .float mapvote;
 
 void MapVote_ClearAllVotes()
@@ -1984,6 +1988,7 @@ void MapVote_AddVotable(string nextMap, float isSuggestion)
 	mapvote_count += 1;
 }
 
+void MapVote_SendData(float target);
 void MapVote_Init()
 {
 	float i;
@@ -1999,7 +2004,7 @@ void MapVote_Init()
 		nmax = min(MAPVOTE_COUNT - 1, cvar("g_maplist_votable"));
 	else
 		nmax = min(MAPVOTE_COUNT, cvar("g_maplist_votable"));
-	smax = min(nmax, cvar("g_maplist_votable_suggestions"));
+	smax = min3(nmax, cvar("g_maplist_votable_suggestions"), mapvote_suggestion_ptr);
 
 	if(mapvote_suggestion_ptr)
 		for(i = 0; i < 100 && mapvote_count < smax; ++i)
@@ -2032,7 +2037,112 @@ void MapVote_Init()
 	if(mapvote_count_real < 3 || mapvote_keeptwotime <= time)
 		mapvote_keeptwotime = 0;
 	mapvote_message = "Choose a map and press its key!";
+
+	mapvote_screenshot_dir = cvar_string("g_maplist_votable_screenshot_dir");
+	if(mapvote_screenshot_dir == "")
+		mapvote_screenshot_dir = "maps";
+	mapvote_screenshot_dir = strzone(mapvote_screenshot_dir);
+
+	if(!cvar("g_maplist_textonly"))
+		MapVote_SendData(MSG_BROADCAST);
 }
+
+void MapVote_SendPicture(float id)
+{
+	msg_entity = self;
+	WriteByte(MSG_ONE, SVC_TEMPENTITY);
+	WriteByte(MSG_ONE, TE_CSQC_MAPVOTE);
+	WriteByte(MSG_ONE, MAPVOTE_NET_PIC);
+	WriteByte(MSG_ONE, id);
+	WritePicture(MSG_ONE, strcat(mapvote_screenshot_dir, "/", mapvote_maps[id]), 1024);
+}
+
+float GameCommand_MapVote(string cmd)
+{
+	if(!intermission_running)
+		return FALSE;
+	if(!cvar("g_maplist_textonly"))
+	{
+		if(cmd == "mv_getpic")
+		{
+			MapVote_SendPicture(stof(argv(1)));
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+float MapVote_GetMapMask()
+{
+	float mask, i, power;
+	mask = 0;
+	for(i = 0, power = 1; i < mapvote_count; ++i, power *= 2)
+		if(mapvote_maps[i] != "")
+			mask |= power;
+	return mask;
+}
+
+void MapVote_SendData(float targ)
+{
+	string mapfile;
+	float i, o;
+	WriteByte(targ, SVC_TEMPENTITY);
+	WriteByte(targ, TE_CSQC_CONFIG);
+	WriteString(targ, "mv_screenshot_dir");
+	WriteString(targ, mapvote_screenshot_dir);
+
+	WriteByte(targ, SVC_TEMPENTITY);
+	WriteByte(targ, TE_CSQC_MAPVOTE);
+	WriteByte(targ, MAPVOTE_NET_INIT);
+
+  	WriteByte(targ, mapvote_count);
+  	WriteByte(targ, mapvote_abstain);
+  	WriteByte(targ, mapvote_detail);
+ 	if(mapvote_count <= 8)
+ 		WriteByte(targ, MapVote_GetMapMask());
+ 	else
+ 		WriteShort(targ, MapVote_GetMapMask());
+ 	for(i = 0; i < mapvote_count; ++i)
+		if(mapvote_maps[i] != "")
+		{
+			WriteString(targ, mapvote_maps[i]);
+			mapfile = strcat(mapvote_screenshot_dir, "/", mapvote_maps[i]);
+			mapfile = whichpack(strcat(mapfile, ".tga"));
+			if(mapfile == "")
+				mapfile = whichpack(strcat(mapfile, ".jpg"));
+			if(mapfile == "")
+				mapfile = whichpack(strcat(mapfile, ".png"));
+			for(o = strstr(mapfile, "/", 0)+1; o > 0; o = strstr(mapfile, "/", 0)+1)
+				mapfile = substring(mapfile, o, 999);
+			WriteString(targ, mapfile);
+		}
+}
+
+void MapVote_UpdateData(float targ)
+{
+	float i;
+	WriteByte(targ, SVC_TEMPENTITY);
+	WriteByte(targ, TE_CSQC_MAPVOTE);
+	WriteByte(targ, MAPVOTE_NET_UPDATE);
+	if(mapvote_count <= 8)
+		WriteByte(targ, MapVote_GetMapMask());
+	else
+		WriteShort(targ, MapVote_GetMapMask());
+	if(mapvote_detail)
+		for(i = 0; i < mapvote_count; ++i)
+			if(mapvote_maps[i] != "")
+				WriteByte(targ, mapvote_votes[i]);
+}
+
+void MapVote_TellVote(float targ, float vote)
+{
+	WriteByte(targ, SVC_TEMPENTITY);
+	WriteByte(targ, TE_CSQC_MAPVOTE);
+	WriteByte(targ, MAPVOTE_NET_OWNVOTE);
+	WriteByte(targ, vote);
+}
+
 float MapVote_Finished(float mappos)
 {
 	string result;
@@ -2104,20 +2214,20 @@ float MapVote_CheckRules_2()
 	if(mapvote_abstain)
 		mapvote_voters_real -= mapvote_votes[mapvote_count - 1];
 
-	RandSel_Init();
+	RandomSelection_Init();
 	for(i = 0; i < mapvote_count_real; ++i) if(mapvote_maps[i] != "")
-		RandSel_Add(mapvote_votes[i], i);
-	firstPlace = randsel_value;
-	firstPlaceVotes = randsel_priority;
+		RandomSelection_Add(world, i, 1, mapvote_votes[i]);
+	firstPlace = RandomSelection_chosen_float;
+	firstPlaceVotes = RandomSelection_best_priority;
 	//dprint("First place: ", ftos(firstPlace), "\n");
 	//dprint("First place votes: ", ftos(firstPlaceVotes), "\n");
 
-	RandSel_Init();
+	RandomSelection_Init();
 	for(i = 0; i < mapvote_count_real; ++i) if(mapvote_maps[i] != "")
 		if(i != firstPlace)
-			RandSel_Add(mapvote_votes[i], i);
-	secondPlace = randsel_value;
-	secondPlaceVotes = randsel_priority;
+			RandomSelection_Add(world, i, 1, mapvote_votes[i]);
+	secondPlace = RandomSelection_chosen_float;
+	secondPlaceVotes = RandomSelection_best_priority;
 	//dprint("Second place: ", ftos(secondPlace), "\n");
 	//dprint("Second place votes: ", ftos(secondPlaceVotes), "\n");
 
@@ -2131,6 +2241,7 @@ float MapVote_CheckRules_2()
 		if(time > mapvote_keeptwotime || (mapvote_voters_real - firstPlaceVotes - secondPlaceVotes) < secondPlaceVotes)
 		{
 			float didntvote;
+			mapvote_dirty = TRUE;
 			mapvote_message = "Now decide between the TOP TWO!";
 			mapvote_keeptwotime = 0;
 			result = strcat(":vote:keeptwo:", mapvote_maps[firstPlace]);
@@ -2184,7 +2295,9 @@ void MapVote_Tick()
 			other.impulse = 0;
 			if(clienttype(other) == CLIENTTYPE_REAL)
 			{
-				stuffcmd(other, "\nin_bind 7 1 \"impulse 1\"; in_bind 7 2 \"impulse 2\"; in_bind 7 3 \"impulse 3\"; in_bind 7 4 \"impulse 4\"; in_bind 7 5 \"impulse 5\"; in_bind 7 6 \"impulse 6\"; in_bind 7 7 \"impulse 7\"; in_bind 7 8 \"impulse 8\"; in_bind 7 9 \"impulse 9\"; in_bind 7 0 \"impulse 10\"; in_bind 7 KP_1 \"impulse 1\"; in_bind 7 KP_2 \"impulse 2\"; in_bind 7 KP_3 \"impulse 3\"; in_bind 7 KP_4 \"impulse 4\"; in_bind 7 KP_5 \"impulse 5\"; in_bind 7 KP_6 \"impulse 6\"; in_bind 7 KP_7 \"impulse 7\"; in_bind 7 KP_8 \"impulse 8\"; in_bind 7 KP_9 \"impulse 9\"; in_bind 7 KP_0 \"impulse 10\"; in_bindmap 7 0\n");
+				if(cvar("g_maplist_textonly"))
+					stuffcmd(other, "\nin_bind 7 1 \"impulse 1\"; in_bind 7 2 \"impulse 2\"; in_bind 7 3 \"impulse 3\"; in_bind 7 4 \"impulse 4\"; in_bind 7 5 \"impulse 5\"; in_bind 7 6 \"impulse 6\"; in_bind 7 7 \"impulse 7\"; in_bind 7 8 \"impulse 8\"; in_bind 7 9 \"impulse 9\"; in_bind 7 0 \"impulse 10\"; in_bind 7 KP_1 \"impulse 1\"; in_bind 7 KP_2 \"impulse 2\"; in_bind 7 KP_3 \"impulse 3\"; in_bind 7 KP_4 \"impulse 4\"; in_bind 7 KP_5 \"impulse 5\"; in_bind 7 KP_6 \"impulse 6\"; in_bind 7 KP_7 \"impulse 7\"; in_bind 7 KP_8 \"impulse 8\"; in_bind 7 KP_9 \"impulse 9\"; in_bind 7 KP_0 \"impulse 10\"; in_bindmap 7 0\n");
+
 				msg_entity = other;
 				WriteByte(MSG_ONE, SVC_FINALE);
 				WriteString(MSG_ONE, "");
@@ -2201,7 +2314,14 @@ void MapVote_Tick()
 		// use impulses as new vote
 		if(other.impulse >= 1 && other.impulse <= mapvote_count)
 			if(mapvote_maps[other.impulse - 1] != "")
+			{
 				other.mapvote = other.impulse;
+				if(mapvote_detail)
+					mapvote_dirty = TRUE;
+
+				msg_entity = other;
+				MapVote_TellVote(MSG_ONE, other.mapvote);
+			}
 		other.impulse = 0;
 
 		if(other.mapvote)
@@ -2210,51 +2330,61 @@ void MapVote_Tick()
 
 	MapVote_CheckRules_1(); // just count
 
-	FOR_EACH_REALCLIENT(other)
+	if(!cvar("g_maplist_textonly"))
+	if(mapvote_dirty) // 1 if "keeptwo" or "impulse" happened before
 	{
-		// display voting screen
-		msgstr = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
-		msgstr = substring(msgstr, 0, strlen(msgstr) - mapvote_count);
-		if(mapvote_abstain)
-			msgstr = substring(msgstr, 1, strlen(msgstr) - 1);
-		msgstr = strcat(msgstr, mapvote_message);
-		msgstr = strcat(msgstr, "\n\n");
-		for(i = 0; i < mapvote_count; ++i)
-			if(mapvote_maps[i] == "")
-				msgstr = strcat(msgstr, "\n");
-			else
-			{
-				tmp = mapvote_maps[i];
-				tmp = strpad(mapvote_maxlen, tmp);
-				tmp = strcat(ftos(mod(i + 1, 10)), ": ", tmp);
- 				if(mapvote_detail)
- 				{
- 					tmp = strcat(tmp, " ^2(", ftos(mapvote_votes[i]), " vote");
- 					if(mapvote_votes[i] != 1)
- 						tmp = strcat(tmp, "s");
- 					tmp = strcat(tmp, ")");
- 					tmp = strpad(mapvote_maxlen + 15, tmp);
- 				}
-				if(mapvote_abstain)
-					if(i == mapvote_count - 1)
-						msgstr = strcat(msgstr, "\n");
-				if(other.mapvote == i + 1)
-					msgstr = strcat(msgstr, "^3> ", tmp, "\n");
+		MapVote_UpdateData(MSG_BROADCAST);
+		mapvote_dirty = FALSE;
+	}
+
+	if(cvar("g_maplist_textonly"))
+	{
+		FOR_EACH_REALCLIENT(other)
+		{
+			// display voting screen
+			msgstr = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+			msgstr = substring(msgstr, 0, strlen(msgstr) - mapvote_count);
+			if(mapvote_abstain)
+				msgstr = substring(msgstr, 1, strlen(msgstr) - 1);
+			msgstr = strcat(msgstr, mapvote_message);
+			msgstr = strcat(msgstr, "\n\n");
+			for(i = 0; i < mapvote_count; ++i)
+				if(mapvote_maps[i] == "")
+					msgstr = strcat(msgstr, "\n");
 				else
-					msgstr = strcat(msgstr, "^7  ", tmp, "\n");
-			}
+				{
+					tmp = mapvote_maps[i];
+					tmp = strpad(mapvote_maxlen, tmp);
+					tmp = strcat(ftos(mod(i + 1, 10)), ": ", tmp);
+					if(mapvote_detail)
+					{
+						tmp = strcat(tmp, " ^2(", ftos(mapvote_votes[i]), " vote");
+						if(mapvote_votes[i] != 1)
+							tmp = strcat(tmp, "s");
+						tmp = strcat(tmp, ")");
+						tmp = strpad(mapvote_maxlen + 15, tmp);
+					}
+					if(mapvote_abstain)
+						if(i == mapvote_count - 1)
+							msgstr = strcat(msgstr, "\n");
+					if(other.mapvote == i + 1)
+						msgstr = strcat(msgstr, "^3> ", tmp, "\n");
+					else
+						msgstr = strcat(msgstr, "^7  ", tmp, "\n");
+				}
 
- 		msgstr = strcat(msgstr, "\n\n^2", ftos(totalvotes), " vote");
- 		if(totalvotes != 1)
- 			msgstr = strcat(msgstr, "s");
- 		msgstr = strcat(msgstr, " cast");
-		i = ceil(mapvote_timeout - time);
- 		msgstr = strcat(msgstr, "\n", ftos(i), " second");
-		if(i != 1)
-			msgstr = strcat(msgstr, "s");
-		msgstr = strcat(msgstr, " left");
+			msgstr = strcat(msgstr, "\n\n^2", ftos(totalvotes), " vote");
+			if(totalvotes != 1)
+				msgstr = strcat(msgstr, "s");
+			msgstr = strcat(msgstr, " cast");
+			i = ceil(mapvote_timeout - time);
+			msgstr = strcat(msgstr, "\n", ftos(i), " second");
+			if(i != 1)
+				msgstr = strcat(msgstr, "s");
+			msgstr = strcat(msgstr, " left");
 
-		centerprint_atprio(other, CENTERPRIO_MAPVOTE, msgstr);
+			centerprint_atprio(other, CENTERPRIO_MAPVOTE, msgstr);
+		}
 	}
 }
 void MapVote_Start()

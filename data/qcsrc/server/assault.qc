@@ -13,8 +13,8 @@ notsingle : when set to 1, entity will not spawn in Single Player mode (bot play
 -------- SPAWNFLAGS --------
 INITIAL : makes the spawnpoint the initial place for the player to spawn at the beginning of the game.*/
 void spawnfunc_info_player_attacker() {
-	spawnfunc_info_player_deathmatch();
 	self.team = COLOR_TEAM1; // red, gets swapped every round
+	spawnfunc_info_player_deathmatch();
 }
 
 //=============================================================================
@@ -32,8 +32,8 @@ notsingle : when set to 1, entity will not spawn in Single Player mode (bot play
 -------- SPAWNFLAGS --------
 INITIAL : makes the spawnpoint the initial place for the player to spawn at the beginning of the game.*/
 void spawnfunc_info_player_defender() {
-	spawnfunc_info_player_deathmatch();
 	self.team = COLOR_TEAM2; // blue, gets swapped every round
+	spawnfunc_info_player_deathmatch();
 }
 
 // reset this objective. Used when spawning an objective
@@ -44,7 +44,7 @@ void assault_objective_reset() {
 
 void assault_objective_use() {
 	// activate objective
-	self.health = 100; 
+	self.health = 100;
 	self.nextthink = time + 0.1;
 }
 
@@ -57,7 +57,7 @@ void assault_objective_think() {
 		//self.effects = EF_STARDUST;
 		self.nextthink = time + 0.1;
 	}
-	
+
 }
 //=============================================================================
 
@@ -102,7 +102,7 @@ void assault_objective_decrease_think() {
 		if(objective.classname == "target_objective") {
 			found = 1;
 			if(objective.health < ASSAULT_VALUE_INACTIVE) { // targeted objective is active
-				if(self.cnt == 1 && self.max_health >= ASSAULT_VALUE_INACTIVE) { 
+				if(self.cnt == 1 && self.max_health >= ASSAULT_VALUE_INACTIVE) {
 					// decrease was fired already, but objective did recover (round reset)
 					self.cnt = 0;
 				}
@@ -131,11 +131,15 @@ void assault_objective_decrease_think() {
 // decrease the health of targeted objectives
 void assault_objective_decrease_use() {
 
-	if(self.cnt > 0)
+	if(self.cnt > 0) {
+		// did already fire
 		return;
+	}
 
-	if(activator.team != assault_attacker_team)
+	if(activator.team != assault_attacker_team) {
+		// wrong team triggered decrease
 		return;
+	}
 
 	local entity ent;
 	ent = find(world, targetname, self.target);
@@ -199,7 +203,6 @@ void assault_destructible_destroy() {
 	self.model = "";
 	self.takedamage = DAMAGE_NO;
 	self.solid = SOLID_NOT;
-	activator = other;
 	SUB_UseTargets();
 }
 
@@ -233,7 +236,7 @@ void spawnfunc_func_assault_destructible() {
 		self.health = 100;
 
 	self.max_health = self.health;
-	
+
 	self.cnt = 0; // not yet activated
 
 	self.classname = "func_assault_destructible";
@@ -280,7 +283,7 @@ void spawnfunc_func_assault_wall() {
 
 void target_assault_roundend_reset() {
 	self.cnt = self.cnt + 1; // up round counter
-	self.winning = 0; // up round 
+	self.winning = 0; // up round
 }
 
 void target_assault_roundend_use() {
@@ -299,8 +302,33 @@ void spawnfunc_target_assault_roundend() {
 }
 
 void assault_roundstart_use() {
+
 	activator = self;
 	SUB_UseTargets();
+
+#ifdef TTURRETS_ENABLED
+    entity ent,oldself;
+
+	//(Re)spawn all turrets
+	oldself = self;
+	ent = find(world, classname, "turret_main");
+	while(ent) {
+	    // Swap turret teams
+        if(ent.team == COLOR_TEAM1)
+            ent.team = COLOR_TEAM2;
+        else
+            ent.team = COLOR_TEAM1;
+
+        self = ent;
+
+        // Dubbles as teamchange
+        ent.turret_spawnfunc();
+
+		ent = find(ent, classname, "turret_main");
+	}
+	self = oldself;
+#endif
+
 }
 
 void spawnfunc_target_assault_roundstart() {
@@ -314,7 +342,7 @@ void spawnfunc_target_assault_roundstart() {
 // trigger new round
 // reset objectives, toggle spawnpoints, reset triggers, ...
 void assault_new_round() {
-	
+
 	// up round counter
 	self.winning = self.winning + 1;
 	// set end time for next round
@@ -353,7 +381,7 @@ void assault_new_round() {
 		self = oldself;
 
 		ent = find(ent, classname, "info_player_deathmatch");
-	} 
+	}
 
 	// reset all objectives
 	ent = find(world, classname, "target_objective");
@@ -365,7 +393,7 @@ void assault_new_round() {
 		self = oldself;
 
 		ent = find(ent, classname, "target_objective");
-	} 
+	}
 
 	// reset round end triggers
 	ent = find(world, classname, "target_assault_roundend");
@@ -385,7 +413,7 @@ void assault_new_round() {
 	{
 		ent.cnt = 0;
 		ent = find(ent, classname, "target_objective_decrease");
-	} 
+	}
 
 	// reset all spawnfunc_func_assault_destructible
 	ent = find(world, classname, "func_assault_destructible");
@@ -393,6 +421,12 @@ void assault_new_round() {
 	{
 		oldself = self;
 		self = ent;
+
+        if(ent.team == COLOR_TEAM1)
+            ent.team = COLOR_TEAM2;
+        else
+            ent.team = COLOR_TEAM1;
+
 		assault_destructible_reset();
 		self = oldself;
 		ent = find(ent, classname, "func_assault_destructible");
@@ -416,6 +450,7 @@ void assault_new_round() {
 		PutClientInServer();
 		self = oldself;
 		ent = find(ent, classname, "player");
+
 	}
 
 

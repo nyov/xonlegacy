@@ -133,12 +133,12 @@ void MapInfo_Cache_Store()
 		i = stof(s);
 
 	// now store all the stuff
-	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, i++, MapInfo_Map_bspname);
-	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, i++, MapInfo_Map_title);
-	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, i++, MapInfo_Map_description);
-	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, i++, MapInfo_Map_author);
-	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, i++, ftos(MapInfo_Map_supportedGametypes));
-	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, i++, ftos(MapInfo_Map_supportedFeatures));
+	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData,   i, MapInfo_Map_bspname);
+	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, ++i, MapInfo_Map_title);
+	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, ++i, MapInfo_Map_description);
+	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, ++i, MapInfo_Map_author);
+	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, ++i, ftos(MapInfo_Map_supportedGametypes));
+	bufstr_set(_MapInfo_Cache_Buf_IndexToMapData, ++i, ftos(MapInfo_Map_supportedFeatures));
 }
 
 float MapInfo_Cache_Retrieve(string map)
@@ -154,12 +154,12 @@ float MapInfo_Cache_Retrieve(string map)
 	i = stof(s);
 
 	// now retrieve all the stuff
-	MapInfo_Map_bspname = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, i++);
-	MapInfo_Map_title = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, i++);
-	MapInfo_Map_description = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, i++);
-	MapInfo_Map_author = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, i++);
-	MapInfo_Map_supportedGametypes = stof(bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, i++));
-	MapInfo_Map_supportedFeatures = stof(bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, i++));
+	MapInfo_Map_bspname = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, i);
+	MapInfo_Map_title = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, ++i);
+	MapInfo_Map_description = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, ++i);
+	MapInfo_Map_author = bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, ++i);
+	MapInfo_Map_supportedGametypes = stof(bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, ++i));
+	MapInfo_Map_supportedFeatures = stof(bufstr_get(_MapInfo_Cache_Buf_IndexToMapData, ++i));
 	return 1;
 }
 
@@ -264,7 +264,7 @@ float MapInfo_FilterGametype(float pGametype, float pFeatures, float pAbortOnGen
 		_MapInfo_filtered = buf_create();
 	}
 	MapInfo_count = 0;
-	for(i = 0, j = 0; i < _MapInfo_globcount; ++i)
+	for(i = 0, j = -1; i < _MapInfo_globcount; ++i)
 	{
 		if(MapInfo_Get_ByName(_MapInfo_GlobItem(i), 1, 0) == 2) // if we generated one... BAIL OUT and let the caller continue in the next frame.
 			if(pAbortOnGenerate)
@@ -274,9 +274,9 @@ float MapInfo_FilterGametype(float pGametype, float pFeatures, float pAbortOnGen
 				return 0;
 			}
 		if(((MapInfo_Map_supportedGametypes & pGametype) != 0) && ((MapInfo_Map_supportedFeatures & pFeatures) == pFeatures))
-			bufstr_set(_MapInfo_filtered, j++, ftos(i));
+			bufstr_set(_MapInfo_filtered, ++j, ftos(i));
 	}
-	MapInfo_count = j;
+	MapInfo_count = j + 1;
 	MapInfo_ClearTemps();
 	return 1;
 }
@@ -476,6 +476,7 @@ void _MapInfo_Map_Reset()
 
 void _MapInfo_Map_ApplyGametype(string s, float pWantedType, float pThisType)
 {
+	string sa;
 	MapInfo_Map_supportedGametypes |= pThisType;
 	if(!(pThisType & pWantedType))
 		return;
@@ -488,13 +489,22 @@ void _MapInfo_Map_ApplyGametype(string s, float pWantedType, float pThisType)
 
 	if(pWantedType == MAPINFO_TYPE_TEAM_DEATHMATCH)
 	{
-		cvar_set("g_tdm_teams", car(s));
+		sa = car(s); if(sa == "") sa = "2";
+		cvar_set("g_tdm_teams", sa);
 		s = cdr(s);
 	}
 
 	if(pWantedType == MAPINFO_TYPE_KEYHUNT)
 	{
-		cvar_set("g_keyhunt_teams", car(s));
+		sa = car(s); if(sa == "") sa = "3";
+		cvar_set("g_keyhunt_teams", sa);
+		s = cdr(s);
+	}
+
+	if(pWantedType == MAPINFO_TYPE_CTF)
+	{
+		sa = car(s); if(sa == "") sa = "10";
+		cvar_set("capturelimit", sa);
 		s = cdr(s);
 	}
 }
@@ -550,7 +560,7 @@ float MapInfo_Get_ByName(string pFilename, float pAllowGenerate, float pGametype
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_DEATHMATCH)      fputs(fh, "type dm 30 20\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_TEAM_DEATHMATCH) fputs(fh, "type tdm 50 20 2\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_DOMINATION)      fputs(fh, "type dom 200 20\n");
-		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_CTF)             fputs(fh, "type ctf 300 20\n");
+		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_CTF)             fputs(fh, "type ctf 300 20 10\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_RUNEMATCH)       fputs(fh, "type rune 200 20\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_LMS)             fputs(fh, "type lms 9 20\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_ARENA)           fputs(fh, "type arena 10 20\n");

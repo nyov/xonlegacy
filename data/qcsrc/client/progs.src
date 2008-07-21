@@ -1,8 +1,28 @@
 ../../csprogs.dat
+pre.qh
 
 Defs.qc
 csqc_constants.qc
+../common/constants.qh
+
 csqc_builtins.qc
+
+../common/util.qh
+
+main.qh
+
+miscfunctions.qc
+sortlist.qc
+teamplay.qc
+
+ons.qc
+ctf.qc
+
+sbar.qc
+mapvoting.qc
 
 Main.qc
 View.qc
+
+../common/util.qc
+../common/gamecommand.qc

@@ -147,7 +147,7 @@ entity Spawn_WeightedPoint(entity firstspot, float lower, float upper, float exp
 
 	RandomSelection_Init();
 	for(spot = firstspot; spot; spot = spot.chain)
-		RandomSelection_Add(spot, 0, pow(bound(lower, spot.frags, upper), exponent) * spot.cnt);
+		RandomSelection_Add(spot, 0, pow(bound(lower, spot.frags, upper), exponent) * spot.cnt, spot.frags >= lower);
 
 	return RandomSelection_chosen_ent;
 }
@@ -348,6 +348,8 @@ PutObserverInServer
 putting a client as observer in the server
 =============
 */
+void ctf_UpdateCaptures(float);
+void ctf_UpdateReturns(float);
 void PutObserverInServer (void)
 {
 	entity	spot;
@@ -372,6 +374,11 @@ void PutObserverInServer (void)
 	WaypointSprite_PlayerDead();
 
 	DistributeFragsAmongTeam(self, self.team, 1);
+	if(g_ctf)
+	{
+		self.captures = 0;
+		ctf_UpdateCaptures(MSG_BROADCAST);
+	}
 
 	if(self.frags <= 0 && self.frags > -666 && g_lms && self.killcount != -666)
 		bprint ("^4", self.netname, "^4 has no more lives left\n");
@@ -396,6 +403,8 @@ void PutObserverInServer (void)
 	self.death_time = 0;
 	self.dead_frame = 0;
 	self.deaths = 0;
+	self.captures = 0;
+	self.returns = 0;
 	self.alpha = 0;
 	self.scale = 0;
 	self.fade_time = 0;
@@ -448,6 +457,8 @@ void PutObserverInServer (void)
 	}
 	else if(!g_lms)
 		self.frags = -666;
+	
+	net_UpdateDeaths(MSG_BROADCAST);
 }
 
 float RestrictSkin(float s)
@@ -520,6 +531,7 @@ PutClientInServer
 Called when a client spawns in the server
 =============
 */
+//void() ctf_playerchanged;
 void PutClientInServer (void)
 {
 	if(clienttype(self) == CLIENTTYPE_BOT)
@@ -655,6 +667,15 @@ void PutClientInServer (void)
 			if(!g_arena)
 			if(!g_lms)
 				self.frags = 0;
+			if(g_ctf)
+			{
+				self.captures = 0;
+				self.returns = 0;
+				ctf_UpdateCaptures(MSG_BROADCAST);
+				ctf_UpdateReturns(MSG_BROADCAST);
+			}
+			self.deaths = 0;
+			net_UpdateDeaths(MSG_BROADCAST);
 		}
 
 		self.cnt = WEP_LASER;
@@ -691,6 +712,27 @@ void PutClientInServer (void)
 	} else if(self.classname == "observer") {
 		PutObserverInServer ();
 	}
+
+	//if(g_ctf)
+	//	ctf_playerchanged();
+}
+
+/*
+=============
+SendCSQCInfo
+
+Send whatever CSQC needs NOW and cannot wait for SendServerInfo to happen...
+=============
+*/
+void SendCSQCInfo(void)
+{
+	if(clienttype(self) != CLIENTTYPE_REAL)
+		return;
+	msg_entity = self;
+	WriteByte(MSG_ONE, SVC_TEMPENTITY);
+	WriteByte(MSG_ONE, TE_CSQC_INIT);
+	WriteShort(MSG_ONE, CSQC_REVISION);
+	WriteByte(MSG_ONE, maxclients);
 }
 
 /*
@@ -738,6 +780,15 @@ Called when a client types 'kill' in the console
 
 void ClientKill_Now_TeamChange()
 {
+	if(g_ctf)
+	{
+		self.captures = 0;
+		self.returns = 0;
+		ctf_UpdateCaptures(MSG_BROADCAST);
+		ctf_UpdateReturns(MSG_BROADCAST);
+	}
+	self.deaths = 0;
+	net_UpdateDeaths(MSG_BROADCAST);
 	if(self.killindicator_teamchange == -1)
 	{
 		self.team = -1;
@@ -931,6 +982,7 @@ ClientConnect
 Called when a client connects to the server
 =============
 */
+//void ctf_clientconnect();
 string ColoredTeamName(float t);
 void DecodeLevelParms (void);
 //void dom_player_join_team(entity pl);
@@ -1068,6 +1120,13 @@ void ClientConnect (void)
 		self.classname = "observer";
 		Spawnqueue_Insert(self);
 	}
+	/*else if(g_ctf)
+	{
+		ctf_clientconnect();
+	}*/
+
+	if(entcs_start)
+		attach_entcs();
 
 	bot_relinkplayerlist();
 
@@ -1079,6 +1138,21 @@ void ClientConnect (void)
 
 	self.jointime = time;
 	self.allowedTimeouts = cvar("sv_timeout_number");
+
+	if(clienttype(self) == CLIENTTYPE_REAL)
+	{
+		sprint(self, strcat("nexuiz-csqc protocol ", ftos(CSQC_REVISION), "\n"));
+		SendCSQCInfo();
+		msg_entity = self;
+		ctf_UpdateCaptures(MSG_ONE);
+		ctf_UpdateReturns(MSG_ONE);
+		net_UpdateDeaths(MSG_ONE);
+		if(mapvote_initialized && !cvar("g_maplist_textonly"))
+		{
+			MapVote_SendData(MSG_ONE);
+			MapVote_UpdateData(MSG_ONE);
+		}
+	}
 }
 
 /*
@@ -1091,12 +1165,16 @@ Called when a client disconnects from the server
 void(entity e) DropFlag;
 .entity chatbubbleentity;
 .entity teambubbleentity;
+//void() ctf_clientdisconnect;
 void ClientDisconnect (void)
 {
 	float save;
 
 	bot_clientdisconnect();
 
+	if(entcs_start)
+		detach_entcs();
+	
 	if(cvar("sv_eventlog"))
 		GameLogEcho(strcat(":part:", ftos(self.playerid)), FALSE);
 	bprint ("^4",self.netname);
@@ -1129,6 +1207,11 @@ void ClientDisconnect (void)
 		DropFlag(self.flagcarried);
 
 	DistributeFragsAmongTeam(self, self.team, 1);
+	if(g_ctf)
+	{
+		self.captures = 0;
+		ctf_UpdateCaptures(MSG_BROADCAST);
+	}
 
 	save = self.flags;
 	self.flags = self.flags - (self.flags & FL_CLIENT);
@@ -1145,6 +1228,11 @@ void ClientDisconnect (void)
 		Spawnqueue_Unmark(self);
 		Spawnqueue_Remove(self);
 	}
+	/*if(g_ctf)
+	{
+		ctf_clientdisconnect();
+	}
+	*/
 
 	if(self.netname_previous)
 		strunzone(self.netname_previous);
@@ -2129,6 +2217,22 @@ void PlayerPostThink (void)
 	} else if (self.classname == "spectator") {
 		//do nothing
 	}
+
+	/*
+	float i;
+	for(i = 0; i < 1000; ++i)
+	{
+		vector end;
+		end = self.origin + '0 0 1024' + 512 * randomvec();
+		tracebox(self.origin, self.mins, self.maxs, end, MOVE_NORMAL, self);
+		if(trace_fraction < 1)
+		if(!(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
+		{
+			print("I HIT SOLID: ", vtos(self.origin), " -> ", vtos(end), "\n");
+			break;
+		}
+	}
+	*/
 
 	Arena_Warmup();
 }

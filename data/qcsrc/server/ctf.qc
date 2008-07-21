@@ -4,7 +4,6 @@ entity ctf_worldflaglist; // CTF flags in the map
 
 .float next_take_time;			// the next time a player can pick up a flag (time + blah)
 								/// I used this, in part, to fix the looping score bug. - avirox
-
 //float FLAGSCORE_PICKUP        =  1;
 //float FLAGSCORE_RETURN        =  5; // returned by owner team
 //float FLAGSCORE_RETURNROGUE   = 10; // returned by rogue team
@@ -26,6 +25,8 @@ void FakeTimeLimit(entity e, float t)
 
 float   flagcaptimerecord;
 .float  flagpickuptime;
+//.float  iscommander;
+//.float  ctf_state;
 
 void() FlagThink;
 void() FlagTouch;
@@ -128,6 +129,12 @@ void DropFlag(entity e)
 		return;
 	}
 	bprint(p.netname, "^7 lost the ", e.netname, "\n");
+
+	if(cvar("g_ctf_flagpenalty_drop"))
+		UpdateFrags(p, -cvar("g_ctf_flagpenalty_drop"));
+	
+	//if(e.enemy && e.enemy != e)
+	//UpdateFrags(e.enemy, cvar("g_ctf_flagscore_kill"));
 	WaypointSprite_DetachCarrier(p);
 	LogCTF("dropped", p.team, p.flagcarried);
 
@@ -223,6 +230,34 @@ void FlagThink()
 	}
 };
 
+void ctf_UpdateCaptures(float msg_target)
+{
+	entity p;
+	WriteByte(msg_target, SVC_TEMPENTITY);
+	WriteByte(msg_target, TE_CSQC_CAPTURES);
+	WriteByte(msg_target, cvar("g_ctf_win_mode"));
+	WriteByte(msg_target, caps_team1);
+	WriteByte(msg_target, caps_team2);
+	FOR_EACH_PLAYER(p)
+	{
+		WriteByte(msg_target, num_for_edict(p));
+		WriteByte(msg_target, p.captures);
+	}
+	WriteByte(msg_target, 0);
+}
+void ctf_UpdateReturns(float msg_target)
+{
+	entity p;
+	WriteByte(msg_target, SVC_TEMPENTITY);
+	WriteByte(msg_target, TE_CSQC_RETURNS);
+	FOR_EACH_PLAYER(p)
+	{
+		WriteByte(msg_target, num_for_edict(p));
+		WriteByte(msg_target, p.returns);
+	}
+	WriteByte(msg_target, 0);
+}
+
 void FlagTouch()
 {
 	if(gameover) return;
@@ -275,6 +310,16 @@ void FlagTouch()
 		{
 			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, ", failing to break ", strcat(h0, " record of ", s0, " seconds\n"));
 		}
+
+		other.captures += 1;
+		if(other.team == COLOR_TEAM1)
+			++caps_team1;
+		else if(other.team == COLOR_TEAM2)
+			++caps_team2;
+		else
+			print("Unknown team captured the flag!\n");
+		ctf_UpdateCaptures(MSG_BROADCAST);
+		// FIXME: When counting captures, should the score be updated?
 
 		LogCTF("capture", other.flagcarried.team, other);
 		// give credit to the individual player
@@ -337,10 +382,15 @@ void FlagTouch()
 		{
 			// return flag
 			bprint(other.netname, "^7 returned the ", self.netname, "\n");
-			if (other.team == COLOR_TEAM1 || other.team == COLOR_TEAM2)
-				UpdateFrags(other, cvar("g_ctf_flagscore_return"));
-			else
-				UpdateFrags(other, cvar("g_ctf_flagscore_return_rogue"));
+			if(cvar("g_ctf_win_mode") == 2)
+			{
+				if (other.team == COLOR_TEAM1 || other.team == COLOR_TEAM2)
+					UpdateFrags(other, cvar("g_ctf_flagscore_return"));
+				else
+					UpdateFrags(other, cvar("g_ctf_flagscore_return_rogue"));
+			}
+			other.returns += 1;
+			ctf_UpdateReturns(MSG_BROADCAST);
 			LogCTF("return", self.team, other);
 			sound (self, CHAN_AUTO, self.noise1, 1, ATTN_NONE);
 			ReturnFlag(self);
@@ -662,6 +712,15 @@ void ctf_delayedinit()
 void ctf_init()
 {
 	local entity e;
+
+	caps_team1 = caps_team2 = 0;
+	registercvar("capturelimit", "8");
+	registercvar("g_ctf_win_mode", "0");
+	//registercvar("g_overtime", "1");
+	registercvar("g_ctf_flagscore_kill", "6");
+	registercvar("g_ctf_flagpenalty_drop", "0");
+	//addstat(STAT_CTF_CAPTURES, AS_INT, captures);
+	//addstat(STAT_CTF_STATE, AS_FLOAT_TRUNCATED, ctf_state);
 	e = spawn();
 	e.think = ctf_delayedinit;
 	e.nextthink = time + 0.1;
@@ -715,14 +774,153 @@ void ctf_setstatus()
 		{
 			if(flag.team == COLOR_TEAM1)
 			{
-				if(redflags-- == 0) // happens exactly once
+				if(--redflags == -1) // happens exactly once (redflags is in 0..count-1, and will --'ed count times)
 					ctf_setstatus2(flag, IT_RED_FLAG_TAKEN);
 			}
 			else if(flag.team == COLOR_TEAM2)
 			{
-				if(blueflags-- == 0) // happens exactly once
+				if(--blueflags == -1) // happens exactly once
 					ctf_setstatus2(flag, IT_BLUE_FLAG_TAKEN);
 			}
 		}
 	}
 };
+/*
+entity(float cteam) ctf_team_has_commander =
+{
+	entity pl;
+	if(cteam != COLOR_TEAM1 || cteam != COLOR_TEAM2)
+		return world;
+	
+	FOR_EACH_REALPLAYER(pl) {
+		if(pl.team == cteam && pl.iscommander) {
+			return pl;
+		}
+	}
+	return world;
+};
+
+void(entity e, float st) ctf_setstate =
+{
+	e.ctf_state = st;
+	++e.version;
+};
+
+void(float cteam) ctf_new_commander =
+{
+	entity pl, plmax;
+	
+	plmax = world;
+	FOR_EACH_REALPLAYER(pl) {
+		if(pl.team == cteam) {
+			if(pl.iscommander) { // don't reassign if alreay there
+				return;
+			}
+			if(plmax == world || plmax.frags < pl.frags)
+				plmax = pl;
+		}
+	}
+	if(plmax == world) {
+		bprint(strcat(ColoredTeamName(cteam), " Team has no Commander!\n"));
+		return;
+	}
+
+	plmax.iscommander = TRUE;
+	ctf_setstate(plmax, 3);
+	sprint(plmax, "^3You're the commander now!\n");
+	centerprint(plmax, "^3You're the commander now!\n");
+};
+
+void() ctf_clientconnect =
+{
+	self.iscommander = FALSE;
+	
+	if(!self.team || self.classname != "player") {
+		ctf_setstate(self, -1);
+	} else
+		ctf_setstate(self, 0);
+
+	self.team_saved = self.team;
+	
+	if(self.team != 0 && self.classname == "player" && !ctf_team_has_commander(self.team)) {
+		ctf_new_commander(self.team);
+	}
+};
+
+void() ctf_playerchanged =
+{
+	if(!self.team || self.classname != "player") {
+		ctf_setstate(self, -1);
+	} else if(self.ctf_state < 0 && self.classname == "player") {
+		ctf_setstate(self, 0);
+	}
+
+	if(self.iscommander &&
+	   (self.classname != "player" || self.team != self.team_saved)
+		)
+	{
+		self.iscommander = FALSE;
+		if(self.classname == "player")
+			ctf_setstate(self, 0);
+		else
+			ctf_setstate(self, -1);
+		ctf_new_commander(self.team_saved);
+	}
+	
+	self.team_saved = self.team;
+	
+	ctf_new_commander(self.team);
+};
+
+void() ctf_clientdisconnect =
+{
+	if(self.iscommander)
+	{
+		ctf_new_commander(self.team);
+	}
+};
+
+entity GetPlayer(string);
+float() ctf_clientcommand =
+{
+	entity e;
+	if(argv(0) == "order") {
+		if(!g_ctf) {
+			sprint(self, "This command is not supported in this gamemode.\n");
+			return TRUE;
+		}
+		if(!self.iscommander) {
+			sprint(self, "^1You are not the commander!\n");
+			return TRUE;
+		}
+		if(argv(2) == "") {
+			sprint(self, "Usage: order #player status   - (playernumber as in status)\n");
+			return TRUE;
+		}
+		e = GetPlayer(argv(1));
+		if(e == world) {
+			sprint(self, "Invalid player.\nUsage: order #player status   - (playernumber as in status)\n");
+			return TRUE;
+		}
+		if(e.team != self.team) {
+			sprint(self, "^3You can only give orders to your own team!\n");
+			return TRUE;
+		}
+		if(argv(2) == "attack") {
+			sprint(self, strcat("Ordering ", e.netname, " to attack!\n"));
+			sprint(e, "^1Attack!\n");
+			centerprint(e, "^7You've been ordered to^9\n^1Attack!\n");
+			ctf_setstate(e, 1);
+		} else if(argv(2) == "defend") {
+			sprint(self, strcat("Ordering ", e.netname, " to defend!\n"));
+			sprint(e, "^Defend!\n");
+			centerprint(e, "^7You've been ordered to^9\n^2Defend!\n");
+			ctf_setstate(e, 2);
+		} else {
+			sprint(self, "^7Invalid command, use ^3attack^7, or ^3defend^7.\n");
+		}
+		return TRUE;
+	}
+	return FALSE;
+};
+*/

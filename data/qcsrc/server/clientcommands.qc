@@ -137,6 +137,33 @@ void Say(entity source, float teamsay, string msgin)
 	strunzone(msgstr);
 }
 
+entity GetPlayer(string name)
+{
+	float num;
+	entity e;
+	string ns;
+
+	if(substring(name, 0, 1) == "#") {
+		num = stof(substring(name, 1, 999));
+		if(num >= 1 && num <= maxclients) {
+			for((e = world); num > 0; --num, (e = nextent(e)))
+				;
+			//if(clienttype(e) == CLIENTTYPE_REAL)
+			if(e.classname == "player")
+				return e;
+		}
+	} else {
+		ns = strdecolorize(name);
+		FOR_EACH_REALPLAYER(e) {
+			if(!strcasecmp(strdecolorize(e.netname), ns)) {
+				return e;
+			}
+		}
+	}
+	return world;
+}
+
+//float ctf_clientcommand();
 void SV_ParseClientCommand(string s) {
 	local string cmd;
 	local float i;
@@ -144,6 +171,8 @@ void SV_ParseClientCommand(string s) {
 	tokenize(s);
 
 	if(GameCommand_Vote(s, self)) {
+		return;
+	} else if(GameCommand_MapVote(argv(0))) {
 		return;
 	} else if(argv(0) == "autoswitch") {
 		// be backwards compatible with older clients (enabled)
@@ -304,6 +333,8 @@ void SV_ParseClientCommand(string s) {
 			evaluateResumeGame();
 		}
 	} else {
+		//if(ctf_clientcommand())
+		//	return;
 		cmd = argv(0);
 		/* checks not needed any more since DP has separated clientcommands and regular commands
 		if(cmd != "status")

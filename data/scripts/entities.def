@@ -222,6 +222,7 @@ targetname: the entity that requires an aiming direction points to this.
 /*QUAKED info_player_attacker (1 0.5 0) (-16 -16 -24) (16 16 45) 
 Attacking team's player spawning location in Assault. Should touch the floor, but not the walls, and should point where the player should look when he spawns there.
 -------- KEYS --------
+target: this should point to a target_objective to decide when this spawning point is active.
 cnt: weight of spawn point for random selection. Set to a lower value if you have many spawn points close together. Default value is 1.
 */
 
@@ -235,6 +236,7 @@ targetname: when targeted by a func_button, pressing the button will assign the 
 /*QUAKED info_player_defender (.5 .5 .5) (-16 -16 -24) (16 16 45) 
 Defending team's player spawning location in Assault. Should touch the floor, but not the walls, and should point where the player should look when he spawns there.
 -------- KEYS --------
+target: this should point to a target_objective to decide when this spawning point is active.
 cnt: weight of spawn point for random selection. Set to a lower value if you have many spawn points close together. Default value is 1.
 */
 
@@ -687,9 +689,11 @@ Can be used in two ways:
 "dampener field": just set strength to a value from 0 to 1. Entering the field will slow down to this factor.
 "accelerator field": just set strength to a value from 1 to infinity. Entering the field will accelerate by this factor.
 "wind field": set strength to the amount of velocity to add per second, and target a target_position. The field will apply force in the direction from its own origin to the target (use an origin brush to specify its own origin, or this will fail) when touched.
+"gravity field": set strength to the amount of velocity to add per second at the center, and set radius to the radius of the field. Set falloff to the desired falloff characteristics.
 -------- KEYS --------
 target: "wind field": points to the target_position to which the player will get pushed.
-strength: "wind field": amount of force per second to apply in direction from origin to target. "dampener/accelerator field": slowdown/speedup factor.
+strength: "wind field", "gravity field": amount of force per second to apply. "dampener/accelerator field": slowdown/speedup factor.
+falloff: "gravity field": 0 means no falloff, 1 means linear falloff (zero at the outside), 2 means inverted linear falloff (zero at the inside)
 */
 
 /*QUAKED trigger_multiple (.5 .5 .5) ? NOTOUCH

@@ -16,6 +16,7 @@ string wordwrap(string s, float l)
 }
 
 #ifndef MENUQC
+#ifndef CSQC
 void wordwrap_buffer_sprint(string s)
 {
 	wordwrap_buffer = strcat(wordwrap_buffer, s);
@@ -35,6 +36,7 @@ void wordwrap_sprint(string s, float l)
 	wordwrap_buffer = "";
 	return;
 }
+#endif
 #endif
 
 string unescape(string in)
@@ -75,13 +77,13 @@ void wordwrap_cb(string s, float l, void(string) callback)
 
 	s = strzone(s);
 	lleft = l;
-	for (i = 0;i < strlen(s);i++)
+	for (i = 0;i < strlen(s);++i)
 	{
 		if (substring(s, i, 2) == "\\n")
 		{
 			callback("\n");
 			lleft = l;
-			i++;
+			++i;
 		}
 		else if (substring(s, i, 1) == "\n")
 		{
@@ -98,7 +100,7 @@ void wordwrap_cb(string s, float l, void(string) callback)
 		}
 		else
 		{
-			for (j = i+1;j < strlen(s);j++)
+			for (j = i+1;j < strlen(s);++j)
 				//    ^^ this skips over the first character of a word, which
 				//       is ALWAYS part of the word
 				//       this is safe since if i+1 == strlen(s), i will become

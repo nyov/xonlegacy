@@ -8,6 +8,9 @@ defs.qh		// Should rename this, it has fields and globals
 
 extensions.qh
 
+//// tZork Turrets ////
+tturrets/include/turret_tturrets_early.qh
+
 campaign.qh
 ../common/campaign_common.qh
 ../common/util.qh
@@ -75,6 +78,8 @@ cl_weapons.qc
 //g_tetris.qc
 cl_impulse.qc
 
+ent_cs.qc
+
 cl_player.qc
 cl_client.qc
 t_plats.qc
@@ -112,3 +117,7 @@ ipban.qc
 t_quake3.qc
 t_halflife.qc
 t_quake.qc
+
+
+//// tZork Turrets ////
+tturrets/include/turret_tturrets.qh

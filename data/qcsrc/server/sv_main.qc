@@ -137,6 +137,19 @@ void CreatureFrame (void)
 }
 
 
+void BroadcastPings()
+{
+	entity pl;
+	WriteByte(MSG_BROADCAST, SVC_TEMPENTITY);
+	WriteByte(MSG_BROADCAST, TE_CSQC_PING);
+	FOR_EACH_CLIENT(pl)
+	{
+		WriteByte(MSG_BROADCAST, num_for_edict(pl));
+		WriteShort(MSG_BROADCAST, pl.ping);
+	}
+	WriteByte(MSG_BROADCAST, 0);
+}
+
 /*
 =============
 StartFrame
@@ -180,8 +193,14 @@ void StartFrame (void)
 	{
 		RandomSelection_Init();
 		for(self = world; (self = find(self, classname, "player")); )
-			RandomSelection_Add(self, 0, 1);
+			RandomSelection_Add(self, 0, 1, 0);
 		self = RandomSelection_chosen_ent;
 		SelectSpawnPoint(0);
+	}
+
+	if(next_pingtime < time)
+	{
+		BroadcastPings();
+		next_pingtime = time + 10;
 	}
 }

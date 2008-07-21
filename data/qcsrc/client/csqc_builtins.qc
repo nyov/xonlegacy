@@ -20,7 +20,7 @@ entity (entity start, .string fld, string match)			find = #18;
 string (string s)							precache_sound = #19;
 string (string s)							precache_model = #20;
 
-void (string s)								dprint = #25;
+//void (string s)								dprint = #25;
 string (float f)							ftos = #26;
 string (vector v)							vtos = #27;
 void ()									coredump = #28;
@@ -56,7 +56,7 @@ float(string s)								stof = #81;
 
 
 void (vector v1, vector min, vector max, vector v2, float nomonsters, entity forent)	tracebox = #90;
-float (string name, string value)					registercvar = #93;
+float (string name, string value, ...)					registercvar = #93;
 
 entity (entity start, .entity fld, entity match)			findentity = #98;
 entity (entity start, .float fld, float match)				findfloat = #98;
@@ -97,6 +97,8 @@ float	drawfill(vector position, vector size, vector rgb, float alpha, float flag
 void	drawsetcliparea(float x, float y, float width, float height) = #324;
 void	drawresetcliparea(void) = #325;
 float	drawcolorcodedstring(vector position, string text, vector scale, float alpha, float flag) = #326;
+float	stringwidth_engine(string text, float handleColors) = #327;
+float	drawsubpic(vector position, vector size, string pic, vector srcPosition, vector srcSize, vector rgb, float alpha, float flag) = #328;
 
 
 float (float statnum)							getstatf = #330;
@@ -257,3 +259,12 @@ float(string s1, string s2, float len)			strncasecmp = #230;
 float(string str, string sub, float startoffs)		strstrofs = #221;
 //float(string str, string sub) 	    		strstrofs = #221;
 entity(float num)   	   				edict_num = #459;
+string(void)						ReadPicture = #501;
+string(string filename)					whichpack = #503;
+float(entity ent)					num_for_edict = #512;
+float(string s, string separator1, ...) tokenizebyseparator = #479;
+string(string in) uri_unescape = #511;
+float(float caseinsensitive, string s, ...) crc16 = #494;
+string(string info, string key) infoget = #227;
+string(string info, string key, string value, ...) infoadd = #226;
+string(string in) uri_escape = #510;
