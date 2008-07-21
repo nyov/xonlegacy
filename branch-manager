@@ -250,8 +250,8 @@ elsif($cmd eq 'unmerged')
 }
 elsif($cmd eq 'merge')
 {
-	my ($first, $last) = @args;
-	die "Usage: $0 merge first last"
+	my ($first, $last, $force) = @args;
+	die "Usage: $0 merge first last [--force]"
 		if not defined $first;
 	$last = $first if not defined $last;
 
@@ -259,7 +259,7 @@ elsif($cmd eq 'merge')
 		if "$first$last" =~ /[^0-9]/;
 
 	die "There is an uncommitted merge"
-		if -f '.commitmsg';
+		if -f '.commitmsg' and $force ne '--force';
 
 	LoadSettings();
 	AddPatch $first, $last;
@@ -269,7 +269,7 @@ elsif($cmd eq 'merge')
 	print "Make sure there are no conflicts, then run $0 commit\n";
 	print "To abort, use $0 revert\n";
 	
-	open my $fh, '>', '.commitmsg'
+	open my $fh, '>>', '.commitmsg'
 		or die "open .commitmsg";
 	print $fh GetLog $first, $last;
 	close $fh;
@@ -278,7 +278,7 @@ elsif($cmd eq 'merge')
 }
 elsif($cmd eq 'undo')
 {
-	my ($first, $last) = @args;
+	my ($first, $last, $force) = @args;
 	die "Usage: $0 undo first last"
 		if not defined $first;
 	$last = $first if not defined $last;
@@ -286,9 +286,8 @@ elsif($cmd eq 'undo')
 	die "Usage: $0 merge first last"
 		if "$first$last" =~ /[^0-9]/;
 
-	
 	die "There is an uncommitted merge"
-		if -f '.commitmsg';
+		if -f '.commitmsg' and $force ne '--force';
 
 	LoadSettings();
 	RemovePatch $first, $last;
@@ -297,7 +296,7 @@ elsif($cmd eq 'undo')
 	print "Make sure there are no conflicts, then run $0 commit\n";
 	print "To abort, use $0 revert\n";
 
-	open my $fh, '>', '.commitmsg'
+	open my $fh, '>>', '.commitmsg'
 		or die "open .commitmsg";
 	print $fh "undo the following merge:\n", GetLog $first, last;
 	close $fh;
@@ -336,8 +335,8 @@ Usage:
   $0 info
   $0 unmerged
   $0 unmerged-diff
-  $0 merge rev1 [rev2]
-  $0 undo rev1 [rev2]
+  $0 merge rev1 [rev2] [--force]
+  $0 undo rev1 [rev2] [--force]
   $0 commit
   $0 revert
 EOF
