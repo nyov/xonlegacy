@@ -1,3 +1,6 @@
+// let's abuse an existing field
+#define SPAWNPOINT_SCORE frags
+
 .float wantswelcomemessage;
 .string netname_previous;
 
@@ -77,12 +80,12 @@ entity Spawn_FilterOutBadSpots(entity firstspot, entity playerlist, float mindis
 
 	for(spot = firstspot; spot; spot = spot.chain)
 	{
-		spot.frags = Spawn_Score(spot, playerlist, teamcheck);
+		spot.SPAWNPOINT_SCORE = Spawn_Score(spot, playerlist, teamcheck);
 
 		if(cvar("spawn_debugview"))
 		{
 			setmodel(spot, "models/runematch/rune.mdl");
-			if(spot.frags < mindist)
+			if(spot.SPAWNPOINT_SCORE < mindist)
 			{
 				spot.colormod = '1 0 0';
 				spot.scale = 1;
@@ -90,13 +93,13 @@ entity Spawn_FilterOutBadSpots(entity firstspot, entity playerlist, float mindis
 			else
 			{
 				spot.colormod = '0 1 0';
-				spot.scale = spot.frags / mindist;
+				spot.scale = spot.SPAWNPOINT_SCORE / mindist;
 			}
 		}
 
-		if(spot.frags >= 0) // spawning allowed here
+		if(spot.SPAWNPOINT_SCORE >= 0) // spawning allowed here
 		{
-			if(spot.frags < mindist)
+			if(spot.SPAWNPOINT_SCORE < mindist)
 			{
 				// too short distance
 				spawn_allgood = FALSE;
@@ -147,7 +150,7 @@ entity Spawn_WeightedPoint(entity firstspot, float lower, float upper, float exp
 
 	RandomSelection_Init();
 	for(spot = firstspot; spot; spot = spot.chain)
-		RandomSelection_Add(spot, 0, pow(bound(lower, spot.frags, upper), exponent) * spot.cnt, spot.frags >= lower);
+		RandomSelection_Add(spot, 0, pow(bound(lower, spot.SPAWNPOINT_SCORE, upper), exponent) * spot.cnt, spot.SPAWNPOINT_SCORE >= lower);
 
 	return RandomSelection_chosen_ent;
 }
@@ -202,7 +205,7 @@ entity SelectSpawnPoint (float anypoint)
 
 	if(cvar("spawn_debugview"))
 	{
-		print("spot mindistance: ", ftos(spot.frags), "\n");
+		print("spot mindistance: ", ftos(spot.SPAWNPOINT_SCORE), "\n");
 
 		entity e;
 		if(teamcheck)
@@ -348,8 +351,6 @@ PutObserverInServer
 putting a client as observer in the server
 =============
 */
-void ctf_UpdateCaptures(float);
-void ctf_UpdateReturns(float);
 void PutObserverInServer (void)
 {
 	entity	spot;
@@ -372,18 +373,21 @@ void PutObserverInServer (void)
 		DropFlag(self.flagcarried);
 
 	WaypointSprite_PlayerDead();
-
-	DistributeFragsAmongTeam(self, self.team, 1);
-	if(g_ctf)
+	
+	if(self.killcount != -666)
 	{
-		self.captures = 0;
-		ctf_UpdateCaptures(MSG_BROADCAST);
+		if(g_lms)
+		{
+			if(PlayerScore_Add(self, SP_LMS_RANK, 0) > 0)
+				bprint ("^4", self.netname, "^4 has no more lives left\n");
+			else
+				bprint ("^4", self.netname, "^4 is spectating now\n"); // TODO turn this into a proper forfeit?
+		}
+		else
+			bprint ("^4", self.netname, "^4 is spectating now\n");
 	}
 
-	if(self.frags <= 0 && self.frags > -666 && g_lms && self.killcount != -666)
-		bprint ("^4", self.netname, "^4 has no more lives left\n");
-	else if(self.killcount != -666)
-		bprint ("^4", self.netname, "^4 is spectating now\n");
+	PlayerScore_Clear(self); // clear scores when needed
 
 	self.spectatortime = time;
 	
@@ -402,9 +406,6 @@ void PutObserverInServer (void)
 	self.damageforcescale = 0;
 	self.death_time = 0;
 	self.dead_frame = 0;
-	self.deaths = 0;
-	self.captures = 0;
-	self.returns = 0;
 	self.alpha = 0;
 	self.scale = 0;
 	self.fade_time = 0;
@@ -448,6 +449,7 @@ void PutObserverInServer (void)
 		if(self.frags != -2)
 		{
 			Spawnqueue_Insert(self);
+			// FIXME what IS this?
 		}
 		else
 		{
@@ -455,10 +457,16 @@ void PutObserverInServer (void)
 			Spawnqueue_Remove(self);
 		}
 	}
-	else if(!g_lms)
+	else if(g_lms)
+	{
+		// Only if the player cannot play at all
+		if(PlayerScore_Add(self, SP_LMS_RANK, 0) == 666)
+			self.frags = -666;
+		else
+			self.frags = -667;
+	}
+	else
 		self.frags = -666;
-	
-	net_UpdateDeaths(MSG_BROADCAST);
 }
 
 float RestrictSkin(float s)
@@ -546,8 +554,12 @@ void PutClientInServer (void)
 	}
 
 	// player is dead and becomes observer
-	if(g_lms && self.frags < 1)
-		self.classname = "observer";
+	// FIXME fix LMS scoring for new system
+	if(g_lms)
+	{
+		if(PlayerScore_Add(self, SP_LMS_RANK, 0) > 0)
+			self.classname = "observer";
+	}
 
 	if(g_arena)
 	if(!self.spawned)
@@ -663,19 +675,9 @@ void PutClientInServer (void)
 		self.BUTTON_ATCK = self.BUTTON_JUMP = self.BUTTON_ATCK2 = 0;
 
 		if(self.killcount == -666) {
+			PlayerScore_Clear(self);
 			self.killcount = 0;
-			if(!g_arena)
-			if(!g_lms)
-				self.frags = 0;
-			if(g_ctf)
-			{
-				self.captures = 0;
-				self.returns = 0;
-				ctf_UpdateCaptures(MSG_BROADCAST);
-				ctf_UpdateReturns(MSG_BROADCAST);
-			}
-			self.deaths = 0;
-			net_UpdateDeaths(MSG_BROADCAST);
+			self.frags = 0;
 		}
 
 		self.cnt = WEP_LASER;
@@ -780,15 +782,6 @@ Called when a client types 'kill' in the console
 
 void ClientKill_Now_TeamChange()
 {
-	if(g_ctf)
-	{
-		self.captures = 0;
-		self.returns = 0;
-		ctf_UpdateCaptures(MSG_BROADCAST);
-		ctf_UpdateReturns(MSG_BROADCAST);
-	}
-	self.deaths = 0;
-	net_UpdateDeaths(MSG_BROADCAST);
 	if(self.killindicator_teamchange == -1)
 	{
 		self.team = -1;
@@ -1011,6 +1004,8 @@ void ClientConnect (void)
 		player_count = 0;
 	}
 
+	PlayerScore_Attach(self);
+
 	bot_clientconnect();
 
 	//if(g_domination)
@@ -1109,13 +1104,7 @@ void ClientConnect (void)
 
 	stuffcmd(self, strcat("set gametype ", ftos(game), "\n"));
 
-	if(g_lms)
-	{
-		self.frags = LMS_NewPlayerLives();
-		if(!self.frags)
-			self.frags = -666;
-	}
-	else if(g_arena)
+	if(g_arena)
 	{
 		self.classname = "observer";
 		Spawnqueue_Insert(self);
@@ -1144,13 +1133,19 @@ void ClientConnect (void)
 		sprint(self, strcat("nexuiz-csqc protocol ", ftos(CSQC_REVISION), "\n"));
 		SendCSQCInfo();
 		msg_entity = self;
-		ctf_UpdateCaptures(MSG_ONE);
-		ctf_UpdateReturns(MSG_ONE);
-		net_UpdateDeaths(MSG_ONE);
 		if(mapvote_initialized && !cvar("g_maplist_textonly"))
 		{
 			MapVote_SendData(MSG_ONE);
 			MapVote_UpdateData(MSG_ONE);
+		}
+	}
+
+	if(g_lms)
+	{
+		if(PlayerScore_Add(self, SP_LMS_LIVES, LMS_NewPlayerLives()) <= 0)
+		{
+			PlayerScore_Add(self, SP_LMS_RANK, 666);
+			self.frags = -666; // FIXME do we still need this?
 		}
 	}
 }
@@ -1206,13 +1201,6 @@ void ClientDisconnect (void)
 	if(self.flagcarried)
 		DropFlag(self.flagcarried);
 
-	DistributeFragsAmongTeam(self, self.team, 1);
-	if(g_ctf)
-	{
-		self.captures = 0;
-		ctf_UpdateCaptures(MSG_BROADCAST);
-	}
-
 	save = self.flags;
 	self.flags = self.flags - (self.flags & FL_CLIENT);
 	bot_relinkplayerlist();
@@ -1234,11 +1222,17 @@ void ClientDisconnect (void)
 	}
 	*/
 
+	if(self.flags & FL_CLIENT)
+		PlayerScore_Detach(self);
+	else
+		print("Warning: ClientDisconnect without ClientConnect\n");
+
 	if(self.netname_previous)
 		strunzone(self.netname_previous);
 
 	// free cvars
 	GetCvars(-1);
+	self.playerid = 0;
 }
 
 .float BUTTON_CHAT;

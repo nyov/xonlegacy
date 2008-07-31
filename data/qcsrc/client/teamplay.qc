@@ -16,7 +16,12 @@ float TeamByColor(float color)
 
 float GetPlayerColor(float i)
 {
-	return stof(getplayerkey(i, "colors")) & 15;
+	if(getplayerkey(i, "frags") == "-666")
+		return COLOR_SPECTATOR;
+	else if(!teamplay)
+		return 0;
+	else
+		return stof(getplayerkey(i, "colors")) & 15;
 }
 
 vector GetTeamRGB(float color)

@@ -230,34 +230,6 @@ void FlagThink()
 	}
 };
 
-void ctf_UpdateCaptures(float msg_target)
-{
-	entity p;
-	WriteByte(msg_target, SVC_TEMPENTITY);
-	WriteByte(msg_target, TE_CSQC_CAPTURES);
-	WriteByte(msg_target, cvar("g_ctf_win_mode"));
-	WriteByte(msg_target, caps_team1);
-	WriteByte(msg_target, caps_team2);
-	FOR_EACH_PLAYER(p)
-	{
-		WriteByte(msg_target, num_for_edict(p));
-		WriteByte(msg_target, p.captures);
-	}
-	WriteByte(msg_target, 0);
-}
-void ctf_UpdateReturns(float msg_target)
-{
-	entity p;
-	WriteByte(msg_target, SVC_TEMPENTITY);
-	WriteByte(msg_target, TE_CSQC_RETURNS);
-	FOR_EACH_PLAYER(p)
-	{
-		WriteByte(msg_target, num_for_edict(p));
-		WriteByte(msg_target, p.returns);
-	}
-	WriteByte(msg_target, 0);
-}
-
 void FlagTouch()
 {
 	if(gameover) return;
@@ -311,16 +283,7 @@ void FlagTouch()
 			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, ", failing to break ", strcat(h0, " record of ", s0, " seconds\n"));
 		}
 
-		other.captures += 1;
-		if(other.team == COLOR_TEAM1)
-			++caps_team1;
-		else if(other.team == COLOR_TEAM2)
-			++caps_team2;
-		else
-			print("Unknown team captured the flag!\n");
-		ctf_UpdateCaptures(MSG_BROADCAST);
-		// FIXME: When counting captures, should the score be updated?
-
+		PlayerTeamScore_Add(other, SP_CTF_CAPS, ST_CTF_CAPS, 1);
 		LogCTF("capture", other.flagcarried.team, other);
 		// give credit to the individual player
 		UpdateFrags(other, cvar("g_ctf_flagscore_capture"));
@@ -360,6 +323,7 @@ void FlagTouch()
 		self.angles = '0 0 0';
 		bprint(other.netname, "^7 got the ", self.netname, "\n");
 		UpdateFrags(other, cvar("g_ctf_flagscore_pickup"));
+		PlayerScore_Add(other, SP_CTF_PICKUPS, 1);
 		LogCTF("steal", self.team, other);
 		sound (self, CHAN_AUTO, self.noise, 1, ATTN_NONE);
 
@@ -382,15 +346,11 @@ void FlagTouch()
 		{
 			// return flag
 			bprint(other.netname, "^7 returned the ", self.netname, "\n");
-			if(cvar("g_ctf_win_mode") == 2)
-			{
-				if (other.team == COLOR_TEAM1 || other.team == COLOR_TEAM2)
-					UpdateFrags(other, cvar("g_ctf_flagscore_return"));
-				else
-					UpdateFrags(other, cvar("g_ctf_flagscore_return_rogue"));
-			}
-			other.returns += 1;
-			ctf_UpdateReturns(MSG_BROADCAST);
+			if (other.team == COLOR_TEAM1 || other.team == COLOR_TEAM2)
+				UpdateFrags(other, cvar("g_ctf_flagscore_return"));
+			else
+				UpdateFrags(other, cvar("g_ctf_flagscore_return_rogue"));
+			PlayerScore_Add(other, SP_CTF_RETURNS, 1);
 			LogCTF("return", self.team, other);
 			sound (self, CHAN_AUTO, self.noise1, 1, ATTN_NONE);
 			ReturnFlag(self);
@@ -707,20 +667,14 @@ void ctf_delayedinit()
 	// if no teams are found, spawn defaults
 	if (find(world, classname, "ctf_team") == world)
 		ctf_spawnteams();
+
+	ScoreRules_ctf();
 };
 
 void ctf_init()
 {
 	local entity e;
 
-	caps_team1 = caps_team2 = 0;
-	registercvar("capturelimit", "8");
-	registercvar("g_ctf_win_mode", "0");
-	//registercvar("g_overtime", "1");
-	registercvar("g_ctf_flagscore_kill", "6");
-	registercvar("g_ctf_flagpenalty_drop", "0");
-	//addstat(STAT_CTF_CAPTURES, AS_INT, captures);
-	//addstat(STAT_CTF_STATE, AS_FLOAT_TRUNCATED, ctf_state);
 	e = spawn();
 	e.think = ctf_delayedinit;
 	e.nextthink = time + 0.1;
@@ -816,7 +770,7 @@ void(float cteam) ctf_new_commander =
 			if(pl.iscommander) { // don't reassign if alreay there
 				return;
 			}
-			if(plmax == world || plmax.frags < pl.frags)
+			if(plmax == world || plmax.frags < pl.frags) <<<<<<<<<<<<<<<<< BROKEN in new scoring system
 				plmax = pl;
 		}
 	}

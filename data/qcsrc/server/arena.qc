@@ -86,7 +86,6 @@ void reset_map()
 		{
 			removedecor(self);
 		}
-		// TODO properly reset Onslaught
 		else if(self.classname == "onslaught_generator")
 		{
 			onslaught_generator_reset();
@@ -128,8 +127,9 @@ void reset_map()
 				{
 					//NEW: changed behaviour so that it prevents that previous spectators/observers suddenly spawn as players
 					if (self.classname == "player") {
-						self.frags = (g_lms)?LMS_NewPlayerLives():0;
-						self.deaths = 0;
+						PlayerScore_Clear(self);
+						if(g_lms)
+							PlayerScore_Add(self, SP_LMS_LIVES, LMS_NewPlayerLives());
 						self.killcount = 0;
 						//stop the player from moving so that he stands still once he gets respawned
 						self.velocity = '0 0 0';

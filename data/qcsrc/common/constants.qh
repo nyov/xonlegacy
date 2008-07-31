@@ -3,7 +3,8 @@
 // Revision 2: Mapvote preview pictures
 // Revision 3: optimized map vote protocol
 // Revision 4: CSQC config var system
-#define CSQC_REVISION 4
+// Revision 5: mapvote time fix
+#define CSQC_REVISION 5
 
 // probably put these in common/
 // so server/ and client/ can be synced better
@@ -26,6 +27,9 @@ const float AS_FLOAT		= 8;
 const float ENT_CLIENT = 0;
 const float ENT_CLIENT_DEAD = 1;
 const float ENT_CLIENT_ENTCS = 2;
+const float ENT_CLIENT_SCORES_INFO = 3;
+const float ENT_CLIENT_SCORES = 4;
+const float ENT_CLIENT_TEAMSCORES = 5;
 
 ///////////////////////////
 // key constants
@@ -166,6 +170,7 @@ float CVAR_READONLY	= 4;
 const float ENTCS_MSG_END = 0;
 const float ENTCS_MSG_ONS_GPS = 1;
 const float ENTCS_MSG_ONS_REMOVE = 2;
+const float ENTCS_MSG_INIT = 3;
 
 const float TE_CSQC_INIT = 100;
 const float TE_CSQC_PING = 101;
@@ -189,3 +194,43 @@ const float MAPVOTE_NET_INIT = 0;
 const float MAPVOTE_NET_UPDATE = 1;
 const float MAPVOTE_NET_PIC = 2;
 const float MAPVOTE_NET_OWNVOTE = 3;
+
+/**
+ * Lower scores are better (e.g. suicides)
+ */
+#define SFL_LOWER_IS_BETTER     1
+
+/**
+ * Don't show zero values as scores
+ */
+#define SFL_HIDE_ZERO           2
+
+/**
+ * Allow a column to be hidden (do not automatically add it even if it is a sorting key)
+ */
+#define SFL_ALLOW_HIDE         16
+
+/**
+ * Display as a rank (with st, nd, rd, th suffix)
+ */
+#define SFL_RANK               32
+
+/**
+ * Scoring priority (NOTE: PRIMARY is used for fraglimit)
+ */
+#define SFL_SORT_PRIO_SECONDARY 4
+#define SFL_SORT_PRIO_PRIMARY   8
+#define SFL_SORT_PRIO_MASK     12
+
+/**
+ * Score indices
+ */
+#define MAX_SCORE 10
+#define MAX_TEAMSCORE 2
+
+#define ST_SCORE 0
+#define SP_KILLS 0
+#define SP_DEATHS 1
+#define SP_SUICIDES 2
+#define SP_SCORE 3
+// game mode specific indices are not in common/, but in server/scores_rules.qc!

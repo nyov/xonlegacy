@@ -693,13 +693,6 @@ sub schedule($$)
 	push @tasks, [time() + $time, $sub];
 }
 
-# Build up an IO::Select object for all our channels.
-my $s = IO::Select->new();
-for my $chan(values %channels)
-{
-	$s->add($_) for $chan->fds();
-}
-
 # On IRC error, delete some data store variables of the connection, and
 # reconnect to the IRC server soon (but only if someone is actually playing)
 sub irc_error()
@@ -1104,7 +1097,7 @@ sub irc_joinstage($)
 		return 0;
 	} ],
 
-	# scores: Nexuiz server -> IRC channel
+	# scores: Nexuiz server -> IRC channel, legacy format
 	[ dp => q{:player:(-?\d+):(\d+):(\d+):(\d+):(\d+):(.*)} => sub {
 		my ($frags, $deaths, $time, $team, $id, $name) = @_;
 		return if not exists $store{scores};
@@ -1113,11 +1106,27 @@ sub irc_joinstage($)
 		return 0;
 	} ],
 
-	# scores: Nexuiz server -> IRC channel (CTF)
+	# scores: Nexuiz server -> IRC channel (CTF), legacy format
 	[ dp => q{:teamscores:(\d+:-?\d*(?::\d+:-?\d*)*)} => sub {
 		my ($teams) = @_;
 		return if not exists $store{scores};
 		$store{scores}{teams} = {split /:/, $teams};
+		return 0;
+	} ],
+
+	# scores: Nexuiz server -> IRC channel, new format
+	[ dp => q{:player:see-labels:(\d+)[-0-9,]*:(\d+):(\d+):(\d+):(.*)} => sub {
+		my ($frags, $time, $team, $id, $name) = @_;
+		return if not exists $store{scores};
+		push @{$store{scores}{players}}, [$frags, $team, $name];
+		return 0;
+	} ],
+
+	# scores: Nexuiz server -> IRC channel (CTF), new format
+	[ dp => q{:teamscores:see-labels:(\d+)[-0-9,]*:(\d+)} => sub {
+		my ($frags, $team) = @_;
+		return if not exists $store{scores};
+		$store{scores}{teams}{$team} = $frags;
 		return 0;
 	} ],
 
@@ -1316,6 +1325,13 @@ schedule sub {
 # Main loop.
 for(;;)
 {
+	# Build up an IO::Select object for all our channels.
+	my $s = IO::Select->new();
+	for my $chan(values %channels)
+	{
+		$s->add($_) for $chan->fds();
+	}
+
 	# wait for something to happen on our sockets, or wait 2 seconds without anything happening there
 	$s->can_read(2);
 	my @errors = $s->has_exception(0);

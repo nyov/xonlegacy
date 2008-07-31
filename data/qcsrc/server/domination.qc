@@ -15,6 +15,10 @@ dom_init();
 Note: The only teams who can use dom control points are identified by spawnfunc_dom_team entities (if none exist these default to red and blue and use only quake models/sounds).
 */
 
+#define DOMPOINTFRAGS frags
+
+.float enemy_playerid;
+
 void() dom_controlpoint_setup;
 
 void LogDom(string mode, float team_before, entity actor)
@@ -58,6 +62,10 @@ void dompoint_captured ()
 	//bprint("\n");
 
 	bprint("^3", head.netname, "^3", self.message, "\n");
+	if(self.enemy.playerid == self.enemy_playerid)
+		PlayerScore_Add(self.enemy, SP_DOM_TAKES, 1);
+	else
+		self.enemy = world;
 
 	if (head.noise != "")
 		sound(self, CHAN_BODY, head.noise, 1, ATTN_NORM);
@@ -100,8 +108,7 @@ void dompointthink()
 {
 	local entity head;
 	local float waittime;
-	local float teamfragamt;
-	local float individualfragamt;
+	local float fragamt;
 
 	self.nextthink = time + 0.1;
 
@@ -120,42 +127,26 @@ void dompointthink()
 		waittime = self.wait;
 	self.delay = time + waittime;
 
-	// give credit to all players of the team (rewards large teams)
+	// give credit to the team
 	// NOTE: this defaults to 0
-	if (self.goalentity.netname)
+	if (self.goalentity.netname != "")
 	{
-		teamfragamt = cvar("g_domination_point_teamamt");
+		fragamt = cvar("g_domination_point_amt");
+		if(!fragamt)
+			fragamt = self.DOMPOINTFRAGS;
+		TeamScore_AddToTeam(self.goalentity.team, ST_SCORE, fragamt);
+		TeamScore_AddToTeam(self.goalentity.team, ST_DOM_TICKS, fragamt);
 
-		FOR_EACH_PLAYER(head)
-			if (head.team == self.goalentity.team)
-				UpdateFrags(head, teamfragamt);
-	}
-
-	// if the player left the game, changed teams or became spectator, we have to find another player on the same team to give credit to
-	if (!self.enemy.flags || self.enemy.team != self.goalentity.team || self.enemy.killcount == -666) // flags is zero on removed clients
-	{
-		other = self.enemy;
-		FOR_EACH_PLAYER(head)
-			if (head.team == self.goalentity.team)
-				self.enemy = head;
-		if(self.enemy == other) // search returned no matching player, reset dom point
+		// give credit to the individual player, if he is still there
+		if (self.enemy.playerid == self.enemy_playerid)
 		{
-			dom_controlpoint_setup();
-			self.enemy = world;
-			self.cnt = 0;
-			self.aiment = world;
+			PlayerScore_Add(self.enemy, SP_SCORE, fragamt);
+			PlayerScore_Add(self.enemy, SP_DOM_TICKS, fragamt);
 		}
+		else
+			self.enemy = world;
 	}
-
-	// give credit to the individual player
-	if (self.enemy)
-	{
-		individualfragamt = cvar("g_domination_point_amt");
-		if(!individualfragamt)
-			individualfragamt = self.frags;
-		UpdateFrags(self.enemy, individualfragamt);
-	}
-};
+}
 
 void dompointtouch()
 {
@@ -198,6 +189,7 @@ void dompointtouch()
 	self.skin = head.skin;
 
 	self.enemy = other; // individual player scoring
+	self.enemy_playerid = other.playerid;
 	dompoint_captured();
 };
 
@@ -246,7 +238,8 @@ void spawnfunc_dom_team()
 	self.model = "";
 	self.modelindex = 0;
 	// this would have to be changed if used in quakeworld
-	self.team = self.cnt + 1;
+	if(self.cnt)
+		self.team = self.cnt + 1; // WHY are these different anyway?
 };
 
 void dom_controlpoint_setup()
@@ -269,8 +262,8 @@ void dom_controlpoint_setup()
 	if(!self.message)
 		self.message = " has captured a control point";
 
-	if(!self.frags)
-		self.frags = 1;
+	if(!self.DOMPOINTFRAGS)
+		self.DOMPOINTFRAGS = 1;
 	if(!self.wait)
 		self.wait = 5;
 
@@ -591,6 +584,8 @@ void dom_delayedinit()
 			}
 		}
 	}
+
+	ScoreRules_dom();
 };
 
 void dom_init()

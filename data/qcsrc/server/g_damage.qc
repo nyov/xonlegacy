@@ -42,28 +42,43 @@ float IsFlying(entity a)
 
 void UpdateFrags(entity player, float f)
 {
-	player.frags += f;
-	player.totalfrags += f;
+	PlayerTeamScore_AddScore(player, f);
 }
 
 void GiveFrags (entity attacker, entity targ, float f)
 {
+	// TODO route through PlayerScores instead
 	if(gameover) return;
+
+	if(f < 0)
+	{
+		if(targ == attacker)
+		{
+			// suicide
+			PlayerScore_Add(attacker, SP_SUICIDES, 1);
+		}
+		else
+		{
+			// teamkill
+			PlayerScore_Add(attacker, SP_KILLS, -1); // or maybe add a teamkills field?
+		}
+	}
+	else
+	{
+		// regular frag
+		PlayerScore_Add(attacker, SP_KILLS, 1);
+	}
+
+	PlayerScore_Add(targ, SP_DEATHS, 1);
 
 	if(g_arena)
 		if(cvar("g_arena_roundbased"))
 			return;
 
-	if(g_domination)
+	// FIXME fix the mess this is (we have REAL points now!)
+	if(g_runematch)
 	{
-		if(cvar("g_domination_disable_frags"))
-			if(f > 0)
-				return;
-	}
-	else if(g_runematch)
-	{
-		if(f > 0)
-			f = RunematchHandleFrags(attacker, targ, f);
+		f = RunematchHandleFrags(attacker, targ, f);
 	}
 	else if(g_keyhunt)
 	{
@@ -71,21 +86,22 @@ void GiveFrags (entity attacker, entity targ, float f)
 	}
 	else if(g_lms)
 	{
-		// count remaining lives, not frags in lms
-		targ.frags -= 1;
-		// keep track of the worst players lives
-		if(targ.frags < lms_lowest_lives)
-			lms_lowest_lives = targ.frags;
-		// player has no more lives left
-		if (!targ.frags)
+		// remove a life
+		float tl;
+		tl = PlayerScore_Add(targ, SP_LMS_LIVES, -1);
+		if(tl < lms_lowest_lives)
+			lms_lowest_lives = tl;
+		if(tl <= 0)
 		{
 			if(!lms_next_place)
 				lms_next_place = player_count;
-			targ.frags = -lms_next_place;
-			lms_next_place -= 1;
+			PlayerScore_Add(targ, SP_LMS_RANK, lms_next_place); // won't ever spawn again
+			--lms_next_place;
 		}
-		return;
+		f = 0;
 	}
+
+	attacker.totalfrags += f;
 
 	if(f)
 		UpdateFrags(attacker, f);
@@ -321,7 +337,10 @@ void Obituary (entity attacker, entity targ, float deathtype)
 						bprint ("^1",s, "^1 was fragged by ", a, "\n");
 				}
 				if(g_ctf && targ.flagcarried)
+				{
 					GiveFrags(attacker, targ, cvar("g_ctf_flagscore_kill"));
+					PlayerScore_Add(attacker, SP_CTF_FCKILLS, 1);
+				}
 				else
 					GiveFrags(attacker, targ, 1);
 				if (targ.killcount > 2) {
@@ -442,7 +461,7 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				else
 					bprint ("^1",s, "^1 died\n");
 			GiveFrags(targ, targ, -1);
-			if(targ.frags == -5) {
+			if(PlayerScore_Add(targ, SP_SCORE, 0) == -5) {
 				announce(targ, "announcer/male/botlike.ogg");
 			}
 

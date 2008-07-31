@@ -47,14 +47,14 @@ void fteqcc_testbugs()
 	else
 		dprint("*** fteqcc test: same-function-twice bug got FINALLY FIXED! HOORAY!\n");
 
-	world.frags = -10;
+	world.cnt = -10;
 	world.enemy = world;
-	world.enemy.frags += 10;
-	if(world.frags > 0.2 || world.frags < -0.2) // don't error out if it's just roundoff errors
+	world.enemy.cnt += 10;
+	if(world.cnt > 0.2 || world.cnt < -0.2) // don't error out if it's just roundoff errors
 		dprint("*** fteqcc test: found += bug\n");
 	else
 		dprint("*** fteqcc test: += bug got FINALLY FIXED! HOORAY!\n");
-	world.frags = 0;
+	world.cnt = 0;
 }
 
 /**
@@ -382,25 +382,7 @@ float TryFile( string pFilename )
 
 string GetGametype()
 {
-	if (game == GAME_DEATHMATCH)
-		return "dm";
-	else if (game == GAME_TEAM_DEATHMATCH)
-		return "tdm";
-	else if (game == GAME_DOMINATION)
-		return "dom";
-	else if (game == GAME_CTF)
-		return "ctf";
-	else if (game == GAME_RUNEMATCH)
-		return "rune";
-	else if (game == GAME_LMS)
-		return "lms";
-	else if (game == GAME_KEYHUNT)
-		return "kh";
-	else if (game == GAME_ONSLAUGHT)
-		return "ons";
-	else if (game == GAME_ASSAULT)
-		return "as";
-	return "dm";
+	return GametypeNameFromType(game);
 }
 
 float IsSameGametype(string mapcfgname)
@@ -954,6 +936,7 @@ void DumpStats(float final)
 	local float to_console;
 	local float to_eventlog;
 	local float to_file;
+	local float i;
 
 	to_console = cvar("sv_logscores_console");
 	to_eventlog = cvar("sv_eventlog");
@@ -992,14 +975,25 @@ void DumpStats(float final)
 			fputs(file, strcat(s, "\n"));
 	}
 
+	s = strcat(":labels:player:", GetPlayerScoreString(world));
+	if(to_console)
+		ServerConsoleEcho(s, TRUE);
+	if(to_eventlog)
+		GameLogEcho(s, TRUE);
+	if(to_file)
+		fputs(file, strcat(s, "\n"));
+
 	FOR_EACH_CLIENT(other)
 	{
+		// FIXME make this use the new score system
 		if ((clienttype(other) == CLIENTTYPE_REAL) || (clienttype(other) == CLIENTTYPE_BOT && cvar("sv_logscores_bots")))
 		{
-			s = strcat(":player:", ftos(other.frags), ":");
-			s = strcat(s, ftos(other.deaths), ":");
+			s = strcat(":player:see-labels:", GetPlayerScoreString(other), ":");
 			s = strcat(s, ftos(rint(time - other.jointime)), ":");
-			s = strcat(s, ftos(other.team), ":");
+			if(other.classname == "player")
+				s = strcat(s, ftos(other.team), ":");
+			else
+				s = strcat(s, "spectator:");
 
 			if(to_console)
 				ServerConsoleEcho(strcat(s, other.netname), TRUE);
@@ -1010,19 +1004,27 @@ void DumpStats(float final)
 		}
 	}
 
-	if(g_ctf)
-	if(cvar("g_ctf_win_mode") != 2)
+	if(teamplay)
 	{
-		s = strcat(":teamscores:", ftos(COLOR_TEAM1), ":");
-		s = strcat(s, ftos(caps_team1), ":");
-		s = strcat(s, ftos(COLOR_TEAM2), ":");
-		s = strcat(s, ftos(caps_team2));
+		s = strcat(":labels:teamscores:", GetTeamScoreString(0));
 		if(to_console)
 			ServerConsoleEcho(s, TRUE);
 		if(to_eventlog)
 			GameLogEcho(s, TRUE);
 		if(to_file)
 			fputs(file, strcat(s, "\n"));
+	
+		for(i = 1; i < 16; ++i)
+		{
+			s = strcat(":teamscores:see-labels:", GetTeamScoreString(i));
+			s = strcat(s, ":", ftos(i));
+			if(to_console)
+				ServerConsoleEcho(s, TRUE);
+			if(to_eventlog)
+				GameLogEcho(s, TRUE);
+			if(to_file)
+				fputs(file, strcat(s, "\n"));
+		}
 	}
 
 	if(to_console)
@@ -1220,15 +1222,6 @@ void AddWinners(.float field, float value)
 			head.winning = 1;
 }
 
-// clear frags for all players but the team given (when they ran out of spawnpoints)
-void ClearFragsForEveryoneBut(.float field, float value)
-{
-	entity head;
-	FOR_EACH_PLAYER(head)
-		if(head.field != value)
-			head.frags = max(head.frags, 0);
-}
-
 // clear the .winning flags
 void ClearWinners(void)
 {
@@ -1282,11 +1275,11 @@ float LMS_NewPlayerLives()
 
 	// first player has left the game for dying too much? Nobody else can get in.
 	if(lms_lowest_lives < 1)
-		return FALSE;
+		return 0;
 
 	if(!cvar("g_lms_join_anytime"))
 		if(lms_lowest_lives < fl - cvar("g_lms_last_join"))
-			return FALSE;
+			return 0;
 
 	return bound(1, lms_lowest_lives, fl);
 }
@@ -1345,13 +1338,12 @@ float WinningCondition_Assault()
 
 }
 
-
 // LMS winning condition: game terminates if and only if there's at most one
 // one player who's living lives. Top two scores being equal cancels the time
 // limit.
 float WinningCondition_LMS()
 {
-	entity head;
+	entity head, head2;
 	float have_player;
 	float have_players;
 	float l;
@@ -1363,8 +1355,8 @@ float WinningCondition_LMS()
 	head = find(world, classname, "player");
 	if(head)
 		have_player = TRUE;
-	head = find(head, classname, "player");
-	if(head)
+	head2 = find(head, classname, "player");
+	if(head2)
 		have_players = TRUE;
 
 	if(have_player)
@@ -1377,15 +1369,20 @@ float WinningCondition_LMS()
 		else
 		{
 			// exactly one player?
+
+			ClearWinners();
+			SetWinners(winning, 0); // NOTE: exactly one player is still "player", so this works out
+
 			if(l)
 			{
-				// but no game has taken place yet
+				// game still running (that is, nobody got removed from the game by a frag yet)? then continue
+				return WINNING_NO;
 			}
 			else
 			{
 				// a winner!
-				ClearWinners(); SetWinners(winning, 0); // NOTE: exactly one player is still "player", so this works out
-				dprint("Have a winner, ending game.\n");
+				// and assign him his first place
+				PlayerScore_Add(head, SP_LMS_RANK, 1);
 				return WINNING_YES;
 			}
 		}
@@ -1407,193 +1404,17 @@ float WinningCondition_LMS()
 	}
 
 	// When we get here, we have at least two players who are actually LIVING,
-	// or one player who is still waiting for a victim to join the server. Now
-	// check if the top two players have equal score.
+	// now check if the top two players have equal score.
+	WinningConditionHelper();
 
-	checkrules_leaderfrags = 0;
-	checkrules_equality = FALSE;
-	FOR_EACH_PLAYER(head)
-	{
-		if(head.frags > checkrules_leaderfrags)
-		{
-			checkrules_leaderfrags = head.frags;
-			checkrules_equality = FALSE;
-		}
-		else if(head.frags > 0 && head.frags == checkrules_leaderfrags)
-			checkrules_equality = TRUE;
-	}
-
-	SetWinners(frags, checkrules_leaderfrags);
-
-	// The top two players have the same amount of lives? No timelimit then,
-	// enter overtime...
-
-	if(checkrules_equality)
+	ClearWinners();
+	if(WinningConditionHelper_winner)
+		WinningConditionHelper_winner.winning = TRUE;
+	if(WinningConditionHelper_equality)
 		return WINNING_NEVER;
 
 	// Top two have different scores? Way to go for our beloved TIMELIMIT!
 	return WINNING_NO;
-}
-
-// DM winning condition: game terminates if a player reached the fraglimit,
-// unless the first two players have the same score. The latter case also
-// breaks the time limit.
-float WinningCondition_MaxIndividualScore(float fraglimit)
-{
-	float checkrules_oldleaderfrags;
-	entity head;
-
-	checkrules_oldleaderfrags = checkrules_leaderfrags;
-	checkrules_leaderfrags = 0;
-	checkrules_equality = FALSE;
-	FOR_EACH_PLAYER(head)
-	{
-		if(head.frags > checkrules_leaderfrags)
-		{
-			checkrules_leaderfrags = head.frags;
-			checkrules_equality = FALSE;
-		}
-		else if(head.frags > 0 && head.frags == checkrules_leaderfrags)
-			checkrules_equality = TRUE;
-	}
-
-	if(checkrules_leaderfrags > 0)
-		SetWinners(frags, checkrules_leaderfrags);
-	else
-		ClearWinners();
-
-	if (!g_runematch)
-		if (checkrules_leaderfrags != checkrules_oldleaderfrags)
-		{
-			if (checkrules_leaderfrags == fraglimit - 1)
-				sound(world, CHAN_AUTO, "announcer/robotic/1fragleft.wav", 1, ATTN_NONE);
-			else if (checkrules_leaderfrags == fraglimit - 2)
-				sound(world, CHAN_AUTO, "announcer/robotic/2fragsleft.wav", 1, ATTN_NONE);
-			else if (checkrules_leaderfrags == fraglimit - 3)
-				sound(world, CHAN_AUTO, "announcer/robotic/3fragsleft.wav", 1, ATTN_NONE);
-		}
-
-	return GetWinningCode(fraglimit && checkrules_leaderfrags >= fraglimit, checkrules_equality);
-}
-
-float WinningConditionBase_Teamplay(float fraglimit)
-{
-	tdm_old_score = tdm_max_score;
-	tdm_max_score = max4(team1_score, team2_score, team3_score, team4_score);
-
-	checkrules_equality =
-	(
-		(tdm_max_score > 0)
-		&&
-		(
-			  (team1_score == tdm_max_score)
-			+ (team2_score == tdm_max_score)
-			+ (team3_score == tdm_max_score)
-			+ (team4_score == tdm_max_score)
-			>= 2));
-
-	ClearWinners();
-	if(tdm_max_score > 0)
-	{
-		if(team1_score == tdm_max_score)
-			AddWinners(team, COLOR_TEAM1);
-		if(team2_score == tdm_max_score)
-			AddWinners(team, COLOR_TEAM2);
-		if(team3_score == tdm_max_score)
-			AddWinners(team, COLOR_TEAM3);
-		if(team4_score == tdm_max_score)
-			AddWinners(team, COLOR_TEAM4);
-	}
-
-	if(!g_runematch && !g_domination && !g_ctf)
-		if(tdm_max_score != tdm_old_score)
-		{
-			if(tdm_max_score == fraglimit - 1)
-				sound(world, CHAN_AUTO, "announcer/robotic/1fragleft.wav", 1, ATTN_NONE);
-			else if(tdm_max_score == fraglimit - 2)
-				sound(world, CHAN_AUTO, "announcer/robotic/2fragsleft.wav", 1, ATTN_NONE);
-			else if(tdm_max_score == fraglimit - 3)
-				sound(world, CHAN_AUTO, "announcer/robotic/3fragsleft.wav", 1, ATTN_NONE);
-		}
-
-	return GetWinningCode(fraglimit && tdm_max_score >= fraglimit, checkrules_equality);
-}
-
-// TDM winning condition: game terminates if a team's score sum reached the
-// fraglimit, unless the first two teams have the same total score. The latter
-// case also breaks the time limit.
-float WinningCondition_MaxTeamSum(float fraglimit)
-{
-	entity head;
-
-	team1_score = team2_score = team3_score = team4_score = 0;
-
-	FOR_EACH_PLAYER(head)
-	{
-		if(head.team == COLOR_TEAM1)
-			team1_score += head.frags;
-		else if(head.team == COLOR_TEAM2)
-			team2_score += head.frags;
-		else if(head.team == COLOR_TEAM3)
-			team3_score += head.frags;
-		else if(head.team == COLOR_TEAM4)
-			team4_score += head.frags;
-	}
-
-	return WinningConditionBase_Teamplay(fraglimit);
-}
-
-// DOM/CTF winning condition: game terminates if the max of a team's players'
-// score reached the fraglimit, unless the first two teams have the same
-// maximum score. The latter case also breaks the time limit.
-float WinningCondition_MaxTeamMax(float fraglimit)
-{
-	entity head;
-
-	team1_score = team2_score = team3_score = team4_score = 0;
-
-	FOR_EACH_PLAYER(head)
-	{
-		if(head.team == COLOR_TEAM1)
-		{
-			if(head.frags > team1_score)
-				team1_score = head.frags;
-		}
-		else if(head.team == COLOR_TEAM2)
-		{
-			if(head.frags > team2_score)
-				team2_score = head.frags;
-		}
-		else if(head.team == COLOR_TEAM3)
-		{
-			if(head.frags > team3_score)
-				team3_score = head.frags;
-		}
-		else if(head.team == COLOR_TEAM4)
-		{
-			if(head.frags > team4_score)
-				team4_score = head.frags;
-		}
-	}
-
-	return WinningConditionBase_Teamplay(fraglimit);
-}
-
-float WinningCondition_CTF(float capturelimit, float fraglimit)
-{
-	if(cvar("g_ctf_win_mode") == 2)
-		return WinningCondition_MaxTeamSum(fraglimit);
-	
-	team1_score = caps_team1;
-	team2_score = caps_team2;
-	team3_score = team4_score = 0;
-
-	if(team1_score == team2_score && cvar("g_ctf_win_mode"))
-	{
-		return WinningCondition_MaxTeamSum(0);
-	}
-
-	return WinningConditionBase_Teamplay(capturelimit);
 }
 
 void print_to(entity e, string s)
@@ -1602,66 +1423,6 @@ void print_to(entity e, string s)
 		sprint(e, strcat(s, "\n"));
 	else
 		ServerConsoleEcho(s, TRUE);
-}
-
-void PrintScoreboardFor(entity e, string name, string colorcode, float whichteam)
-{
-	entity head;
-	float v;
-	float teamvalue;
-	float fragtotal;
-	string s;
-	float found;
-	found = FALSE;
-	teamvalue = 0;
-	FOR_EACH_PLAYER(head)
-	{
-		if(!whichteam || head.team == whichteam)
-		{
-			if(name != "")
-				if(!found)
-					print_to(e, strcat(" ", colorcode, name, ":"));
-			found = TRUE;
-			fragtotal = fragtotal + head.frags;
-			s = ftos(head.frags);
-			s = strcat(s, "/", ftos(head.deaths));
-			s = strcat(s, " @ ", ftos(head.ping));
-			if(clienttype(head) == CLIENTTYPE_BOT)
-				s = strcat(s, "botms");
-			else
-				s = strcat(s, "ms");
-			v = PlayerValue(head);
-			teamvalue += v;
-			s = strcat(s, " / ", ftos(v));
-			print_to(e, strcat("  ", colorcode, head.netname, colorcode, " (", s, ")"));
-		}
-	}
-	if(whichteam && found)
-	{
-		s = ftos(fragtotal);
-		s = strcat(s, " / ", ftos(teamvalue));
-		print_to(e, strcat(colorcode, "  (total: ", s, ")"));
-	}
-}
-
-void PrintScoreboard(entity e)
-{
-	print_to(e, strcat("Time:      ", ftos(time / 60)));
-	print_to(e, strcat("Timelimit: ", ftos(cvar("timelimit"))));
-	print_to(e, strcat("Fraglimit: ", ftos(cvar("fraglimit"))));
-	print_to(e, "Scoreboard:");
-	if(teams_matter)
-	{
-		PrintScoreboardFor(e, "Red", "^1", COLOR_TEAM1);
-		PrintScoreboardFor(e, "Blue", "^4", COLOR_TEAM2);
-		PrintScoreboardFor(e, "Yellow", "^3", COLOR_TEAM3);
-		PrintScoreboardFor(e, "Pink", "^6", COLOR_TEAM4);
-	}
-	else
-	{
-		PrintScoreboardFor(e, "", "^7", 0);
-	}
-	print_to(e, ".");
 }
 
 void ShuffleMaplist()
@@ -1714,6 +1475,23 @@ void ShuffleMaplist()
 	cvar_set("g_maplist", result);
 }
 
+float WinningCondition_Scores(float limit)
+{
+	// TODO make everything use THIS winning condition (except LMS)
+	WinningConditionHelper();
+	
+	ClearWinners();
+	if(WinningConditionHelper_winner)
+		WinningConditionHelper_winner.winning = 1;
+	if(WinningConditionHelper_winnerteam >= 0)
+		SetWinners(team, WinningConditionHelper_winnerteam);
+
+	if(WinningConditionHelper_topscore == 0)
+		WinningConditionHelper_equality = 0;
+	
+	return GetWinningCode(limit && (WinningConditionHelper_topscore >= limit), WinningConditionHelper_equality);
+}
+
 float WinningCondition_RanOutOfSpawns()
 {
 	entity head;
@@ -1758,26 +1536,21 @@ float WinningCondition_RanOutOfSpawns()
 	}
 	else if(team1_score + team2_score + team3_score + team4_score == 1)
 	{
-		if(team1_score)
+		float t, i;
+		if(team1_score) t = COLOR_TEAM1;
+		if(team2_score) t = COLOR_TEAM2;
+		if(team3_score) t = COLOR_TEAM3;
+		if(team4_score) t = COLOR_TEAM4;
+		CheckAllowedTeams(world);
+		for(i = 0; i < MAX_TEAMSCORE; ++i)
 		{
-			AddWinners(team, COLOR_TEAM1);
-			ClearFragsForEveryoneBut(team, COLOR_TEAM1);
+			if(t != COLOR_TEAM1) if(c1 >= 0) TeamScore_AddToTeam(COLOR_TEAM1, i, -1000);
+			if(t != COLOR_TEAM2) if(c2 >= 0) TeamScore_AddToTeam(COLOR_TEAM2, i, -1000);
+			if(t != COLOR_TEAM3) if(c3 >= 0) TeamScore_AddToTeam(COLOR_TEAM3, i, -1000);
+			if(t != COLOR_TEAM4) if(c4 >= 0) TeamScore_AddToTeam(COLOR_TEAM4, i, -1000);
 		}
-		if(team2_score)
-		{
-			AddWinners(team, COLOR_TEAM2);
-			ClearFragsForEveryoneBut(team, COLOR_TEAM2);
-		}
-		if(team3_score)
-		{
-			AddWinners(team, COLOR_TEAM3);
-			ClearFragsForEveryoneBut(team, COLOR_TEAM3);
-		}
-		if(team4_score)
-		{
-			AddWinners(team, COLOR_TEAM4);
-			ClearFragsForEveryoneBut(team, COLOR_TEAM4);
-		}
+
+		AddWinners(team, t);
 		return WINNING_YES;
 	}
 	else
@@ -1796,7 +1569,6 @@ void CheckRules_World()
 	local float status;
 	local float timelimit;
 	local float fraglimit;
-	local float capturelimit;
 
 	VoteThink();
 	MapVote_Think();
@@ -1825,7 +1597,6 @@ void CheckRules_World()
 
 	timelimit = cvar("timelimit") * 60;
 	fraglimit = cvar("fraglimit");
-	capturelimit = cvar("capturelimit");
 
 	if(checkrules_overtimeend)
 	{
@@ -1861,7 +1632,7 @@ void CheckRules_World()
 	}
 	else if(g_assault)
 	{
-		status = WinningCondition_Assault();
+		status = WinningCondition_Assault(); // TODO remove this?
 	}
 	else if(g_lms)
 	{
@@ -1869,28 +1640,11 @@ void CheckRules_World()
 	}
 	else if (g_onslaught)
 	{
-		status = WinningCondition_Onslaught();
-	}
-	else if(g_ctf)
-	{
-		status = WinningCondition_CTF(capturelimit, fraglimit);
+		status = WinningCondition_Onslaught(); // TODO remove this?
 	}
 	else
 	{
-		if(teams_matter)
-		{
-			if(g_tdm || g_runematch || g_ctf || g_domination || g_keyhunt)
-				status = WinningCondition_MaxTeamSum(fraglimit);
-			//else if()
-			//	status = WinningCondition_MaxTeamMax(fraglimit);
-			else
-			{
-				dprint("div0: How can this happen?\n");
-				status = WinningCondition_MaxTeamMax(fraglimit);
-			}
-		}
-		else
-			status = WinningCondition_MaxIndividualScore(fraglimit);
+		status = WinningCondition_Scores(fraglimit);
 	}
 
 	if(status == WINNING_STARTOVERTIME)
@@ -2059,7 +1813,7 @@ void MapVote_Init()
 	mapvote_screenshot_dir = strzone(mapvote_screenshot_dir);
 
 	if(!cvar("g_maplist_textonly"))
-		MapVote_SendData(MSG_BROADCAST);
+		MapVote_SendData(MSG_ALL);
 }
 
 void MapVote_SendPicture(float id)
@@ -2069,7 +1823,7 @@ void MapVote_SendPicture(float id)
 	WriteByte(MSG_ONE, TE_CSQC_MAPVOTE);
 	WriteByte(MSG_ONE, MAPVOTE_NET_PIC);
 	WriteByte(MSG_ONE, id);
-	WritePicture(MSG_ONE, strcat(mapvote_screenshot_dir, "/", mapvote_maps[id]), 1024);
+	WritePicture(MSG_ONE, strcat(mapvote_screenshot_dir, "/", mapvote_maps[id]), 3072);
 }
 
 float GameCommand_MapVote(string cmd)
@@ -2114,7 +1868,7 @@ void MapVote_SendData(float targ)
   	WriteByte(targ, mapvote_count);
   	WriteByte(targ, mapvote_abstain);
   	WriteByte(targ, mapvote_detail);
-	WriteByte(targ, mapvote_timeout - time);
+	WriteCoord(targ, mapvote_timeout);
  	if(mapvote_count <= 8)
  		WriteByte(targ, MapVote_GetMapMask());
  	else
@@ -2532,6 +2286,25 @@ float RedirectionThink()
 		localcmd("\nwait; wait; wait; quit\n");
 
 	return TRUE;
+}
+
+void RestoreGame()
+{
+	// Loaded from a save game
+	// some things then break, so let's work around them...
+
+	// Progs DB (capture records)
+	if(sv_cheats)
+		ServerProgsDB = db_create();
+	else
+		ServerProgsDB = db_load("server.db");
+
+	// Mapinfo
+#ifdef MAPINFO
+	MapInfo_Shutdown();
+	MapInfo_Enumerate();
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 1);
+#endif
 }
 
 void SV_Shutdown()

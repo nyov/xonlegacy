@@ -185,6 +185,8 @@ void SV_ParseClientCommand(string s) {
 		}
 		sprint(self, strcat("^1autoswitch turned ", autoswitchmsg, "\n"));
 	} else if(argv(0) == "clientversion") {
+		if not(self.flags & FL_CLIENT)
+			return;
 		if (argv(1) == "$gameversion") {
 			//versionmsg = "^1client is too old to get versioninfo.\nUPDATE!!! (http://www.nexuiz.com)^8";
 			// either that or someone wants to be funny
@@ -208,6 +210,8 @@ void SV_ParseClientCommand(string s) {
 	} else if(argv(0) == "sentcvar") { // new system
 		GetCvars(1);
 	} else if(argv(0) == "spectate") {
+		if not(self.flags & FL_CLIENT)
+			return;
 		if(g_lms || g_arena)
 			return; // don't allow spectating in lms, unless player runs out of lives
 		if(self.classname == "player" && cvar("sv_spectate") == 1) {
@@ -215,19 +219,20 @@ void SV_ParseClientCommand(string s) {
 				DropFlag(self.flagcarried);
 			kh_Key_DropAll(self, TRUE);
 			WaypointSprite_PlayerDead();
-			DistributeFragsAmongTeam(self, self.team, 1.0);
 			self.classname = "observer";
 			if(blockSpectators)
 				sprint(self, strcat("^7You have to become a player within the next ", ftos(cvar("g_maxplayers_spectator_blocktime")), " seconds, otherwise you will be kicked, because spectators aren't allowed at this time!\n"));
 			PutClientInServer();
 		}
 	} else if(argv(0) == "join") {
+		if not(self.flags & FL_CLIENT)
+			return;
 		if(!g_arena)
 		if (self.classname != "player" && !lockteams)
 		{
 			if(isJoinAllowed()) {
 				self.classname = "player";
-				self.frags = 0;
+				PlayerScore_Clear(self);
 				bprint ("^4", self.netname, "^4 is playing now\n");
 				PutClientInServer();
 			}
@@ -237,6 +242,8 @@ void SV_ParseClientCommand(string s) {
 			}
 		}
 	} else if( argv(0) == "selectteam" ) {
+		if not(self.flags & FL_CLIENT)
+			return;
 		if( !cvar("teamplay") ) {
 			sprint( self, "selecteam can only be used in teamgames\n");
 		} else if(cvar("g_campaign")) {
@@ -257,6 +264,8 @@ void SV_ParseClientCommand(string s) {
 			sprint( self, strcat( "selectteam none/red/blue/yellow/pink/auto - \"", argv(1), "\" not recognised\n" ) );
 		}
 	} else if(argv(0) == "ready") {
+		if not(self.flags & FL_CLIENT)
+			return;
 		if(cvar("sv_ready_restart"))
 		{
 			if(timeoutStatus) {
@@ -299,8 +308,6 @@ void SV_ParseClientCommand(string s) {
 		}
 		sprint(self, "\n");
 #endif
-	} else if(argv(0) == "teamstatus") {
-		PrintScoreboard(self);
 	} else if(argv(0) == "voice") {
 		VoiceMessage(argv(1));
 	} else if(argv(0) == "say") {
@@ -318,6 +325,8 @@ void SV_ParseClientCommand(string s) {
 	} else if(argv(0) == "suggestmap") {
 		sprint(self, strcat(MapVote_Suggest(argv(1)), "\n"));
 	} else if(argv(0) == "calltimeout") {
+		if not(self.flags & FL_CLIENT)
+			return;
 		if(cvar("sv_timeout")) {
 			if(self.classname == "player") {
 				if(votecalled)
@@ -329,6 +338,8 @@ void SV_ParseClientCommand(string s) {
 				sprint(self, "^7Error: only players can call a timeout!\n");
 		}
 	} else if(argv(0) == "resumegame") {
+		if not(self.flags & FL_CLIENT)
+			return;
 		if(cvar("sv_timeout")) {
 			evaluateResumeGame();
 		}
@@ -462,7 +473,10 @@ void ReadyCount()
 
 	//reset map immediately if this cvar is not set
 	if (!cvar("sv_ready_restart_after_countdown"))
+	{
 		reset_map();
+		Score_ClearAll();
+	}
 	
 	if(cvar("sv_eventlog"))
 		GameLogEcho(":restart", FALSE);

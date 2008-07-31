@@ -16,6 +16,7 @@ float require_spawnfunc_prefix; // if this float exists, only functions with spa
 float g_domination, g_ctf, g_tdm, g_keyhunt, g_onslaught, g_assault, g_arena, g_lms, g_runematch;
 float g_cloaked, g_footsteps, g_grappling_hook, g_instagib, g_laserguided_missile, g_midair, g_minstagib, g_nixnex, g_nixnex_with_laser, g_norecoil, g_rocketarena, g_vampire, g_minstagib_invis_alpha;
 float g_tourney;
+float g_ctf_win_mode;
 float tourneyInMatchStage;
 
 float sv_cheats;
@@ -208,11 +209,11 @@ float WEP_CRYLINK			= 6; // float	IT_CRYLINK				= 16;
 float WEP_NEX				= 7; // float	IT_NEX					= 32;
 float WEP_HAGAR				= 8; // float	IT_HAGAR				= 64;
 float WEP_ROCKET_LAUNCHER	= 9; // float	IT_ROCKET_LAUNCHER		= 128;
-
+float WEP_ANTINEX			= 10;
 // For weapon cycling commands
 float WEP_FIRST				= 1;
-float WEP_LAST				= 9;
-float WEP_COUNT             = 10;
+float WEP_LAST				= 10;
+float WEP_COUNT             = 11;
 
 void(entity client, string s) centerprint_builtin = #73;
 .vector dest1, dest2;
@@ -289,7 +290,6 @@ void checkSpectatorBlock();
 float timelimit_orig;
 
 .float winning;
-.float deaths;
 .float jointime;
 
 float isJoinAllowed();
@@ -442,6 +442,5 @@ float tracebox_hits_trigger_hurt(vector start, vector mi, vector ma, vector end)
 
 float next_pingtime;
 
-.float captures;
-.float returns;
-float caps_team1, caps_team2;
+.float Version;
+.float(entity to) SendEntity;

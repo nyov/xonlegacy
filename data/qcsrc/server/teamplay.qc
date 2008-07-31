@@ -25,15 +25,7 @@ float IsTeamBalanceForced()
 
 void TeamchangeFrags(entity e)
 {
-	if(g_ctf)
-	{
-		e.captures = 0;
-	}
-	if(e.classname == "player")
-	{
-		// reduce frags during a team change
-		DistributeFragsAmongTeam(e, (e.clientcolors & 0x0F) + 1, 1 - cvar("g_changeteam_fragtransfer") / 100);
-	}
+	PlayerScore_Clear(e);
 }
 
 vector TeamColor(float teem)
@@ -106,6 +98,14 @@ void ResetGameCvars()
 	cvar_set("g_assault", "0");
 	cvar_set("g_onslaught", "0");
 	cvar_set("teamplay", "0");
+}
+
+void default_delayedinit()
+{
+	remove(self);
+
+	if(!scores_initialized)
+		ScoreRules_generic();
 }
 
 void ActivateTeamplay()
@@ -225,7 +225,9 @@ void InitGameplayMode()
 			fraglimit_override = -1;
 		gamemode_name = "Last Man Standing";
 		teams_matter = 0;
-		lms_lowest_lives = 999;
+		lms_lowest_lives = 9999;
+
+		ScoreRules_lms();
 	}
 	else if(game == GAME_ARENA || cvar("g_arena"))
 	{
@@ -303,6 +305,10 @@ void InitGameplayMode()
 	cache_lastmutatormsg = strzone("");
 	cache_lastmotd = strzone("");
 
+	if(g_ctf)
+		if(g_ctf_win_mode != 2)
+			fraglimit_override = capturelimit_override;
+
 	// enforce the server's universal frag/time limits
 	if(!cvar("g_campaign"))
 	{
@@ -310,8 +316,6 @@ void InitGameplayMode()
 			cvar_set("fraglimit", ftos(fraglimit_override));
 		if(timelimit_override >= 0)
 			cvar_set("timelimit", ftos(timelimit_override));
-		if(capturelimit_override >= 0)
-			cvar_set("capturelimit", ftos(capturelimit_override));
 	}
 
 	if (game == GAME_DOMINATION)//cvar("g_domination"))
@@ -326,6 +330,11 @@ void InitGameplayMode()
 		kh_init();
 	else if (game == GAME_ONSLAUGHT)
 		entcs_init();
+
+	entity e;
+	e = spawn();
+	e.nextthink = time + 0.3; // MUST be after all other delayed inits!
+	e.think = default_delayedinit;
 }
 
 string GetClientVersionMessage(float v) {
@@ -349,6 +358,7 @@ string GetClientVersionMessage(float v) {
 void PrintWelcomeMessage(entity pl)
 {
 	string s, mutator, modifications, padding;
+	float p;
 
 	/*if(self.welcomemessage_time > time)
 		return;
@@ -370,25 +380,34 @@ void PrintWelcomeMessage(entity pl)
 	{
 		if(self.classname == "observer")
 		{
-			if(g_lms && self.frags <= 0 && self.frags > -666)
-				return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "^1You have no more lives left\nwait for next round\n\n\n^7press attack to spectate other players"));
-			else if(g_lms && self.frags == -666)
-				return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "^1Match has already begun\nwait for next round\n\n\n^7press attack to spectate other players"));
+			if(g_lms)
+			{
+				p = PlayerScore_Add(self, SP_LMS_RANK, 0);
+				if(p >= 666)
+					return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "^1Match has already begun\nwait for next round\n\n\n^7press attack to spectate other players"));
+				else if(p > 0)
+					return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "^1You have no more lives left\nwait for next round\n\n\n^7press attack to spectate other players"));
+			}
 		}
 		else if(self.classname == "spectator")
 		{
-			if ((g_lms && self.frags < 1) || g_arena)
-				return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press attack for next player\npress attack2 for free fly mode"));
-			else {
-				local string specString;
-				specString = strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press jump to play\n^7press attack for next player\npress attack2 for free fly mode");
-				
-				if(time < restart_countdown) //also show the countdown when being a spectator
-					specString = strcat(specString, "\n\n^1Game starts in ", ftos(restartAnnouncer.cnt + 1), " seconds^7");
-				else if (timeoutStatus != 0)
-					specString = strcat(specString, "\n\n", getTimeoutText(1));
-				return centerprint_atprio(self, CENTERPRIO_SPAM, specString);
+			if(g_lms)
+			{
+				p = PlayerScore_Add(self, SP_LMS_RANK, 0);
+				if(p)
+					return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press attack for next player\npress attack2 for free fly mode"));
 			}
+			if (g_arena)
+				return centerprint_atprio(self, CENTERPRIO_SPAM, strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press attack for next player\npress attack2 for free fly mode"));
+
+			local string specString;
+			specString = strcat(NEWLINES, "spectating ", self.enemy.netname, "\n\n\n^7press jump to play\n^7press attack for next player\npress attack2 for free fly mode");
+			
+			if(time < restart_countdown) //also show the countdown when being a spectator
+				specString = strcat(specString, "\n\n^1Game starts in ", ftos(restartAnnouncer.cnt + 1), " seconds^7");
+			else if (timeoutStatus != 0)
+				specString = strcat(specString, "\n\n", getTimeoutText(1));
+			return centerprint_atprio(self, CENTERPRIO_SPAM, specString);
 		}
 	}
 
@@ -479,18 +498,7 @@ void PrintWelcomeMessage(entity pl)
 	if (cache_motd != "") {
 		s = strcat(s, "\n\n^8MOTD: ^7", cache_motd);
 	}
-
 	s = strcat(s, "\n");
-	if(cvar("fraglimit"))
-	{
-		padding = "";
-		if(cvar("timelimit"))
-			padding = "        ";
-			//        " minutes"
-		s = strcat(s, "\n^8frag limit: ^7", cvar_string("fraglimit"), padding);
-	}
-	if(cvar("timelimit"))
-		s = strcat(s, "\n^8time limit: ^7", cvar_string("timelimit"), " minutes");
 
 	centerprint(pl, s);
 	//sprint(pl, s);
@@ -638,21 +646,24 @@ void CheckAllowedTeams (entity for_whom)
 		head = find(head, classname, teament_name);
 	}
 
-	if(cvar("bot_vs_human") > 0)
+	if(for_whom)
 	{
-		// bots are all blue
-		if(clienttype(for_whom) == CLIENTTYPE_BOT)
-			c1 = c3 = c4 = -1;
-		else
-			c2 = -1;
-	}
-	else if(cvar("bot_vs_human") < 0)
-	{
-		// bots are all red
-		if(clienttype(for_whom) == CLIENTTYPE_BOT)
-			c2 = c3 = c4 = -1;
-		else
-			c1 = -1;
+		if(cvar("bot_vs_human") > 0)
+		{
+			// bots are all blue
+			if(clienttype(for_whom) == CLIENTTYPE_BOT)
+				c1 = c3 = c4 = -1;
+			else
+				c2 = -1;
+		}
+		else if(cvar("bot_vs_human") < 0)
+		{
+			// bots are all red
+			if(clienttype(for_whom) == CLIENTTYPE_BOT)
+				c2 = c3 = c4 = -1;
+			else
+				c1 = -1;
+		}
 	}
 }
 
@@ -1108,18 +1119,18 @@ void ShufflePlayerOutOfTeam (float source_team)
 		{
 			if(head.isbot)
 			{
-				if(head.frags < lowest_bot_score)
+				if(head.totalfrags < lowest_bot_score)
 				{
 					lowest_bot = head;
-					lowest_bot_score = head.frags;
+					lowest_bot_score = head.totalfrags;
 				}
 			}
 			else
 			{
-				if(head.frags < lowest_player_score)
+				if(head.totalfrags < lowest_player_score)
 				{
 					lowest_player = head;
-					lowest_player_score = head.frags;
+					lowest_player_score = head.totalfrags;
 				}
 			}
 		}
@@ -1302,28 +1313,6 @@ void AuditTeams()
 	audit_teams_time = time + 0.7 + random()*0.3;
 }
 
-
-
-/*void UpdateTeamScore(entity e, float first)
-{
-	clientno = e.FIXME;
-	if(first)
-	{
-		WriteByte (MSG_ALL, SVC_UPDATENAME);
-		WriteByte (MSG_ALL, clientno);
-		WriteString (MSG_ALL, e.netname);
-
-		WriteByte (MSG_ALL, SVC_UPDATECOLORS);
-		WriteByte (MSG_ALL, clientno);
-		WriteByte (MSG_ALL, e.b_shirt * 16 + who.b_pants);
-	}
-
-	WriteByte (MSG_ALL, SVC_UPDATEFRAGS);
-	WriteByte (MSG_ALL, clientno);
-	WriteShort (MSG_ALL, e.frags + 10000);
-};
-
-*/
 
 
 // code from here on is just to support maps that don't have team entities

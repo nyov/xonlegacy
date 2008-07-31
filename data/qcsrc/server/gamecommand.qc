@@ -48,12 +48,6 @@ void GameCommand(string command)
 	if(GameCommand_Generic(command))
 		return;
 
-	if(argv(0) == "teamstatus")
-	{
-		PrintScoreboard(world);
-		return;
-	}
-
 	if(argv(0) == "printstats")
 	{
 		DumpStats(FALSE);
@@ -207,6 +201,10 @@ void GameCommand(string command)
 		else
 			print("Client not found\n");
 		return;
+	}
+	if (argv(0) == "sdp")
+	{
+		Score_DebugPrint();
 	}
 
 	print("Invalid command. For a list of supported commands, try sv_cmd help.\n");

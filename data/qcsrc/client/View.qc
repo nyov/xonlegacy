@@ -5,8 +5,12 @@ void CSQC_common_hud(void);
 void CSQC_kh_hud(void);
 void CSQC_ctf_hud(void);
 void PostInit(void);
+float Sbar_WouldDrawScoreboard ();
 void CSQC_UpdateView(void)
 {
+	// watch for gametype changes here...
+	// in ParseStuffCMD the cmd isn't executed yet :/
+	// might even be better to add the gametype to TE_CSQC_INIT...?
 	if(!postinit)
 		PostInit();
 	
@@ -28,7 +32,7 @@ void CSQC_UpdateView(void)
 	R_SetView(VF_DRAWWORLD, 1);
 	
 	// Draw the Crosshair
-	R_SetView(VF_DRAWCROSSHAIR, 1);
+	R_SetView(VF_DRAWCROSSHAIR, !Sbar_WouldDrawScoreboard());
 	
 	// Draw the Engine Status Bar (the default Quake HUD)
 	draw_enginesbar = !cvar("sbar_usecsqc");
@@ -124,7 +128,7 @@ void CSQC_kh_hud(void)
 	yellow = '1 1 0';
 	pink = '1 0 1';
 
-	kh_size = '0 0';  // don't resize the image
+	kh_size = '0 0 0';  // don't resize the image
 
 	kh_carrying = "gfx/sb_kh_full";
 	kh_outline = "gfx/sb_kh_outline";

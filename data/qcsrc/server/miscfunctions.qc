@@ -109,11 +109,20 @@ void move_out_of_solid(entity e)
 	}
 }
 
+string STR_PLAYER = "player";
+
+#if 0
 #define FOR_EACH_CLIENT(v) for(v = world; (v = findflags(v, flags, FL_CLIENT)) != world; )
 #define FOR_EACH_REALCLIENT(v) FOR_EACH_CLIENT(v) if(clienttype(v) == CLIENTTYPE_REAL)
-string STR_PLAYER = "player";
 #define FOR_EACH_PLAYER(v) for(v = world; (v = find(v, classname, STR_PLAYER)) != world; )
 #define FOR_EACH_REALPLAYER(v) FOR_EACH_PLAYER(v) if(clienttype(v) == CLIENTTYPE_REAL)
+#else
+#define FOR_EACH_CLIENTSLOT(v) for(v = world; (v = nextent(v)) && (num_for_edict(v) <= maxclients); )
+#define FOR_EACH_CLIENT(v) FOR_EACH_CLIENTSLOT(v) if(v.flags & FL_CLIENT)
+#define FOR_EACH_REALCLIENT(v) FOR_EACH_CLIENT(v) if(clienttype(v) == CLIENTTYPE_REAL)
+#define FOR_EACH_PLAYER(v) FOR_EACH_CLIENT(v) if(v.classname == STR_PLAYER)
+#define FOR_EACH_REALPLAYER(v) FOR_EACH_REALCLIENT(v) if(v.classname == STR_PLAYER)
+#endif
 
 // change that to actually calling strcat when running on an engine without
 // unlimited tempstrings:
@@ -524,44 +533,6 @@ void backtrace(string msg)
 	cvar_set("developer", ftos(dev));
 }
 
-void DistributeFragsAmongTeam(entity p, float targetteam, float factor)
-{
-	float nTeam;
-	entity head;
-	float f;
-
-	if(!teams_matter)
-		return;
-
-	//if(p.frags < 0)
-	//{
-	//	p.frags = 0; // do not harm the new team!
-	//	return; // won't distribute negative scores
-	//}
-
-	if(p.frags == -666)
-		return;
-
-	f = ceil(factor * p.frags);
-	p.frags = p.frags - f;
-
-	nTeam = 0;
-	FOR_EACH_PLAYER(head)
-		if(head != p)
-			if(head.team == targetteam)
-				nTeam = nTeam + 1;
-
-	if(nTeam == 0)
-		return;
-
-	DistributeEvenly_Init(f, nTeam);
-
-	FOR_EACH_PLAYER(head)
-		if(head != p)
-			if(head.team == targetteam)
-				head.frags = head.frags + DistributeEvenly_Get(1);
-}
-
 string Team_ColorCode(float teamid)
 {
 	if(teamid == COLOR_TEAM1)
@@ -783,6 +754,7 @@ void readlevelcvars(void)
 	sv_maxidle_spectatorsareidle = cvar("sv_maxidle_spectatorsareidle");
 	sv_pogostick = cvar("sv_pogostick");
 	sv_doublejump = cvar("sv_doublejump");
+	g_ctf_win_mode = cvar("g_ctf_win_mode");
 
 	g_pickup_shells                    = cvar("g_pickup_shells");
 	g_pickup_shells_max                = cvar("g_pickup_shells_max");
