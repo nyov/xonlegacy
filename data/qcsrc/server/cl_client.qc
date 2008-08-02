@@ -984,6 +984,12 @@ void ClientConnect (void)
 	local string s;
 	float wep;
 
+	if(self.flags & FL_CLIENT)
+	{
+		print("Warning: ClientConnect, but already connected!\n");
+		return;
+	}
+
 	if(Ban_IsClientBanned(self))
 	{
 		s = strcat("^1NOTE:^7 banned client ", self.netaddress, " just tried to enter\n");
@@ -995,6 +1001,7 @@ void ClientConnect (void)
 	DecodeLevelParms();
 
 	self.classname = "player_joining";
+
 	self.flags = self.flags | FL_CLIENT;
 	self.version_nagtime = time + 10 + random() * 10;
 
@@ -1138,6 +1145,7 @@ void ClientConnect (void)
 			MapVote_SendData(MSG_ONE);
 			MapVote_UpdateData(MSG_ONE);
 		}
+		ScoreInfo_Write(MSG_ONE);
 	}
 
 	if(g_lms)
@@ -1164,6 +1172,12 @@ void(entity e) DropFlag;
 void ClientDisconnect (void)
 {
 	float save;
+
+	if not(self.flags & FL_CLIENT)
+	{
+		print("Warning: ClientDisconnect without ClientConnect\n");
+		return;
+	}
 
 	bot_clientdisconnect();
 
@@ -1222,10 +1236,7 @@ void ClientDisconnect (void)
 	}
 	*/
 
-	if(self.flags & FL_CLIENT)
-		PlayerScore_Detach(self);
-	else
-		print("Warning: ClientDisconnect without ClientConnect\n");
+	PlayerScore_Detach(self);
 
 	if(self.netname_previous)
 		strunzone(self.netname_previous);

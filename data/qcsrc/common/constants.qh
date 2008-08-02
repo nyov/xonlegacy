@@ -4,7 +4,9 @@
 // Revision 3: optimized map vote protocol
 // Revision 4: CSQC config var system
 // Revision 5: mapvote time fix
-#define CSQC_REVISION 5
+// Revision 6: more robust against packet loss/delays, also show not yet connected clients
+// Revision 7: packet loss column
+#define CSQC_REVISION 7
 
 // probably put these in common/
 // so server/ and client/ can be synced better
@@ -180,6 +182,7 @@ const float TE_CSQC_DEATHS = 104;
 const float TE_CSQC_PICTURE = 105;
 const float TE_CSQC_MAPVOTE = 106;
 const float TE_CSQC_CONFIG = 107;
+const float TE_CSQC_SCORESINFO = 108;
 
 const float STAT_KH_KEYS = 32;
 const float STAT_CTF_STATE = 33;

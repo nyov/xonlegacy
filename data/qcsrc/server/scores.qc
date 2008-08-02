@@ -121,26 +121,29 @@ void ScoreInfo_SetLabel_TeamScore(float i, string label, float scoreflags)
 		teamscores_primary = teamscores[i];
 }
 
-float ScoreInfo_SendEntity(entity to)
+void ScoreInfo_Write(float targ)
 {
-	WriteByte(MSG_ENTITY, ENT_CLIENT_SCORES_INFO);
 	float i;
-	WriteByte(MSG_ENTITY, game);
+	if not(scores_initialized)
+		return;
+	WriteByte(targ, SVC_TEMPENTITY);
+	WriteByte(targ, TE_CSQC_SCORESINFO);
+	WriteByte(targ, game);
 	for(i = 0; i < MAX_SCORE; ++i)
 	{
-		WriteString(MSG_ENTITY, scores_label[i]);
-		WriteByte(MSG_ENTITY, scores_flags[i]);
+		WriteString(targ, scores_label[i]);
+		WriteByte(targ, scores_flags[i]);
 	}
 	for(i = 0; i < MAX_TEAMSCORE; ++i)
 	{
-		WriteString(MSG_ENTITY, teamscores_label[i]);
-		WriteByte(MSG_ENTITY, teamscores_flags[i]);
+		WriteString(targ, teamscores_label[i]);
+		WriteByte(targ, teamscores_flags[i]);
 	}
-	return TRUE;
 }
 
 void ScoreInfo_Init(float teams)
 {
+	entity pl;
 	scores_initialized = 1;
 	if(teams >= 1)
 		TeamScore_Spawn(COLOR_TEAM1, "Red");
@@ -150,12 +153,8 @@ void ScoreInfo_Init(float teams)
 		TeamScore_Spawn(COLOR_TEAM3, "Yellow");
 	if(teams >= 4)
 		TeamScore_Spawn(COLOR_TEAM4, "Pink");
-	entity si;
-	si = spawn();
-	Net_LinkEntity(si);
-	si.classname = "csqc_score_info";
-	si.SendEntity = ScoreInfo_SendEntity;
-	si.Version = 1;
+	FOR_EACH_REALCLIENT(msg_entity) // cannot use MSG_ALL here, as that may come too early on level changes (that SUCKS)
+		ScoreInfo_Write(MSG_ONE);
 }
 
 /*

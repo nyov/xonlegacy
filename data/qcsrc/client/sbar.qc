@@ -20,8 +20,6 @@ entity sortedTeams;
 float ps_primary, ps_secondary;
 float ts_primary, ts_secondary;
 
-entity team1, team2, team3, team4, teamspec;
-
 void CSQC_kh_hud();
 void CSQC_ctf_hud();
 void MapVote_Draw();
@@ -162,6 +160,8 @@ void Sbar_InitScores()
 }
 
 void Sbar_UpdatePlayerPos(entity pl);
+float SetTeam(entity pl, float Team);
+//float lastpnum;
 void Sbar_UpdatePlayerTeams()
 {
 	float Team;
@@ -173,15 +173,8 @@ void Sbar_UpdatePlayerTeams()
 	{
 		num += 1;
 		Team = GetPlayerColor(pl.sv_entnum);
-		if(pl.team != Team)
+		if(SetTeam(pl, Team))
 		{
-			tmp = GetTeam(pl.team, false);
-			tmp.team_size -= 1;
-			tmp = GetTeam(Team, true);
-			tmp.team_size += 1;
-			
-			pl.team = Team;
-
 			tmp = pl.sort_prev;
 			Sbar_UpdatePlayerPos(pl);
 			if(tmp)
@@ -190,7 +183,11 @@ void Sbar_UpdatePlayerTeams()
 				pl = players.sort_next;
 		}
 	}
-	//print(strcat("PNUM: ", ftos(num), "\n"));
+	/*
+	if(num != lastpnum)
+		print(strcat("PNUM: ", ftos(num), "\n"));
+	lastpnum = num;
+	*/
 }
 
 float Sbar_ComparePlayerScores(entity left, entity right)
@@ -203,6 +200,15 @@ float Sbar_ComparePlayerScores(entity left, entity right)
 		return true;
 	if(vl < vr)
 		return false;
+
+	if(vl == COLOR_SPECTATOR)
+	{
+		// FIRST the one with scores (spectators), THEN the ones without (downloaders)
+		// no other sorting
+		if(!left.gotscores && right.gotscores)
+			return true;
+		return false;
+	}
 
 	vl = left.scores[ps_primary];
 	vr = right.scores[ps_primary];
@@ -305,7 +311,7 @@ void Cmd_Sbar_Help(float argc)
 
 string Sbar_DefaultColumnLayout()
 {
-	return "ping name | -ctf,kh/kills -ctf,kh/deaths +lms/lives +lms/rank +kh,ctf/caps +kh/pushes +kh/destroyed -lms/score";
+	return "ping pl name | -ctf,kh/kills -ctf,kh/deaths +lms/lives +lms/rank +kh,ctf/caps +kh/pushes +kh/destroyed -lms/score";
 }
 
 void Cmd_Sbar_SetFields(float argc)
@@ -387,6 +393,8 @@ void Cmd_Sbar_SetFields(float argc)
 
 		if(str == "ping") {
 			sbar_field[sbar_num_fields] = SP_PING;
+		} else if(str == "pl") {
+			sbar_field[sbar_num_fields] = SP_PL;
 		} else if(str == "name" || str == "nick") {
 			sbar_field[sbar_num_fields] = SP_NAME;
 			sbar_size[sbar_num_fields] = MIN_NAMELEN; // minimum size? any use?
@@ -496,9 +504,23 @@ string Sbar_GetField(entity pl, float field)
 	switch(field)
 	{
 		case SP_PING:
-			str = bufstr_get(databuf, DATABUF_PING + pl.sv_entnum);
+			if not(pl.gotscores)
+				return "\x8D\x8D\x8D"; // >>> sign
+			str = getplayerkey(pl.sv_entnum, "ping");
+			if(str == "0")
+				return "N/A";
 			tmp = max(0, min(220, stof(str)-80)) / 220;
 			sbar_field_rgb = '1 1 1' - '0 1 1'*tmp;
+			return str;
+		
+		case SP_PL:
+			if not(pl.gotscores)
+				return "N/A";
+			str = getplayerkey(pl.sv_entnum, "pl");
+			if(str == "0")
+				return "";
+			tmp = bound(0, stof(str), 20) / 20; // 20% is REALLY BAD pl
+			sbar_field_rgb = '1 0.5 0.5' - '0 0.5 0.5'*tmp;
 			return str;
 		
 		case SP_NAME:
@@ -693,6 +715,7 @@ void Sbar_PrintScoreboardItem(vector pos, entity pl, float is_self)
 	}
 }
 
+float lastpingstime;
 void Sbar_DrawScoreboard()
 {
 	//float xmin, ymin, xmax, ymax;
@@ -700,6 +723,12 @@ void Sbar_DrawScoreboard()
 	entity pl, tm;
 	float specs, i;
 	float center_x;
+
+	if(time > lastpingstime + 10)
+	{
+		localcmd("pings\n");
+		lastpingstime = time;
+	}
 
 	sbar_fontsize = Sbar_GetFontsize();
 	if(sbar_fontsize_x == 0)
@@ -1124,6 +1153,8 @@ float Sbar_WouldDrawScoreboard ()
 	else if (intermission == 1)
 		return 1;
 	else if (intermission == 2)
+		return 1;
+	else if (getstati(STAT_HEALTH) <= 0 && cvar("cl_deathscoreboard"))
 		return 1;
 	return 0;
 }
