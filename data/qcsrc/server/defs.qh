@@ -14,7 +14,7 @@ float require_spawnfunc_prefix; // if this float exists, only functions with spa
 // Globals
 
 float g_domination, g_ctf, g_tdm, g_keyhunt, g_onslaught, g_assault, g_arena, g_lms, g_runematch;
-float g_cloaked, g_footsteps, g_grappling_hook, g_instagib, g_laserguided_missile, g_midair, g_minstagib, g_nixnex, g_nixnex_with_laser, g_norecoil, g_rocketarena, g_vampire, g_minstagib_invis_alpha;
+float g_cloaked, g_footsteps, g_jump_grunt, g_grappling_hook, g_instagib, g_laserguided_missile, g_midair, g_minstagib, g_nixnex, g_nixnex_with_laser, g_norecoil, g_rocketarena, g_vampire, g_minstagib_invis_alpha;
 float g_tourney;
 float g_ctf_win_mode;
 float tourneyInMatchStage;
@@ -444,3 +444,36 @@ float next_pingtime;
 
 .float Version;
 .float(entity to) SendEntity;
+
+// player sounds, voice messages
+.string playersound_attack;
+.string playersound_attackinfive;
+.string playersound_coverme;
+.string playersound_defend;
+.string playersound_freelance;
+.string playersound_incoming;
+.string playersound_meet;
+.string playersound_needhelp;
+.string playersound_seenflag;
+.string playersound_taunt;
+.string playersound_teamshoot;
+.string playersound_death;
+.string playersound_drown;
+.string playersound_falling; // not yet implemented, FIXME
+.string playersound_gasp;
+.string playersound_jump;
+.string playersound_pain25;
+.string playersound_pain50;
+.string playersound_pain75;
+.string playersound_pain100;
+string globalsound_fall;
+string globalsound_metalfall;
+string globalsound_step;
+string globalsound_metalstep;
+void PrecachePlayerSounds(string f);
+void PrecacheGlobalSound(string samplestring);
+void UpdatePlayerSounds();
+void ClearPlayerSounds();
+void PlayerSound(.string samplefield, float channel, float teamsay); // 0 is normal, 1 is team, 2 is last attacker
+void GlobalSound(string samplestring, float channel, float teamsay); // 0 is normal, 1 is team, 2 is last attacker
+void VoiceMessage(string type);

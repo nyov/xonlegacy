@@ -738,6 +738,7 @@ void readlevelcvars(void)
 	sv_gentle = cvar("sv_gentle");
 	sv_foginterval = cvar("sv_foginterval");
 	g_cloaked = cvar("g_cloaked");
+	g_jump_grunt = cvar("g_jump_grunt");
 	g_footsteps = cvar("g_footsteps");
 	g_grappling_hook = cvar("g_grappling_hook");
 	g_instagib = cvar("g_instagib");
@@ -1001,12 +1002,8 @@ void precache()
 
 	if (g_footsteps)
 	{
-		precache_sound ("misc/footstep01.wav");
-		precache_sound ("misc/footstep02.wav");
-		precache_sound ("misc/footstep03.wav");
-		precache_sound ("misc/footstep04.wav");
-		precache_sound ("misc/footstep05.wav");
-		precache_sound ("misc/footstep06.wav");
+		PrecacheGlobalSound((globalsound_step = "misc/footstep0 6"));
+		PrecacheGlobalSound((globalsound_metalstep = "misc/metalfootstep0 6"));
 	}
 
 	// gore and miscellaneous sounds
@@ -1035,10 +1032,8 @@ void precache()
 	precache_sound ("misc/gib_splat03.wav");
 	precache_sound ("misc/gib_splat04.wav");
 	precache_sound ("misc/hit.wav");
-	precache_sound ("misc/hitground1.wav");
-	precache_sound ("misc/hitground2.wav");
-	precache_sound ("misc/hitground3.wav");
-	precache_sound ("misc/hitground4.wav");
+	PrecacheGlobalSound((globalsound_fall = "misc/hitground 4"));
+	PrecacheGlobalSound((globalsound_metalfall = "misc/metalhitground 4"));
 	precache_sound ("misc/null.wav");
 	precache_sound ("misc/spawn.wav");
 	precache_sound ("misc/talk.wav");

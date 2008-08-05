@@ -80,6 +80,9 @@ void PlayerJump (void)
 		player_setanim(self.anim_duckjump, FALSE, TRUE, TRUE);
 	else
 		player_setanim(self.anim_jump, FALSE, TRUE, TRUE);
+
+	if(g_jump_grunt)
+		PlayerSound(playersound_jump, CHAN_AUTO, 0);
 }
 
 void CheckWaterJump()
@@ -229,6 +232,21 @@ void SV_PlayerPhysics()
 		self.angles_y = self.v_angle_y;
 		self.angles_z = 0;
 	}
+
+	if(self.flags & FL_ONGROUND)
+		if not(self.lastflags & FL_ONGROUND)
+		{
+			self.nextstep = time + 0.3 + random() * 0.1;
+			trace_dphitq3surfaceflags = 0;
+			tracebox(self.origin, self.mins, self.maxs, self.origin - '0 0 1', MOVE_NOMONSTERS, self);
+			if not(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOSTEPS)
+			{
+				if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_METALSTEPS)
+					GlobalSound(globalsound_metalfall, CHAN_AUTO, 0);
+				else
+					GlobalSound(globalsound_fall, CHAN_AUTO, 0);
+			}
+		}
 
 	if(self.classname == "player")
 	{

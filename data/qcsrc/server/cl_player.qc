@@ -354,29 +354,13 @@ void ClientKill_Now_TeamChange();
 void PlayerDamage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
 	local float take, save, waves, sdelay;
+	float painsequence;
 
 	damage = damage * bound(1.0, self.cvar_cl_handicap, 100.0);
 	if(sv_gentle > 0) {
 		pointparticles(particleeffectnum("damage_hit"), hitloc, force, bound(0, damage, 200));
 	} else {
 		pointparticles(particleeffectnum("blood"), hitloc, force, bound(0, damage, 200));
-	}
-
-	if (self.pain_finished < time)		//Don't switch pain sequences like crazy
-	{
-		if(sv_gentle < 1) {		
-			if (random() > 0.5)
-				player_setanim(self.anim_pain1, FALSE, TRUE, TRUE);
-			else
-				player_setanim(self.anim_pain2, FALSE, TRUE, TRUE);
-		}
-		self.pain_finished = time + 0.5;	//Supajoe
-
-		// throw off bot aim temporarily
-		local float shake;
-		shake = damage * 5 / (bound(0,skill,100) + 1);
-		self.v_angle_x = self.v_angle_x + (random() * 2 - 1) * shake;
-		self.v_angle_y = self.v_angle_y + (random() * 2 - 1) * shake;
 	}
 
 	if(g_arena)
@@ -399,7 +383,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 	else if (take > 30)
 		sound (self, CHAN_IMPACT, "misc/bodyimpact2.wav", 1, ATTN_NORM);
 	else if (take > 10)
-		sound (self, CHAN_IMPACT, "misc/bodyimpact1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_IMPACT, "misc/bodyimpact1.wav", 1, ATTN_NORM); // FIXME possibly remove them?
 
 	if (take > 50)
 		TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.1,1);
@@ -414,6 +398,37 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 			self.health = self.health - take;
 			// pause regeneration for 5 seconds
 			self.pauseregen_finished = max(self.pauseregen_finished, time + cvar("g_balance_pause_health_regen"));
+
+			if (time > self.pain_finished)		//Don't switch pain sequences like crazy
+			{
+				self.pain_finished = time + 0.5;	//Supajoe
+
+				if(sv_gentle < 1) {		
+					if (random() > 0.5)
+						player_setanim(self.anim_pain1, FALSE, TRUE, TRUE);
+					else
+						player_setanim(self.anim_pain2, FALSE, TRUE, TRUE);
+
+					if(deathtype != IT_LASER || attacker != self || self.health < 2 * cvar("g_balance_laser_primary_damage") * cvar("g_balance_selfdamagepercent") + 1)
+					// exclude pain sounds for laserjumps as long as you aren't REALLY low on health and would die of the next two
+					{
+						if(self.health > 75) // TODO make a "gentle" version?
+							PlayerSound(playersound_pain100, CHAN_AUTO, 0);
+						else if(self.health > 50)
+							PlayerSound(playersound_pain75, CHAN_AUTO, 0);
+						else if(self.health > 25)
+							PlayerSound(playersound_pain50, CHAN_AUTO, 0);
+						else if(self.health > 1)
+							PlayerSound(playersound_pain25, CHAN_AUTO, 0);
+					}
+				}
+
+				// throw off bot aim temporarily
+				local float shake;
+				shake = damage * 5 / (bound(0,skill,100) + 1);
+				self.v_angle_x = self.v_angle_x + (random() * 2 - 1) * shake;
+				self.v_angle_y = self.v_angle_y + (random() * 2 - 1) * shake;
+			}
 		}
 		else
 			self.max_armorvalue += (save + take);
@@ -445,6 +460,14 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 	{
 		float defer_ClientKill_Now_TeamChange;
 		defer_ClientKill_Now_TeamChange = FALSE;
+
+		if(sv_gentle < 1) // TODO make a "gentle" version?
+		{
+			if(deathtype == DEATH_DROWN)
+				PlayerSound(playersound_drown, CHAN_AUTO, 0);
+			else
+				PlayerSound(playersound_death, CHAN_AUTO, 0);
+		}
 
 		// get rid of kill indicator
 		if(self.killindicator)
@@ -729,20 +752,6 @@ void soundto(entity e, entity sounddest, float chan, string samp, float vol, flo
 	WriteCoord(MSG_ONE, o_z);
 }
 
-#if 0
-.string playersound_attack;
-.string playersound_attackinfive;
-.string playersound_coverme;
-.string playersound_defend;
-.string playersound_freelance;
-.string playersound_incoming;
-.string playersound_meet;
-.string playersound_needhelp;
-.string playersound_seenflag;
-.string playersound_taunt;
-.string playersound_teamshoot;
-.float modelindex_for_playersound;
-
 float GetVoiceMessageTeamsayType(string type)
 {
 	if(type == "taunt")
@@ -754,9 +763,11 @@ float GetVoiceMessageTeamsayType(string type)
 
 string allvoicesamples = "attack attackinfive coverme defend freelance incoming meet needhelp seenflag taunt teamshoot";
 float GetPlayerSoundSampleField_notFound;
+float GetPlayerSoundSampleField_fixed;
 .string GetVoiceMessageSampleField(string type)
 {
 	GetPlayerSoundSampleField_notFound = 0;
+	GetPlayerSoundSampleField_fixed = 0;
 	switch(type)
 	{
 		case "attack":       return playersound_attack;
@@ -778,17 +789,42 @@ float GetPlayerSoundSampleField_notFound;
 .string GetPlayerSoundSampleField(string type)
 {
 	GetPlayerSoundSampleField_notFound = 0;
+	GetPlayerSoundSampleField_fixed = 0;
 	switch(type)
 	{
-		case "attack":       return playersound_attack;
-		default:             return GetVoiceMessageSampleField(type);
+		case "death":        return playersound_death;
+		case "drown":        return playersound_drown;
+		case "falling":      return playersound_falling;
+		case "gasp":         return playersound_gasp;
+		case "jump":         return playersound_jump;
+		case "pain25":       return playersound_pain25;
+		case "pain50":       return playersound_pain50;
+		case "pain75":       return playersound_pain75;
+		case "pain100":      return playersound_pain100;
+	}
+	GetPlayerSoundSampleField_notFound = 1;
+	return playersound_taunt;
+}
+
+void PrecacheGlobalSound(string samplestring)
+{
+	float n, i;
+	tokenize(samplestring);
+	n = stof(argv(1));
+	if(n > 0)
+	{
+		for(i = 1; i <= n; ++i)
+			precache_sound(strcat(argv(0), ftos(i), ".wav"));
+	}
+	else
+	{
+		precache_sound(strcat(argv(0), ".wav"));
 	}
 }
 
 void PrecachePlayerSounds(string f)
 {
 	float fh;
-	float i, n;
 	string s;
 	fh = fopen(f, FILE_READ);
 	if(fh < 0)
@@ -800,14 +836,36 @@ void PrecachePlayerSounds(string f)
 			dprint("Invalid sound info line: ", s, "\n");
 			continue;
 		}
-		n = stof(argv(2));
-		for(i = 1; i <= n; ++i)
-			precache_sound(strcat(argv(1), ftos(i), ".wav"));
+		PrecacheGlobalSound(strcat(argv(1), " ", argv(2)));
 	}
 	fclose(fh);
 }
 
-void LoadPlayerSounds(string f)
+void ClearPlayerSounds()
+{
+	if(self.playersound_attack      ) { strunzone(self.playersound_attack      ); self.playersound_attack = string_null; }
+	if(self.playersound_attackinfive) { strunzone(self.playersound_attackinfive); self.playersound_attackinfive = string_null; }
+	if(self.playersound_coverme     ) { strunzone(self.playersound_coverme     ); self.playersound_coverme = string_null; }
+	if(self.playersound_defend      ) { strunzone(self.playersound_defend      ); self.playersound_defend = string_null; }
+	if(self.playersound_freelance   ) { strunzone(self.playersound_freelance   ); self.playersound_freelance = string_null; }
+	if(self.playersound_incoming    ) { strunzone(self.playersound_incoming    ); self.playersound_incoming = string_null; }
+	if(self.playersound_meet        ) { strunzone(self.playersound_meet        ); self.playersound_meet = string_null; }
+	if(self.playersound_needhelp    ) { strunzone(self.playersound_needhelp    ); self.playersound_needhelp = string_null; }
+	if(self.playersound_seenflag    ) { strunzone(self.playersound_seenflag    ); self.playersound_seenflag = string_null; }
+	if(self.playersound_taunt       ) { strunzone(self.playersound_taunt       ); self.playersound_taunt = string_null; }
+	if(self.playersound_teamshoot   ) { strunzone(self.playersound_teamshoot   ); self.playersound_teamshoot = string_null; }
+	if(self.playersound_death       ) { strunzone(self.playersound_death       ); self.playersound_death = string_null; }
+	if(self.playersound_drown       ) { strunzone(self.playersound_drown       ); self.playersound_drown = string_null; }
+	if(self.playersound_falling     ) { strunzone(self.playersound_falling     ); self.playersound_falling = string_null; }
+	if(self.playersound_gasp        ) { strunzone(self.playersound_gasp        ); self.playersound_gasp = string_null; }
+	if(self.playersound_jump        ) { strunzone(self.playersound_jump        ); self.playersound_jump = string_null; }
+	if(self.playersound_pain25      ) { strunzone(self.playersound_pain25      ); self.playersound_pain25 = string_null; }
+	if(self.playersound_pain50      ) { strunzone(self.playersound_pain50      ); self.playersound_pain50 = string_null; }
+	if(self.playersound_pain75      ) { strunzone(self.playersound_pain75      ); self.playersound_pain75 = string_null; }
+	if(self.playersound_pain100     ) { strunzone(self.playersound_pain100     ); self.playersound_pain100 = string_null; }
+}
+
+void LoadPlayerSounds(string f, float first)
 {
 	float fh;
 	string s;
@@ -821,7 +879,12 @@ void LoadPlayerSounds(string f)
 			continue;
 		field = GetPlayerSoundSampleField(argv(0));
 		if(GetPlayerSoundSampleField_notFound)
+			field = GetVoiceMessageSampleField(argv(0));
+		if(GetPlayerSoundSampleField_notFound)
 			continue;
+		if not(GetPlayerSoundSampleField_fixed)
+			if not(first)
+				continue;
 		if(self.field)
 			strunzone(self.field);
 		self.field = strzone(strcat(argv(1), " ", argv(2)));
@@ -829,21 +892,67 @@ void LoadPlayerSounds(string f)
 	fclose(fh);
 }
 
+.float modelindex_for_playersound;
 void UpdatePlayerSounds()
 {
 	if(self.modelindex == self.modelindex_for_playersound)
 		return;
 	self.modelindex_for_playersound = self.modelindex;
-	LoadPlayerSounds("sound/player/default.sounds");
-	LoadPlayerSounds(strcat(self.model, ".sounds"));
+	ClearPlayerSounds();
+	LoadPlayerSounds("sound/player/default.sounds", 1);
+	LoadPlayerSounds(strcat(self.model, ".sounds"), 0);
+}
+
+void GlobalSound(string sample, float chan, float teamsay)
+{
+	float n;
+
+	if(sample == "")
+		return;
+
+	tokenize(sample);
+	n = stof(argv(1));
+	if(n > 0)
+		sample = strcat(argv(0), ftos(ceil(random() * n)), ".wav"); // randomization
+	else
+		sample = strcat(argv(0), ".wav"); // randomization
+
+	if(teamsay == 2) // only to last attacker
+	{
+		if(teams_matter)
+			if(self.pusher)
+				if(self.pusher.team == self.team)
+				{
+					soundto(self, self.pusher, chan, sample, 1, ATTN_NONE);
+					soundto(self, self, chan, sample, 1, ATTN_NONE);
+				}
+	}
+	else if(teamsay == 0) // to everyone
+	{
+		// broadcast the sound, but it's directional
+		sound(self, chan, sample, 1, ATTN_NORM);
+	}
+	else if(teamsay == 1) // to the same team
+	{
+		entity e;
+		FOR_EACH_REALCLIENT(e)
+			if(!teams_matter || e.team == self.team)
+				soundto(self, e, chan, sample, 1, ATTN_NONE);
+	}
+}
+
+void PlayerSound(.string samplefield, float chan, float teamsay)
+{
+	string sample;
+	sample = self.samplefield;
+	GlobalSound(sample, chan, teamsay);
 }
 
 void VoiceMessage(string type)
 {
-	// TODO precache voice messages?
-	var string sample;
+	var .string sample;
 	var float teamsay;
-	sample = self.(GetPlayerSoundSampleField(type));
+	sample = GetVoiceMessageSampleField(type);
 
 	if(GetPlayerSoundSampleField_notFound)
 	{
@@ -851,39 +960,7 @@ void VoiceMessage(string type)
 		return;
 	}
 
-	if(!sample)
-		return;
-
 	teamsay = GetVoiceMessageTeamsayType(type);
 
-	tokenize(sample);
-	sample = strcat(argv(0), ftos(ceil(random() * stof(argv(1)))), ".wav"); // randomization
-
-	if(teamsay == 2)
-	{
-		if(teams_matter)
-			if(self.pusher)
-				if(self.pusher.team == self.team)
-				{
-					soundto(self, self.pusher, CHAN_VOICE, sample, 1, ATTN_NONE);
-					soundto(self, self, CHAN_VOICE, sample, 1, ATTN_NONE);
-				}
-	}
-	else if(teamsay == 0 || !teams_matter)
-	{
-		// broadcast the sound, but it's directional
-		sound(self, CHAN_VOICE, sample, 1, ATTN_NORM);
-	}
-	else if(teamsay == 1)
-	{
-		entity e;
-		FOR_EACH_REALCLIENT(e)
-			if(e.team == self.team)
-				soundto(self, e, CHAN_VOICE, sample, 1, ATTN_NONE);
-	}
+	PlayerSound(sample, CHAN_VOICE, teamsay);
 }
-#else
-void PrecachePlayerSounds(string f) { }
-void UpdatePlayerSounds() { }
-void VoiceMessage(string type) { sprint(self, "Sorry, voice command support is not done yet. Maybe later.\n"); }
-#endif

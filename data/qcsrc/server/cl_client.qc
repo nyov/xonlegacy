@@ -800,6 +800,13 @@ void ClientKill_Now()
 
 	// in any case:
 	Damage(self, self, self, 100000, DEATH_KILL, self.origin, '0 0 0');
+
+	if(self.killindicator)
+	{
+		dprint("Cleaned up after a leaked kill indicator.\n");
+		remove(self.killindicator);
+		self.killindicator = world;
+	}
 }
 void KillIndicator_Think()
 {
@@ -1240,6 +1247,8 @@ void ClientDisconnect (void)
 
 	if(self.netname_previous)
 		strunzone(self.netname_previous);
+
+	ClearPlayerSounds();
 
 	// free cvars
 	GetCvars(-1);
