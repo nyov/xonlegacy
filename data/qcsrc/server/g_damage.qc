@@ -1,17 +1,7 @@
 
 float checkrules_firstblood;
 
-.float announcetime;
 float yoda;
-void announce(entity player, string msg)
-{
-	if(time > player.announcetime)
-	if(clienttype(player) == CLIENTTYPE_REAL)
-	{
-		player.announcetime = time + 0.3;
-		play2(player, msg);
-	}
-}
 
 float IsDifferentTeam(entity a, entity b)
 {
@@ -226,7 +216,6 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				else if (deathtype == DEATH_NOAMMO)
 				{
 					bprint ("^7",s, " ^7committed suicide. What's the point of living without ammo?\n");
-					//sound (self, CHAN_BODY, "minstagib/mockery.wav", 1, ATTN_NONE);
 				}
 				else if (deathtype == DEATH_CAMP)
 					bprint ("^1",s, "^1 thought he found a nice camping ground\n");
@@ -277,9 +266,6 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				if (!checkrules_firstblood)
 				{
 					checkrules_firstblood = TRUE;
-					//sound(world, CHAN_AUTO, "announcer/firstblood.wav", 1, ATTN_NONE);
-					//if (g_minstagib)
-						//sound(world, CHAN_AUTO, "announce/male/mapkill1.wav", 1, ATTN_NONE);
 					if(sv_gentle)
 						bprint("^1",a, "^1 was the first to score", "\n");
 					else
@@ -527,37 +513,43 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 
 		// nullify damage if teamplay is on
 		if(deathtype != DEATH_TELEFRAG)
-		if(attacker.team == targ.team)
 		if(attacker.classname == "player")
 		{
-			if(teamplay == 1)
-				damage = 0;
-			else if(attacker != targ)
+			if(targ.classname == "player" && targ != attacker && (IS_INDEPENDENT_PLAYER(attacker) || IS_INDEPENDENT_PLAYER(targ)))
 			{
-				if(teamplay == 3)
+				damage = 0;
+				force = '0 0 0';
+			}
+			else if(attacker.team == targ.team)
+			{
+				if(teamplay == 1)
 					damage = 0;
-				else if(teamplay == 4)
+				else if(attacker != targ)
 				{
-					if(targ.classname == "player" && targ.deadflag == DEAD_NO)
+					if(teamplay == 3)
+						damage = 0;
+					else if(teamplay == 4)
 					{
-						mirrordamage = cvar("g_mirrordamage") * damage;
-						mirrorforce = cvar("g_mirrordamage") * vlen(force);
-						if(g_minstagib)
+						if(targ.classname == "player" && targ.deadflag == DEAD_NO)
 						{
-							if(cvar("g_friendlyfire") == 0)
-								damage = 0;
+							mirrordamage = cvar("g_mirrordamage") * damage;
+							mirrorforce = cvar("g_mirrordamage") * vlen(force);
+							if(g_minstagib)
+							{
+								if(cvar("g_friendlyfire") == 0)
+									damage = 0;
+							}
+							else
+								damage = cvar("g_friendlyfire") * damage;
+							// mirrordamage will be used LATER
 						}
 						else
-							damage = cvar("g_friendlyfire") * damage;
-						// mirrordamage will be used LATER
+							damage = 0;
 					}
-					else
-						damage = 0;
 				}
 			}
 		}
 
-		if(g_lms)
 		if(targ.classname == "player")
 		if(attacker.classname == "player")
 		if(attacker != targ)
@@ -669,6 +661,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		self.flags = self.flags - (self.flags & FL_ONGROUND);
 	}
 	// apply damage
+	if (damage != 0)
 	if (self.event_damage)
 		self.event_damage (inflictor, attacker, damage, deathtype, hitloc, force);
 	self = oldself;

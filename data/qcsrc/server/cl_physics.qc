@@ -13,6 +13,7 @@ float sv_airaccel_qw;
 .float swamp_slowdown;
 .float lastflags;
 .float lastground;
+.float wasFlying;
 
 #define SHTEST_DELTA 15
 .float shtest_next;
@@ -82,7 +83,7 @@ void PlayerJump (void)
 		player_setanim(self.anim_jump, FALSE, TRUE, TRUE);
 
 	if(g_jump_grunt)
-		PlayerSound(playersound_jump, CHAN_AUTO, 0);
+		PlayerSound(playersound_jump, CHAN_PLAYER, 0);
 }
 
 void CheckWaterJump()
@@ -234,7 +235,13 @@ void SV_PlayerPhysics()
 	}
 
 	if(self.flags & FL_ONGROUND)
-		if not(self.lastflags & FL_ONGROUND)
+	if(self.wasFlying)
+	{
+		self.wasFlying = 0;
+
+		if(self.waterlevel < 2)
+		if(time >= self.ladder_time)
+		if not(self.hook)
 		{
 			self.nextstep = time + 0.3 + random() * 0.1;
 			trace_dphitq3surfaceflags = 0;
@@ -242,11 +249,15 @@ void SV_PlayerPhysics()
 			if not(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOSTEPS)
 			{
 				if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_METALSTEPS)
-					GlobalSound(globalsound_metalfall, CHAN_AUTO, 0);
+					GlobalSound(globalsound_metalfall, CHAN_PLAYER, 0);
 				else
-					GlobalSound(globalsound_fall, CHAN_AUTO, 0);
+					GlobalSound(globalsound_fall, CHAN_PLAYER, 0);
 			}
 		}
+	}
+
+	if(IsFlying(self))
+		self.wasFlying = 1;
 
 	if(self.classname == "player")
 	{

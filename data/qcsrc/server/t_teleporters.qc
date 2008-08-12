@@ -56,18 +56,25 @@ void spawn_tdeath(vector org, entity death_owner, vector org2)
 void Teleport_Touch (void)
 {
 	entity head;
+	entity oldself;
 
 	if (other.health < 1)
 		return;
 	if (!other.flags & FL_CLIENT)	// FIXME: Make missiles firable through the teleport too
 		return;
 
+	sound (other, CHAN_TRIGGER, "misc/teleport.wav", VOL_BASE, ATTN_NORM);
+	pointparticles(particleeffectnum("teleport"), other.origin, '0 0 0', 1);
+
+	/*
 	// Make teleport effect where the player left
-	sound (other, CHAN_ITEM, "misc/teleport.wav", 1, ATTN_NORM);
+	sound (self, CHAN_TRIGGER, "misc/teleport.wav", VOL_BASE, ATTN_NORM);
 	pointparticles(particleeffectnum("teleport"), other.origin, '0 0 0', 1);
 
 	// Make teleport effect where the player arrived
-	sound (other, CHAN_ITEM, "misc/teleport.wav", 1, ATTN_NORM);
+	sound (self.enemy, CHAN_TRIGGER, "misc/teleport.wav", VOL_BASE, ATTN_NORM);
+	*/
+
 	makevectors (self.enemy.mangle);
 	pointparticles(particleeffectnum("teleport"), self.enemy.origin + v_forward * 32, '0 0 0', 1);
 
@@ -114,10 +121,18 @@ void Teleport_Touch (void)
 
 	// stop player name display
 	{
-		entity oldself;
 		oldself = self;
 		self = other;
 		ClearSelectedPlayer();
+		self = oldself;
+	}
+
+	if(self.enemy.target)
+	{
+		oldself = self;
+		activator = other;
+		self = self.enemy;
+		SUB_UseTargets();
 		self = oldself;
 	}
 }
@@ -168,7 +183,14 @@ void spawnfunc_trigger_teleport (void)
 	self.solid = SOLID_TRIGGER;
 	self.movetype = MOVETYPE_NONE;
 
-	setmodel (self, self.model); // no precision needed
+	if(self.model != "")
+		setmodel (self, self.model); // no precision needed
+	else
+	{
+		// force relinking
+		setorigin(self, self.origin);
+		setsize (self, self.mins, self.maxs);
+	}
 
 	self.model = "";
 	self.modelindex = 0;

@@ -141,7 +141,6 @@ float SetTeam(entity o, float Team)
 
 void Playerchecker_Think()
 {
-	entity pl;
 	float i;
 	for(i = 0; i < maxclients; ++i)
 	{
@@ -178,8 +177,6 @@ void Playerchecker_Think()
 
 void PostInit(void)
 {
-	float i;
-
 	print(strcat("PostInit\n    maxclients = ", ftos(maxclients), "\n"));
 	localcmd(strcat("\nsbar_columns_set ", cvar_string("sbar_columns"), ";\n"));
 
@@ -304,10 +301,11 @@ void Ent_RemoveONS()
 	}
 }
 
-void Ent_ReadPlayerScore(float isNew)
+void Ent_ReadPlayerScore()
 {
 	float i, Team;
-	entity tm, o;
+	float isNew;
+	entity o;
 
 	// damnit -.- don't want to go change every single .sv_entnum in sbar.qc AGAIN
 	// (no I've never heard of M-x replace-string, sed, or anything like that)
@@ -331,7 +329,7 @@ void Ent_ReadPlayerScore(float isNew)
 	Sbar_UpdatePlayerPos(o);
 }
 
-void Ent_ReadTeamScore(float isNew)
+void Ent_ReadTeamScore()
 {
 	float i;
 	entity o;
@@ -347,10 +345,15 @@ void Ent_ReadTeamScore(float isNew)
 
 // CSQC_Ent_Update : Called every frame that the server has indicated an update to the SSQC / CSQC entity has occured.
 // The only parameter reflects if the entity is "new" to the client, meaning it just came into the client's PVS.
+void Ent_Remove();
 void(float bIsNewEntity) CSQC_Ent_Update =
 {
-	float msg;
-	self.enttype = ReadByte();
+	float msg, t;
+	t = ReadByte();
+	if(self.enttype)
+		if(t != self.enttype)
+			Ent_Remove();
+	self.enttype = t;
 	if(self.enttype == ENT_CLIENT_ENTCS)
 	{
 		self.sv_entnum = ReadByte()-1;
@@ -367,15 +370,17 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		}
 	}
 	else if(self.enttype == ENT_CLIENT_SCORES)
-		Ent_ReadPlayerScore(bIsNewEntity);
+		Ent_ReadPlayerScore();
 	else if(self.enttype == ENT_CLIENT_TEAMSCORES)
-		Ent_ReadTeamScore(bIsNewEntity);
+		Ent_ReadTeamScore();
 	else
 		error("unknown entity type in CSQC_Ent_Update\n");
 	
 };
-// CSQC_Ent_Remove : Called when the server requests a SSQC / CSQC entity to be removed.  Essentially call remove(self) as well.
-void CSQC_Ent_Remove()
+// Destructor, but does NOT deallocate the entity by calling remove(). Also
+// used when an entity changes its type. For an entity that someone interacts
+// with others, make sure it can no longer do so.
+void Ent_Remove()
 {
 	if(self.enttype == ENT_CLIENT_ENTCS)
 	{
@@ -396,11 +401,11 @@ void CSQC_Ent_Remove()
 		}
 	} else if(self.enttype == ENT_CLIENT_SCORES)
 	{
-		entity tm;
 		if(self.owner)
 		{
 			SetTeam(self.owner, -1);
-			RemovePlayer(self.owner);
+			if(self.owner.sort_prev)
+				RemovePlayer(self.owner);
 			self.owner.sort_prev = NULL;
 		}
 	} else if(self.enttype == ENT_CLIENT_TEAMSCORES)
@@ -412,6 +417,16 @@ void CSQC_Ent_Remove()
 		// we don't NEED to remove them... they won't display anyway
 		// plus, svqc never does this anyway
 	}
+
+	self.enttype = 0;
+	self.classname = "";
+	// TODO possibly set more stuff to defaults
+}
+// CSQC_Ent_Remove : Called when the server requests a SSQC / CSQC entity to be removed.  Essentially call remove(self) as well.
+void CSQC_Ent_Remove()
+{
+	if(self.enttype)
+		Ent_Remove();
 	remove(self);
 }
 
@@ -547,6 +562,69 @@ void Net_Config()
 	db_put(configdb, strcat("/s/", key), "1");
 }
 
+void Net_ReadRace()
+{
+	float b;
+
+	b = ReadByte();
+
+	switch(b)
+	{
+		case RACE_NET_CHECKPOINT_HIT_QUALIFYING:
+			race_checkpoint = ReadByte();
+			race_time = ReadShort();
+			race_previousbesttime = ReadShort();
+			if(race_previousbestname)
+				strunzone(race_previousbestname);
+			race_previousbestname = strzone(ReadString());
+
+			race_checkpointtime = time;
+
+			if(race_checkpoint == 0)
+				race_laptime = time; // valid
+
+			break;
+
+		case RACE_NET_CHECKPOINT_CLEAR:
+			race_laptime = 0;
+			race_checkpointtime = 0;
+			break;
+
+		case RACE_NET_CHECKPOINT_NEXT_QUALIFYING:
+			race_nextcheckpoint = ReadByte();
+
+			race_nextbesttime = ReadShort();
+			if(race_nextbestname)
+				strunzone(race_nextbestname);
+			race_nextbestname = strzone(ReadString());
+			break;
+
+		case RACE_NET_CHECKPOINT_HIT_RACE:
+			race_mycheckpoint = ReadByte();
+			race_mycheckpointtime = time;
+			race_mycheckpointdelta = ReadShort();
+			race_mycheckpointlapsdelta = ReadByte();
+			if(race_mycheckpointlapsdelta >= 128)
+				race_mycheckpointlapsdelta -= 256;
+			if(race_mycheckpointenemy)
+				strunzone(race_mycheckpointenemy);
+			race_mycheckpointenemy = strzone(ReadString());
+			break;
+
+		case RACE_NET_CHECKPOINT_HIT_RACE_BY_OPPONENT:
+			race_othercheckpoint = ReadByte();
+			race_othercheckpointtime = time;
+			race_othercheckpointdelta = ReadShort();
+			race_othercheckpointlapsdelta = ReadByte();
+			if(race_othercheckpointlapsdelta >= 128)
+				race_othercheckpointlapsdelta -= 256;
+			if(race_othercheckpointenemy)
+				strunzone(race_othercheckpointenemy);
+			race_othercheckpointenemy = strzone(ReadString());
+			break;
+	}
+}
+
 // CSQC_Parse_TempEntity : Handles all temporary entity network data in the CSQC layer.
 // You must ALWAYS first acquire the temporary ID, which is sent as a byte.
 // Return value should be 1 if CSQC handled the temporary entity, otherwise return 0 to have the engine process the event.
@@ -577,6 +655,14 @@ float CSQC_Parse_TempEntity()
 			Net_ReadScoresInfo();
 			bHandled = true;
 			break;
+		case TE_CSQC_RACE:
+			Net_ReadRace();
+			bHandled = true;
+			break;
+		case TE_CSQC_FORCESCOREBOARD:
+			sb_showscores_force = true;
+			bHandled = true;
+			break;
 		default:
 			// No special logic for this temporary entity; return 0 so the engine can handle it
 			bHandled = false;
@@ -590,13 +676,6 @@ float CSQC_Parse_TempEntity()
 }
 
 // COMMIT-TODO: Update if necessare, before committing
-float csqc_svn_map[CSQC_REVISION] =
-{
-	3812, // 3795,
-	3820 // mapvote protocol changed from there
-};
-
-// COMMIT-TODO: Update if necessare, before committing
 void CSQC_CheckRevision()
 {
 	if(csqc_revision == CSQC_REVISION)
@@ -604,9 +683,6 @@ void CSQC_CheckRevision()
 		print("^2SVQC and CSQC revisions are compatible.\n");
 	} else if(csqc_revision < CSQC_REVISION) {
 		print("^1Your csprogs.dat (CSQC) version is newer than the one on the server.\n");
-		print("^1The last known svn revision for the server's CSQC is: ^7");
-		print(ftos(csqc_svn_map[csqc_revision])); // don't use strcat, fteqcc loves screwing up arrays...
-		print("\n");
 	} else if(csqc_revision > CSQC_REVISION) {
 		print("^1Your csprogs.dat (CSQC) is too old for this server.\n");
 		print("^1Please update to a newer version.\n");

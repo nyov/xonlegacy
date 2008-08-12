@@ -8,15 +8,7 @@ float sb_lines; // still don't know what to do with that NOTE: check dp's sbar.c
 vector sbar;
 float sbar_alpha_fg;
 float sbar_hudselector;
-/*
-entity sortedPlayers;
-entity sortedTeams;
 
-.float sb_frags;
-.float sb_team;
-.float sb_player;
-.float sb_caps;
-*/
 float ps_primary, ps_secondary;
 float ts_primary, ts_secondary;
 
@@ -131,7 +123,7 @@ void Sbar_DrawXNum (vector pos, float num, float digits, float lettersize, vecto
 void Cmd_Sbar_SetFields(float argc);
 void Sbar_InitScores()
 {
-	float i, f, primary_prio, secondary_prio;
+	float i, f;
 
 	ps_primary = ps_secondary = ts_primary = ts_secondary = -1;
 	for(i = 0; i < MAX_SCORE; ++i)
@@ -212,6 +204,13 @@ float Sbar_ComparePlayerScores(entity left, entity right)
 
 	vl = left.scores[ps_primary];
 	vr = right.scores[ps_primary];
+	if(scores_flags[ps_primary] & SFL_ZERO_IS_WORST)
+	{
+		if(vl == 0 && vr != 0)
+			return 1;
+		if(vl != 0 && vr == 0)
+			return 0;
+	}
 	if(vl > vr)
 		return IS_INCREASING(scores_flags[ps_primary]);
 	if(vl < vr)
@@ -219,6 +218,13 @@ float Sbar_ComparePlayerScores(entity left, entity right)
 	
 	vl = left.scores[ps_secondary];
 	vr = right.scores[ps_secondary];
+	if(scores_flags[ps_secondary] & SFL_ZERO_IS_WORST)
+	{
+		if(vl == 0 && vr != 0)
+			return 1;
+		if(vl != 0 && vr == 0)
+			return 0;
+	}
 	if(vl > vr)
 		return IS_INCREASING(scores_flags[ps_secondary]);
 	if(vl < vr)
@@ -556,7 +562,7 @@ string Sbar_GetField(entity pl, float field)
 			else
 				sbar_field_rgb = '1 1 1';
 			if(!tmp)
-				if(f & (SFL_HIDE_ZERO | SFL_RANK))
+				if(f & (SFL_HIDE_ZERO | SFL_RANK | SFL_TIME))
 					return "";
 			if(f & SFL_RANK)
 			{
@@ -572,6 +578,10 @@ string Sbar_GetField(entity pl, float field)
 					return strcat(str, "rd");
 				else
 					return strcat(str, "th");
+			}
+			else if(f & SFL_TIME)
+			{
+				return mmsss(tmp);
 			}
 			return ftos(tmp);
 	}
@@ -924,6 +934,71 @@ void Sbar_DrawScoreboard()
 	sbar = sbar_save;
 }
 
+string MakeRaceString(float cp, float mytime, float histime, float lapdelta, string hisname)
+{
+	string col;
+	string timestr;
+	string cpname;
+	string lapstr;
+	lapstr = "";
+
+	if(histime == 0) // goal hit
+	{
+		if(mytime > 0)
+		{
+			timestr = strcat("+", ftos_decimals(+mytime, 1));
+			col = "^1";
+		}
+		else if(mytime == 0)
+		{
+			timestr = "+0.0";
+			col = "^3";
+		}
+		else
+		{
+			timestr = strcat("-", ftos_decimals(-mytime, 1));
+			col = "^2";
+		}
+
+		if(lapdelta > 0)
+		{
+			lapstr = strcat(" (-", ftos(lapdelta), "L)");
+			col = "^2";
+		}
+		else if(lapdelta < 0)
+		{
+			lapstr = strcat(" (+", ftos(-lapdelta), "L)");
+			col = "^1";
+		}
+	}
+	else if(histime > 0) // anticipation
+	{
+		if(mytime >= histime)
+			timestr = strcat("+", ftos_decimals(mytime - histime, 1));
+		else
+			timestr = mmsss(histime * 10);
+		col = "^3";
+	}
+	else
+		col = "^7";
+
+	if(cp)
+		cpname = strcat("Intermediate ", ftos(cp));
+	else
+		cpname = "Finish line";
+	
+	if(histime < 0)
+		return strcat(col, cpname);
+	else if(hisname == "")
+		return strcat(col, cpname, " (", timestr, ")");
+	else
+		return strcat(col, cpname, " (", timestr, " ", strcat(hisname, col, lapstr), ")");
+}
+
+void dummyfunction(float a1, float a2, float a3, float a4, float a5, float a6, float a7, float a8)
+{
+}
+
 void Sbar_Score(float margin)
 {
 	float timelimit, timeleft, minutes, seconds, distribution, myplace, score;
@@ -1025,6 +1100,74 @@ void Sbar_Score(float margin)
 		drawpic(sbar + '-36 32 0', "gfx/num_colon", '12 12 0', '1 1 1', sbar_alpha_fg, 0);
 		Sbar_DrawXNum('-24 32 0', seconds, -2, 12, '1 1 1', 1, DRAWFLAG_NORMAL);
 	}
+
+	if(gametype == GAME_RACE)
+	{
+		drawfont = sbar_bigfont;
+		float a;
+		vector m;
+		string s;
+
+		m = '0.5 0 0' * vid_conwidth + '0 0.25 0' * vid_conheight;
+
+		if(race_checkpointtime)
+		{
+
+			a = bound(0, 2 - (time - race_checkpointtime), 1);
+			s = "";
+			if(a > 0) // just hit a checkpoint?
+			{
+				if(race_time && race_previousbesttime)
+					s = MakeRaceString(race_checkpoint, race_time / 10 - race_previousbesttime / 10, 0, 0, race_previousbestname);
+				else
+					s = MakeRaceString(race_checkpoint, 0, -1, 0, race_previousbestname);
+			}
+			else
+			{
+				if(race_laptime && race_nextbesttime)
+				{
+					a = bound(0, 2 - ((race_laptime + race_nextbesttime/10) - time), 1);
+					if(a > 0) // next one?
+					{
+						s = MakeRaceString(race_nextcheckpoint, time - race_laptime, race_nextbesttime / 10, 0, race_nextbestname);
+					}
+				}
+			}
+
+			if(s != "")
+			if(a > 0)
+			{
+				dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+				drawcolorcodedstring(m - '0 16 0' - '8 0 0' * stringwidth(s, TRUE), s, '16 16 0', sbar_alpha_fg * a, 0);
+			}
+
+			if(race_laptime)
+			{
+				s = mmsss(10*(time - race_laptime));
+				drawstring(m - '0 0 0' - '16 0 0' * stringwidth(s, FALSE), s, '32 32 0', '1 1 1', sbar_alpha_fg, 0);
+			}
+		}
+		else
+		{
+			if(race_mycheckpointtime)
+			{
+				a = bound(0, 2 - (time - race_mycheckpointtime), 1);
+				s = MakeRaceString(race_mycheckpoint, race_mycheckpointdelta / 10, -!race_mycheckpointenemy, race_mycheckpointlapsdelta, race_mycheckpointenemy);
+				dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+				drawcolorcodedstring(m - '0 16 0' - '8 0 0' * stringwidth(s, TRUE), s, '16 16 0', sbar_alpha_fg * a, 0);
+			}
+			if(race_othercheckpointtime && race_othercheckpointenemy != "")
+			{
+				a = bound(0, 2 - (time - race_othercheckpointtime), 1);
+				s = MakeRaceString(race_othercheckpoint, -race_othercheckpointdelta / 10, -!race_othercheckpointenemy, race_othercheckpointlapsdelta, race_othercheckpointenemy);
+				dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+				drawcolorcodedstring(m - '0 0 0' - '8 0 0' * stringwidth(s, TRUE), s, '16 16 0', sbar_alpha_fg * a, 0);
+			}
+		}
+
+		drawfont = sbar_font;
+	}
+
 	sbar = sbar_save;
 }
 
@@ -1183,7 +1326,7 @@ void Sbar_Draw (void)
 		Sbar_FinaleOverlay();
 	else
 	{
-		if (sb_showscores || (getstati(STAT_HEALTH) <= 0 && cvar("cl_deathscoreboard")))
+		if (sb_showscores || sb_showscores_force || (getstati(STAT_HEALTH) <= 0 && cvar("cl_deathscoreboard")))
 		{
 			sbar_x = (vid_conwidth - 640.0)*0.5;
 			sbar_y = vid_conheight - 47;

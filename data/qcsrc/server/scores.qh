@@ -41,9 +41,10 @@ float TeamScore_Add(entity player, float scorefield, float score);
 float TeamScore_AddToTeam(float t, float scorefield, float score);
 
 /**
- * Adds a score to both the player and the team.
+ * Adds a score to both the player and the team. Returns the team score if
+ * possible, otherwise the player score.
  */
-void PlayerTeamScore_Add(entity player, float pscorefield, float tscorefield, float score);
+float PlayerTeamScore_Add(entity player, float pscorefield, float tscorefield, float score);
 
 /**
  * Adds to the generic score fields for both the player and the team.
@@ -90,6 +91,9 @@ float WinningConditionHelper_topscore;   ///< highest score
 float WinningConditionHelper_equality;   ///< 1 if and only if the top two have equal scores
 float WinningConditionHelper_winnerteam; ///< the color of the winning team, or -1 if none
 entity WinningConditionHelper_winner;    ///< the winning player, or world if none
+float WinningConditionHelper_lowerisbetter; ///< lower is better, duh
+float WinningConditionHelper_zeroisworst;   ///< zero is worst, duh
+#define WINNINGCONDITIONHELPER_LOWERISBETTER_WORST 999999999
 
 /**
  * Returns score strings for eventlog etc.
@@ -100,6 +104,13 @@ entity WinningConditionHelper_winner;    ///< the winning player, or world if no
  * Labels get an appended < if the scores are better if smaller (e.g. deaths).
  * High priorities always come first.
  * Example label string: score!!,kills,deaths<,suicides<
+ * If shortString is set, only the sort keys are returned.
  */
-string GetPlayerScoreString(entity pl);
-string GetTeamScoreString(float tm);
+string GetPlayerScoreString(entity pl, float shortString);
+string GetTeamScoreString(float tm, float shortString);
+
+/**
+ * Sorts the players and stores their place in the given field, starting with
+ * 1. Non-players get 0 written into that field.
+ */
+float PlayerScore_Sort(.float field);

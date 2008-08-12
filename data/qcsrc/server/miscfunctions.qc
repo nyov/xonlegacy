@@ -124,10 +124,8 @@ string STR_PLAYER = "player";
 #define FOR_EACH_REALPLAYER(v) FOR_EACH_REALCLIENT(v) if(v.classname == STR_PLAYER)
 #endif
 
-// change that to actually calling strcat when running on an engine without
-// unlimited tempstrings:
-// string strcat1(string s) = #115; // FRIK_FILE
-#define strcat1(s) (s)
+// copies a string to a tempstring (so one can strunzone it)
+string strcat1(string s) = #115; // FRIK_FILE
 
 float logfile_open;
 float logfile;
@@ -215,6 +213,7 @@ void GameLogClose()
 	}
 }
 
+float spawnpoint_nag;
 void relocate_spawnpoint()
 {
 	// nudge off the floor
@@ -223,8 +222,28 @@ void relocate_spawnpoint()
 	tracebox(self.origin, PL_MIN, PL_MAX, self.origin, TRUE, self);
 	if (trace_startsolid)
 	{
-		objerror("player spawn point in solid, mapper sucks!\n");
-		return;
+		vector o;
+		o = self.origin;
+		self.mins = PL_MIN;
+		self.maxs = PL_MAX;
+		move_out_of_solid(self);
+		print("^1NOTE: this map needs FIXING. Spawnpoint at ", vtos(o - '0 0 1'));
+		print(" needs to be moved out of solid, e.g. by '", ftos(self.origin_x - o_x));
+		print(" ", ftos(self.origin_y - o_y));
+		print(" ", ftos(self.origin_z - o_z), "'\n");
+		if(cvar("g_spawnpoints_auto_move_out_of_solid"))
+		{
+			if(!spawnpoint_nag)
+				print("\{1}^1NOTE: this map needs FIXING (it contains spawnpoints in solid, see server log)\n");
+			spawnpoint_nag = 1;
+		}
+		else
+		{
+			self.origin = o;
+			self.mins = self.maxs = '0 0 0';
+			objerror("player spawn point in solid, mapper sucks!\n");
+			return;
+		}
 	}
 
 	if(cvar("g_spawnpoints_autodrop"))
@@ -241,6 +260,18 @@ void relocate_spawnpoint()
 	if(g_ctf || g_assault || g_onslaught || g_domination)
 	if(self.team)
 		have_team_spawns = 1;
+
+	if(cvar("r_showbboxes"))
+	{
+		// show where spawnpoints point at too
+		makevectors(self.angles);
+		entity e;
+		e = spawn();
+		e.classname = "info_player_foo";
+		setorigin(e, self.origin + v_forward * 24);
+		setsize(e, '-8 -8 -8', '8 8 8');
+		e.solid = SOLID_TRIGGER;
+	}
 }
 
 #define strstr strstrofs
@@ -573,62 +604,6 @@ string Team_ColorNameLowerCase(float t)
 	return "neutral";
 }
 
-/*
-string decolorize(string s)
-{
-	string out;
-	out = "";
-	while(s != "")
-	{
-		float n;
-		string ch1, ch2;
-		n = 1;
-		ch1 = substring(s, 0, 1);
-		ch2 = substring(s, 1, 1);
-		if(ch1 == "^")
-		{
-			n = 2;
-			if(ch2 == "^")
-				out = strcat(out, "^^");
-			else if(ch2 == "0")
-				out = strcat1(out);
-			else if(ch2 == "1")
-				out = strcat1(out);
-			else if(ch2 == "2")
-				out = strcat1(out);
-			else if(ch2 == "3")
-				out = strcat1(out);
-			else if(ch2 == "4")
-				out = strcat1(out);
-			else if(ch2 == "5")
-				out = strcat1(out);
-			else if(ch2 == "6")
-				out = strcat1(out);
-			else if(ch2 == "7")
-				out = strcat1(out);
-			else if(ch2 == "8")
-				out = strcat1(out);
-			else if(ch2 == "9")
-				out = strcat1(out);
-			else
-			{
-				n = 1;
-				out = strcat(out, "^^");
-			}
-			s = substring(s, n, strlen(s) - n);
-		}
-		else
-		{
-			s = substring(s, 1, strlen(s) - 1);
-			out = strcat(out, ch1);
-		}
-	}
-	return out;
-}
-#define strdecolorize(s) decolorize(s)
-#define strlennocol(s) strlen(decolorize(s))
-*/
-
 #define CENTERPRIO_POINT 1
 #define CENTERPRIO_SPAM 2
 #define CENTERPRIO_REBALANCE 2
@@ -756,6 +731,7 @@ void readlevelcvars(void)
 	sv_pogostick = cvar("sv_pogostick");
 	sv_doublejump = cvar("sv_doublejump");
 	g_ctf_win_mode = cvar("g_ctf_win_mode");
+	g_race_qualifying = cvar("g_race_qualifying");
 
 	g_pickup_shells                    = cvar("g_pickup_shells");
 	g_pickup_shells_max                = cvar("g_pickup_shells_max");
@@ -927,11 +903,51 @@ void sound(entity e, float chan, string samp, float vol, float atten)
 }
 */
 
+// Sound functions
 string precache_sound (string s) = #19;
 void(entity e, float chan, string samp, float vol, float atten) sound = #8;
+float precache_sound_index (string s) = #19;
+
+void soundtoat(float dest, entity e, vector o, float chan, string samp, float vol, float atten)
+{
+	WriteByte(dest, 6);
+	WriteByte(dest, 27); // all bits except SND_LOOPING
+	WriteByte(dest, vol * 255);
+	WriteByte(dest, atten * 64);
+	WriteEntity(dest, e);
+	WriteByte(dest, chan);
+	WriteShort(dest, precache_sound_index(samp));
+	WriteCoord(dest, o_x);
+	WriteCoord(dest, o_y);
+	WriteCoord(dest, o_z);
+}
+void soundto(float dest, entity e, float chan, string samp, float vol, float atten)
+{
+	vector o;
+	o = e.origin + 0.5 * (e.mins + e.maxs);
+	soundtoat(dest, e, o, chan, samp, vol, atten);
+}
+void soundat(entity e, vector o, float chan, string samp, float vol, float atten)
+{
+	soundtoat(MSG_BROADCAST, e, o, chan, samp, vol, atten);
+}
+
 void play2(entity e, string filename)
 {
-	stuffcmd(e, strcat("play2 ", filename, "\n"));
+	//stuffcmd(e, strcat("play2 ", filename, "\n"));
+	msg_entity = e;
+	soundtoat(MSG_ONE, world, '0 0 0', CHAN_AUTO, filename, VOL_BASE, ATTN_NONE);
+}
+
+.float announcetime;
+void announce(entity player, string msg)
+{
+	if(time > player.announcetime)
+	if(clienttype(player) == CLIENTTYPE_REAL)
+	{
+		player.announcetime = time + 0.3;
+		play2(player, msg);
+	}
 }
 
 void play2team(float t, string filename)
@@ -942,6 +958,11 @@ void play2team(float t, string filename)
 		if (head.team == t)
 			play2(head, filename);
 	}
+}
+
+void play2all(string samp)
+{
+	sound(world, CHAN_AUTO, samp, VOL_BASE, ATTN_NONE);
 }
 
 void PrecachePlayerSounds(string f);
@@ -1113,6 +1134,6 @@ void precache()
 	if (self.noise)
 	{
 		precache_sound (self.noise);
-		ambientsound ('0 0 0', self.noise, 1.00, ATTN_NONE);
+		ambientsound ('0 0 0', self.noise, VOL_BASE, ATTN_NONE);
 	}
 }

@@ -205,25 +205,6 @@ void main (void)
 
 }
 
-// Sound functions
-
-/*
-==================
-PointSound
-
-Play a sound at the given location
-==================
-*/
-void PointSound (vector org, string snd, float vol, float attn)
-{
-	entity	speaker;
-
-	speaker = spawn ();
-	setorigin (speaker, org);
-	sound (speaker, CHAN_BODY, snd, vol, attn);
-	remove (speaker);
-}
-
 // Misc
 
 /*
@@ -398,7 +379,14 @@ void InitTrigger()
 	if (self.angles != '0 0 0')
 		SetMovedir ();
 	self.solid = SOLID_TRIGGER;
-	setmodel (self, self.model);	// set size and link into world, no precision needed
+	if(self.model != "")
+		setmodel (self, self.model);	// set size and link into world, no precision needed
+	else
+	{
+		// force relinking
+		setorigin(self, self.origin);
+		setsize (self, self.mins, self.maxs);
+	}
 	self.movetype = MOVETYPE_NONE;
 	self.modelindex = 0;
 	self.model = "";
@@ -412,7 +400,14 @@ void InitSolidBSPTrigger()
 	if (self.angles != '0 0 0')
 		SetMovedir ();
 	self.solid = SOLID_BSP;
-	setmodel (self, self.model);	// set size and link into world, no precision needed
+	if(self.model != "")
+		setmodel (self, self.model);	// set size and link into world, no precision needed
+	else
+	{
+		// force relinking
+		setorigin(self, self.origin);
+		setsize (self, self.mins, self.maxs);
+	}
 	self.movetype = MOVETYPE_PUSH;
 //	self.modelindex = 0;
 	self.model = "";

@@ -7,8 +7,8 @@ CLASS(NexuizInputBox) EXTENDS(InputBox)
 	ATTRIB(NexuizInputBox, image, string, SKINGFX_INPUTBOX)
 	ATTRIB(NexuizInputBox, onChange, void(entity, entity), SUB_Null)
 	ATTRIB(NexuizInputBox, onChangeEntity, entity, NULL)
-	ATTRIB(NexuizInputBox, keepspaceLeft, float, SKINMARGIN_INPUTBOX)
-	ATTRIB(NexuizInputBox, keepspaceRight, float, SKINMARGIN_INPUTBOX)
+	ATTRIB(NexuizInputBox, marginLeft, float, SKINMARGIN_INPUTBOX_CHARS)
+	ATTRIB(NexuizInputBox, marginRight, float, SKINMARGIN_INPUTBOX_CHARS)
 	ATTRIB(NexuizInputBox, color, vector, SKINCOLOR_INPUTBOX_N)
 	ATTRIB(NexuizInputBox, colorF, vector, SKINCOLOR_INPUTBOX_F)
 
@@ -17,6 +17,7 @@ CLASS(NexuizInputBox) EXTENDS(InputBox)
 	ATTRIB(NexuizInputBox, cvarName, string, string_null)
 	METHOD(NexuizInputBox, loadCvars, void(entity))
 	METHOD(NexuizInputBox, saveCvars, void(entity))
+	METHOD(NexuizInputBox, keyDown, float(entity, float, float, float))
 ENDCLASS(NexuizInputBox)
 entity makeNexuizInputBox(float, string);
 #endif
@@ -62,5 +63,19 @@ void loadCvarsNexuizInputBox(entity me)
 void saveCvarsNexuizInputBox(entity me)
 {
 	cvar_set(me.cvarName, me.text);
+}
+float keyDownNexuizInputBox(entity me, float key, float ascii, float shift)
+{
+	float r;
+	r = 0;
+	if(key == K_ENTER)
+		if(me.cvarName)
+		{
+			me.saveCvars(me);
+			r = 1;
+		}
+	if(keyDownInputBox(me, key, ascii, shift))
+		r = 1;
+	return r;
 }
 #endif

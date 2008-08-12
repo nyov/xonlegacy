@@ -267,11 +267,11 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 	take = bound(0, damage - save, damage);
 
 	if (save > 10)
-		sound (self, CHAN_IMPACT, "misc/armorimpact.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "misc/armorimpact.wav", VOL_BASE, ATTN_NORM);
 	else if (take > 30)
-		sound (self, CHAN_IMPACT, "misc/bodyimpact2.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "misc/bodyimpact2.wav", VOL_BASE, ATTN_NORM);
 	else if (take > 10)
-		sound (self, CHAN_IMPACT, "misc/bodyimpact1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM);
 
 	if(sv_gentle < 1) {	
 		if (take > 50)
@@ -344,7 +344,7 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 				TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
 				TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
 			}
-			sound (self, CHAN_VOICE, "misc/gib.wav", 1, ATTN_NORM);
+			sound (self, CHAN_PLAYER, "misc/gib.wav", VOL_BASE, ATTN_NORM);
 		}
 	}
 }
@@ -354,7 +354,6 @@ void ClientKill_Now_TeamChange();
 void PlayerDamage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
 	local float take, save, waves, sdelay;
-	float painsequence;
 
 	damage = damage * bound(1.0, self.cvar_cl_handicap, 100.0);
 	if(sv_gentle > 0) {
@@ -379,11 +378,11 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 	}
 
 	if (save > 10)
-		sound (self, CHAN_IMPACT, "misc/armorimpact.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "misc/armorimpact.wav", VOL_BASE, ATTN_NORM);
 	else if (take > 30)
-		sound (self, CHAN_IMPACT, "misc/bodyimpact2.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "misc/bodyimpact2.wav", VOL_BASE, ATTN_NORM);
 	else if (take > 10)
-		sound (self, CHAN_IMPACT, "misc/bodyimpact1.wav", 1, ATTN_NORM); // FIXME possibly remove them?
+		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM); // FIXME possibly remove them?
 
 	if (take > 50)
 		TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.1,1);
@@ -413,13 +412,13 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 					// exclude pain sounds for laserjumps as long as you aren't REALLY low on health and would die of the next two
 					{
 						if(self.health > 75) // TODO make a "gentle" version?
-							PlayerSound(playersound_pain100, CHAN_AUTO, 0);
+							PlayerSound(playersound_pain100, CHAN_PAIN, 0);
 						else if(self.health > 50)
-							PlayerSound(playersound_pain75, CHAN_AUTO, 0);
+							PlayerSound(playersound_pain75, CHAN_PAIN, 0);
 						else if(self.health > 25)
-							PlayerSound(playersound_pain50, CHAN_AUTO, 0);
+							PlayerSound(playersound_pain50, CHAN_PAIN, 0);
 						else if(self.health > 1)
-							PlayerSound(playersound_pain25, CHAN_AUTO, 0);
+							PlayerSound(playersound_pain25, CHAN_PAIN, 0);
 					}
 				}
 
@@ -464,9 +463,9 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		if(sv_gentle < 1) // TODO make a "gentle" version?
 		{
 			if(deathtype == DEATH_DROWN)
-				PlayerSound(playersound_drown, CHAN_AUTO, 0);
+				PlayerSound(playersound_drown, CHAN_PAIN, 0);
 			else
-				PlayerSound(playersound_death, CHAN_AUTO, 0);
+				PlayerSound(playersound_death, CHAN_PAIN, 0);
 		}
 
 		// get rid of kill indicator
@@ -732,26 +731,6 @@ void UpdateSelectedPlayer()
 		self.last_selected_player = self.selected_player;
 }
 
-float precache_sound_index (string s) = #19;
-void soundto(entity e, entity sounddest, float chan, string samp, float vol, float atten)
-{
-	vector o;
-	if(clienttype(sounddest) != CLIENTTYPE_REAL)
-		return;
-	o = e.origin + 0.5 * (e.mins + e.maxs);
-	msg_entity = sounddest;
-	WriteByte(MSG_ONE, 6);
-	WriteByte(MSG_ONE, 27); // all bits except SND_LOOPING
-	WriteByte(MSG_ONE, vol * 255);
-	WriteByte(MSG_ONE, atten * 64);
-	WriteEntity(MSG_ONE, e);
-	WriteByte(MSG_ONE, chan);
-	WriteShort(MSG_ONE, precache_sound_index(samp));
-	WriteCoord(MSG_ONE, o_x);
-	WriteCoord(MSG_ONE, o_y);
-	WriteCoord(MSG_ONE, o_z);
-}
-
 float GetVoiceMessageTeamsayType(string type)
 {
 	if(type == "taunt")
@@ -882,7 +861,7 @@ void LoadPlayerSounds(string f, float first)
 			field = GetVoiceMessageSampleField(argv(0));
 		if(GetPlayerSoundSampleField_notFound)
 			continue;
-		if not(GetPlayerSoundSampleField_fixed)
+		if(GetPlayerSoundSampleField_fixed)
 			if not(first)
 				continue;
 		if(self.field)
@@ -923,21 +902,33 @@ void GlobalSound(string sample, float chan, float teamsay)
 			if(self.pusher)
 				if(self.pusher.team == self.team)
 				{
-					soundto(self, self.pusher, chan, sample, 1, ATTN_NONE);
-					soundto(self, self, chan, sample, 1, ATTN_NONE);
+					msg_entity = self.pusher;
+					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
+					msg_entity = self;
+					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
 				}
 	}
 	else if(teamsay == 0) // to everyone
 	{
 		// broadcast the sound, but it's directional
-		sound(self, chan, sample, 1, ATTN_NORM);
+		sound(self, chan, sample, VOL_BASE, ATTN_NORM);
 	}
 	else if(teamsay == 1) // to the same team
 	{
-		entity e;
-		FOR_EACH_REALCLIENT(e)
-			if(!teams_matter || e.team == self.team)
-				soundto(self, e, chan, sample, 1, ATTN_NONE);
+		if(teams_matter)
+		{
+			entity e;
+			FOR_EACH_REALCLIENT(e)
+				if(!teams_matter || e.team == self.team)
+				{
+					msg_entity = e;
+					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
+				}
+		}
+		else
+		{
+			sound(self, chan, sample, VOL_BASE, ATTN_NONE);
+		}
 	}
 }
 

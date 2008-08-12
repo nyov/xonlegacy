@@ -28,10 +28,12 @@ void reset_map()
 	if(g_arena)
 	if(cvar("g_arena_warmup"))
 		warmup = time + cvar("g_arena_warmup");
-	
+
 	lms_lowest_lives = 999;
 	lms_next_place = player_count;
 
+	race_ReadyRestart();
+	
 	self = nextent(world);
 	while(self)
 	{
@@ -79,7 +81,7 @@ void reset_map()
 		}
 		else if(self.flags & FL_PROJECTILE)		// remove any projectiles left
 		{
-			sound(self, CHAN_BODY, "misc/null.wav", 1, ATTN_NORM);
+			sound(self, CHAN_PROJECTILE, "misc/null.wav", VOL_BASE, ATTN_NORM);
 			remove(self);
 		}
 		else if(self.isdecor)
@@ -148,6 +150,8 @@ void reset_map()
 	if(g_arena)
 	if(champion)
 		UpdateFrags(champion, +1);
+
+	Score_ClearAll();
 }
 
 void Spawnqueue_Insert(entity e)

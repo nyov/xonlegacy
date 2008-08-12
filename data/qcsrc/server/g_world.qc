@@ -98,7 +98,7 @@ void timeoutHandler_Think() {
 				}
 			}
 			if(remainingTimeoutTime == cvar("sv_timeout_resumetime")) { //play a warning sound when only <sv_timeout_resumetime> seconds are left
-				sound(world, CHAN_AUTO, "announcer/robotic/prepareforbattle.wav", 1, ATTN_NONE);
+				play2all("announcer/robotic/prepareforbattle.wav");
 			}
 			remainingTimeoutTime -= 1;
 			self.nextthink = time + TIMEOUT_SLOWMO_VALUE;
@@ -262,8 +262,8 @@ void spawnfunc_worldspawn (void)
 	if(cvar("g_campaign"))
 		CampaignPreInit();
 
-	InitGameplayMode();
 	readlevelcvars();
+	InitGameplayMode();
 	precache();
 
 	WaypointSprite_Init();
@@ -975,7 +975,7 @@ void DumpStats(float final)
 			fputs(file, strcat(s, "\n"));
 	}
 
-	s = strcat(":labels:player:", GetPlayerScoreString(world));
+	s = strcat(":labels:player:", GetPlayerScoreString(world, 0));
 	if(to_console)
 		ServerConsoleEcho(s, TRUE);
 	if(to_eventlog)
@@ -985,12 +985,11 @@ void DumpStats(float final)
 
 	FOR_EACH_CLIENT(other)
 	{
-		// FIXME make this use the new score system
 		if ((clienttype(other) == CLIENTTYPE_REAL) || (clienttype(other) == CLIENTTYPE_BOT && cvar("sv_logscores_bots")))
 		{
-			s = strcat(":player:see-labels:", GetPlayerScoreString(other), ":");
+			s = strcat(":player:see-labels:", GetPlayerScoreString(other, 0), ":");
 			s = strcat(s, ftos(rint(time - other.jointime)), ":");
-			if(other.classname == "player")
+			if(other.classname == "player" || g_arena || g_lms)
 				s = strcat(s, ftos(other.team), ":");
 			else
 				s = strcat(s, "spectator:");
@@ -1006,7 +1005,7 @@ void DumpStats(float final)
 
 	if(teamplay)
 	{
-		s = strcat(":labels:teamscores:", GetTeamScoreString(0));
+		s = strcat(":labels:teamscores:", GetTeamScoreString(0, 0));
 		if(to_console)
 			ServerConsoleEcho(s, TRUE);
 		if(to_eventlog)
@@ -1016,7 +1015,7 @@ void DumpStats(float final)
 	
 		for(i = 1; i < 16; ++i)
 		{
-			s = strcat(":teamscores:see-labels:", GetTeamScoreString(i));
+			s = strcat(":teamscores:see-labels:", GetTeamScoreString(i, 0));
 			s = strcat(s, ":", ftos(i));
 			if(to_console)
 				ServerConsoleEcho(s, TRUE);
@@ -1173,8 +1172,6 @@ void CheckRules_Player()
 };
 
 float checkrules_oneminutewarning;
-float checkrules_leaderfrags;
-float tdm_max_score, tdm_old_score;
 
 float checkrules_equality;
 float checkrules_overtimewarning;
@@ -1489,7 +1486,68 @@ float WinningCondition_Scores(float limit)
 	if(WinningConditionHelper_topscore == 0)
 		WinningConditionHelper_equality = 0;
 	
-	return GetWinningCode(limit && (WinningConditionHelper_topscore >= limit), WinningConditionHelper_equality);
+	if(WinningConditionHelper_lowerisbetter)
+	{
+		WinningConditionHelper_topscore = -WinningConditionHelper_topscore;
+		limit = -limit;
+	}
+	
+	return GetWinningCode(limit && WinningConditionHelper_topscore && (WinningConditionHelper_topscore >= limit), WinningConditionHelper_equality);
+}
+
+float WinningCondition_Race(float fraglimit)
+{
+	float wc;
+	entity p;
+	wc = WinningCondition_Scores(fraglimit);
+
+	// ALWAYS initiate overtime, unless EVERYONE has finished the race!
+	if(wc == WINNING_YES || wc == WINNING_STARTOVERTIME)
+	// do NOT support equality when the laps are all raced!
+	{
+		FOR_EACH_PLAYER(p)
+			if not(p.race_completed)
+				return WINNING_STARTOVERTIME;
+		return WINNING_YES;
+	}
+	return wc;
+}
+
+void ReadyRestart();
+float WinningCondition_QualifyingThenRace()
+{
+	float wc;
+	wc = WinningCondition_Scores(0);
+
+	// NEVER initiate overtime
+	if(wc == WINNING_YES || wc == WINNING_STARTOVERTIME)
+	// do NOT support equality when the laps are all raced!
+	{
+		float totalplayers;
+		float playerswithlaps;
+		entity head;
+		totalplayers = playerswithlaps = 0;
+		FOR_EACH_PLAYER(head)
+		{
+			++totalplayers;
+			if(PlayerScore_Add(head, SP_RACE_FASTEST, 0))
+				++playerswithlaps;
+		}
+
+		// at least 2/3 of the players have completed a lap: start the RACE
+		// otherwise, the players should end the qualifying on their own
+		if(totalplayers >= 3)
+		if(playerswithlaps >= totalplayers * 2 / 3)
+		{
+			checkrules_overtimeend = 0;
+			ReadyRestart();
+			return WINNING_NEVER;
+		}
+
+		return WINNING_YES;
+	}
+
+	return wc;
 }
 
 float WinningCondition_RanOutOfSpawns()
@@ -1603,8 +1661,11 @@ void CheckRules_World()
 		if(!checkrules_overtimewarning)
 		{
 			checkrules_overtimewarning = TRUE;
-			//sound(world, CHAN_AUTO, "announcer/robotic/1minuteremains.wav", 1, ATTN_NONE);
-			bcenterprint("^3Now playing ^1OVERTIME^3!\n\n^3Keep fragging until we have a ^1winner^3!");
+			//announceall("announcer/robotic/1minuteremains.wav");
+			if(!g_race_qualifying)
+				bcenterprint("^3Everyone, finish your lap! The race is over!");
+			else
+				bcenterprint("^3Now playing ^1OVERTIME^3!\n\n^3Keep fragging until we have a ^1winner^3!");
 		}
 	}
 	else
@@ -1622,13 +1683,21 @@ void CheckRules_World()
 	if (!checkrules_oneminutewarning && timelimit > 0 && time > timelimit - 60)
 	{
 		checkrules_oneminutewarning = TRUE;
-		sound(world, CHAN_AUTO, "announcer/robotic/1minuteremains.wav", 1, ATTN_NONE);
+		play2all("announcer/robotic/1minuteremains.wav");
 	}
 
 	status = WinningCondition_RanOutOfSpawns();
 	if(status == WINNING_YES)
 	{
 		bprint("Hey! Someone ran out of spawns!\n");
+	}
+	else if(g_race && !g_race_qualifying && timelimit >= 0)
+	{
+		status = WinningCondition_Race(fraglimit);
+	}
+	else if(g_race && g_race_qualifying == 2 && timelimit >= 0)
+	{
+		status = WinningCondition_QualifyingThenRace();
 	}
 	else if(g_assault)
 	{

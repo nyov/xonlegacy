@@ -559,6 +559,7 @@ _celshader: Sets the cel shader used for this geometry. Note: omit the "textures
 Teleport destination location point for trigger_teleport entities. Do not let it touch the floor, but place it slightly higher (like, 16 units above) for better flow when jumping through it.
 -------- KEYS --------
 targetname: make the trigger_teleporter point to this.
+target: target to activate when a teleporter targeting this is used
 angle: direction in which player will look when teleported, OR use
 angles: pitch and yaw when coming out of the teleporter (also specifies the direction the player will aim when coming out)
 */
@@ -640,6 +641,7 @@ dmg: The amount of "health"-points you want to subtract from the objective healt
 Aiming target for entities like light and trigger_push.
 -------- KEYS --------
 targetname: the entity that requires an aiming direction points to this.
+target: target to activate when a jumppad targeting this is used
 */
 
 /*QUAKED target_speaker (0 .7 .7) (-8 -8 -8) (8 8 8) 
@@ -883,5 +885,25 @@ _lightmapscale: light map resolution factor
 _castshadows: Allows per-entity control over shadow casting. Defaults to 0 on entities, 1 on world. 0 = no shadow casting.1 = cast shadows on world. > 1 = cast shadows on entities with _rs (or _receiveshadows) with the corresponding value, AND world. Negative values imply same, but DO NOT cast shadows on world.
 _receiveshadows: Allows per-entity control over shadow reception. Defaults to 1 on everything (world shadows). 0 = receives NO shadows. > 1 = receive shadows only from corresponding keyed entities (see above) and world. < 1 = receive shadows ONLY from corresponding keyed entities.
 _celshader: Sets the cel shader used for this geometry. Note: omit the "textures/" prefix.
+*/
+
+/*QUAKED trigger_race_checkpoint (0 1 0) ? NOTOUCH - CRUSH
+A checkpoint, for the race game mode. Be sure to make them quite long, so they actually catch a player reliably!
+-------- KEYS --------
+cnt: Number of the checkpoint. 0 for finish line, and at least two other checkpoints have to exist. They MUST be touched in sequential order!
+message: Death message, when touching checkpoints in the wrong order.
+targetname: Name of the checkpoint. info_player_race can target this to assign a spawn to a checkpoint. Also used for triggering a checkpoint by an event.
+-------- SPAWNFLAGS --------
+NOTOUCH: the checkpoint will not become active when touched, it HAS to be targeted
+CRUSH: the checkpoint kills when used at the wrong time
+*/
+
+/*QUAKED info_player_race (1 0.5 0) (-16 -16 -24) (16 16 45) 
+Race spawn point.
+NOTE for race_place: when the race starts after the qualifying, the player with the fastest map ends up at the info_player_race with race_place 1, and so on. If there are too many players, or if someone comes in later, he will spawn at an info_player_race with race_place not set. So for each trigger_race_checkpoint, there must be at least one corresponding info_player_race with race_place NOT set.
+-------- KEYS --------
+target: this should point to a trigger_race_checkpoint to decide when this spawning point is active. The checkpoint has to be AFTER this spawn.
+cnt: weight of spawn point for random selection. Set to a lower value if you have many spawn points close together. Default value is 1.
+race_place: if target points to the trigger_race_checkpoint with cnt 0 (finish line), this sets which place the spawn corresponds to
 */
 

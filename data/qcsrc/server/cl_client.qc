@@ -43,16 +43,45 @@ float Spawn_Score(entity spot, entity playerlist, float teamcheck)
 	if(spot.team != teamcheck)
 		return -1;
 
+	if(race_spawns)
+		if(spot.target == "")
+			return -1;
+
 	// filter out spots for assault
 	if(spot.target != "") {
 		local entity ent;
+		float good;
 		ent = find(world, targetname, spot.target);
 		while(ent) {
 			if(ent.classname == "target_objective")
+			{
 				if(ent.health < 0 || ent.health >= ASSAULT_VALUE_INACTIVE)
 					return -1;
+				good = 1;
+			}
+			else if(ent.classname == "trigger_race_checkpoint")
+			{
+				if(self.classname == "player") // spectators may spawn everywhere
+				{
+					if(ent.race_checkpoint != race_PreviousCheckpoint(self.race_checkpoint))
+						return -1;
+					float pl;
+					pl = self.race_place;
+					if(pl > race_highest_place_spawn)
+						pl = 0;
+					if(spot.race_place != pl)
+						return -1;
+				}
+				good = 1;
+			}
+			else
+			{
+			}
 			ent = find(ent, targetname, spot.target);
 		}
+
+		if(!good)
+			return -1;
 	}
 
 	player = playerlist;
@@ -354,6 +383,9 @@ putting a client as observer in the server
 void PutObserverInServer (void)
 {
 	entity	spot;
+
+	race_PreSpawnObserver();
+
 	spot = SelectSpawnPoint (TRUE);
 	if(!spot)
 		error("No spawnpoints for observers?!?\n");
@@ -446,15 +478,14 @@ void PutObserverInServer (void)
 
 	if(g_arena)
 	{
-		if(self.frags != -2)
-		{
-			Spawnqueue_Insert(self);
-			// FIXME what IS this?
-		}
-		else
+		if(self.version_mismatch)
 		{
 			Spawnqueue_Unmark(self);
 			Spawnqueue_Remove(self);
+		}
+		else
+		{
+			Spawnqueue_Insert(self);
 		}
 	}
 	else if(g_lms)
@@ -568,6 +599,8 @@ void PutClientInServer (void)
 	if(self.classname == "player") {
 		entity	spot;
 
+		race_PreSpawn();
+
 		spot = SelectSpawnPoint (FALSE);
 		if(!spot)
 		{
@@ -581,6 +614,8 @@ void PutClientInServer (void)
 		self.iscreature = TRUE;
 		self.movetype = MOVETYPE_WALK;
 		self.solid = SOLID_SLIDEBOX;
+		if(independent_players)
+			MAKE_INDEPENDENT_PLAYER(self);
 		self.flags = FL_CLIENT;
 		self.takedamage = DAMAGE_AIM;
 		if(g_minstagib)
@@ -692,6 +727,8 @@ void PutClientInServer (void)
 		self.lms_traveled_distance = 0;
 		self.speedrunning = FALSE;
 
+		race_PostSpawn(spot);
+
 		if(cvar("spawn_debug"))
 		{
 			sprint(self, strcat("spawnpoint origin:  ", vtos(spot.origin), "\n"));
@@ -702,7 +739,7 @@ void PutClientInServer (void)
 	 	//stuffcmd(self, "set viewsize $tmpviewsize \n");
 
 		if (cvar("g_spawnsound"))
-			sound (self, CHAN_AUTO, "misc/spawn.wav", 1, ATTN_NORM);
+			sound (self, CHAN_TRIGGER, "misc/spawn.wav", VOL_BASE, ATTN_NORM);
 
 		if(g_assault) {
 			if(self.team == assault_attacker_team)
@@ -830,7 +867,7 @@ void KillIndicator_Think()
 		if(clienttype(self.owner) == CLIENTTYPE_REAL)
 		{
 			if(self.cnt <= 10)
-				play2(self.owner, strcat("announcer/robotic/", ftos(self.cnt), ".ogg"));
+				announce(self.owner, strcat("announcer/robotic/", ftos(self.cnt), ".ogg"));
 			if(self.owner.killindicator_teamchange)
 			{
 				if(self.owner.killindicator_teamchange == -1)
@@ -1022,6 +1059,8 @@ void ClientConnect (void)
 
 	bot_clientconnect();
 
+	race_PreSpawnObserver();
+
 	//if(g_domination)
 	//	dom_player_join_team(self);
 
@@ -1175,6 +1214,7 @@ Called when a client disconnects from the server
 void(entity e) DropFlag;
 .entity chatbubbleentity;
 .entity teambubbleentity;
+void ReadyCount();
 //void() ctf_clientdisconnect;
 void ClientDisconnect (void)
 {
@@ -1253,6 +1293,8 @@ void ClientDisconnect (void)
 	// free cvars
 	GetCvars(-1);
 	self.playerid = 0;
+
+	ReadyCount();
 }
 
 .float BUTTON_CHAT;
@@ -1696,7 +1738,7 @@ void ShowRespawnCountdown()
 		{
 			self.respawn_countdown = number - 1;
 			if(ceil(self.death_time - (time + 0.5)) == number) // only say it if it is the same number even in 0.5s; to prevent overlapping sounds
-				play2(self, strcat("announcer/robotic/", ftos(number), ".ogg"));
+				announce(self, strcat("announcer/robotic/", ftos(number), ".ogg"));
 		}
 	}
 }
@@ -1808,12 +1850,12 @@ float vercmp(string v1, string v2)
 void ObserverThink()
 {
 	if (self.flags & FL_JUMPRELEASED) {
-		if (self.BUTTON_JUMP && self.version == cvar("gameversion")) {
+		if (self.BUTTON_JUMP && !self.version_mismatch) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			LeaveSpectatorMode();
 			return;
-		} else if(self.BUTTON_ATCK && self.version == cvar("gameversion")) {
+		} else if(self.BUTTON_ATCK && !self.version_mismatch) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			if(SpectateNext() == 1) {
@@ -1834,7 +1876,7 @@ void ObserverThink()
 void SpectatorThink()
 {
 	if (self.flags & FL_JUMPRELEASED) {
-		if (self.BUTTON_JUMP && self.version == cvar("gameversion")) {
+		if (self.BUTTON_JUMP && !self.version_mismatch) {
 			self.welcomemessage_time = 0;
 			self.flags = self.flags - FL_JUMPRELEASED;
 			LeaveSpectatorMode();
@@ -2156,6 +2198,8 @@ Called every frame for each client after the physics are run
 =============
 */
 .float idlekick_lasttimeleft;
+.float race_penalty;
+.float race_penalty_nagged;
 void PlayerPostThink (void)
 {
 	// Savage: Check for nameless players
@@ -2171,7 +2215,7 @@ void PlayerPostThink (void)
 		if(timeleft <= 0)
 		{
 			bprint("^3", self.netname, "^3 was kicked for idling.\n");
-			play2(self, "announcer/robotic/terminated.ogg");
+			announce(self, "announcer/robotic/terminated.ogg");
 			dropclient(self);
 			return;
 		}
@@ -2180,7 +2224,7 @@ void PlayerPostThink (void)
 			if(timeleft != self.idlekick_lasttimeleft)
 			{
 				centerprint_atprio(self, CENTERPRIO_IDLEKICK, strcat("^3Stop idling!\n^3Disconnecting in ", ftos(timeleft), "..."));
-				play2(self, strcat("announcer/robotic/", ftos(timeleft), ".ogg"));
+				announce(self, strcat("announcer/robotic/", ftos(timeleft), ".ogg"));
 			}
 		}
 		else
@@ -2207,11 +2251,34 @@ void PlayerPostThink (void)
 			if(time < restart_countdown) {
 				if (!cvar("sv_ready_restart_after_countdown"))
 				{
+					if(self.movement != '0 0 0' && g_race && !g_race_qualifying)
+					{
+						if(time < restart_countdown - 2)
+						{
+							if(!self.race_penalty_nagged)
+							{
+								centerprint_atprio(self, CENTERPRIO_IDLEKICK, "^1DO NOT MOVE DURING THE COUNTDOWN.");
+								self.race_penalty_nagged = 1;
+							}
+						}
+						else if(!self.race_penalty)
+						{
+							centerprint_atprio(self, CENTERPRIO_IDLEKICK, "^1FIVE SECONDS PENALTY.");
+							self.race_penalty = time + 5;
+						}
+					}
 					self.movetype = MOVETYPE_NONE;		
 					self.velocity = '0 0 0';
 					self.avelocity = '0 0 0';
 					self.movement = '0 0 0';
 				}
+			}
+			else if (time < self.race_penalty)
+			{
+				self.movetype = MOVETYPE_NONE;		
+				self.velocity = '0 0 0';
+				self.avelocity = '0 0 0';
+				self.movement = '0 0 0';
 			}
 			else
 			{
@@ -2222,6 +2289,8 @@ void PlayerPostThink (void)
 					{
 						self.movetype = MOVETYPE_WALK;
 					}
+					self.race_penalty = 0;
+					self.race_penalty_nagged = 0;
 				}
 			}
 		}

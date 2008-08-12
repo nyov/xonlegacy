@@ -97,6 +97,7 @@ void ResetGameCvars()
 	cvar_set("g_keyhunt", "0");
 	cvar_set("g_assault", "0");
 	cvar_set("g_onslaught", "0");
+	cvar_set("g_race", "0");
 	cvar_set("teamplay", "0");
 }
 
@@ -263,6 +264,30 @@ void InitGameplayMode()
 		gamemode_name = "Onslaught";
 		teams_matter = 1;
 	}
+	else if(game == GAME_RACE || cvar("g_race"))
+	{
+		ResetGameCvars();
+		game = GAME_RACE;
+		cvar_set("g_race", "1");
+		fraglimit_override = cvar("g_race_laps_limit");
+		gamemode_name = "Race";
+
+		if(cvar("g_race_teams"))
+		{
+			ActivateTeamplay();
+			teams_matter = 1;
+			race_teams = bound(2, cvar("g_race_teams"), 4);
+		}
+		else
+		{
+			race_teams = 0;
+			teams_matter = 0;
+			if(cvar("g_race_qualifying"))
+				independent_players = 1;
+		}
+
+		ScoreRules_race();
+	}
 	else
 	{
 		// we can only assume...
@@ -298,6 +323,7 @@ void InitGameplayMode()
 	g_keyhunt = cvar("g_keyhunt");
 	g_onslaught = cvar("g_onslaught");
 	g_assault = cvar("g_assault");
+	g_race = cvar("g_race");
 	g_arena = cvar("g_arena");
 
 	cache_mutatormsg = strzone("");
@@ -316,6 +342,12 @@ void InitGameplayMode()
 			cvar_set("fraglimit", ftos(fraglimit_override));
 		if(timelimit_override >= 0)
 			cvar_set("timelimit", ftos(timelimit_override));
+	}
+
+	if(g_race_qualifying)
+	{
+		race_fraglimit = cvar("fraglimit");
+		cvar_set("fraglimit", "0");
 	}
 
 	if (game == GAME_DOMINATION)//cvar("g_domination"))
@@ -337,13 +369,10 @@ void InitGameplayMode()
 	e.think = default_delayedinit;
 }
 
-string GetClientVersionMessage(float v) {
+string GetClientVersionMessage() {
 	local string versionmsg;
-	if (v == 1) {
-		versionmsg = "^1client is too old to get versioninfo.\n\n\n### YOU WON'T BE ABLE TO PLAY ON THIS SERVER ###\n\n\nUPDATE!!! (http://www.nexuiz.com)^8";
-		// either that or someone wants to be funny
-	} else if (v != cvar("gameversion")) {
-		if(v < cvar("gameversion")) {
+	if (self.version_mismatch) {
+		if(self.version < cvar("gameversion")) {
 			versionmsg = "^3Your client version is outdated.\n\n\n### YOU WON'T BE ABLE TO PLAY ON THIS SERVER ###\n\n\nPlease update!!!^8";
 		} else {
 			versionmsg = "^3This server is using an outdated Nexuiz version.\n\n\n ### THIS SERVER IS INCOMPATIBLE AND THUS YOU CANNOT JOIN ###.^8";
@@ -357,7 +386,7 @@ string GetClientVersionMessage(float v) {
 
 void PrintWelcomeMessage(entity pl)
 {
-	string s, mutator, modifications, padding;
+	string s, mutator, modifications;
 	float p;
 
 	/*if(self.welcomemessage_time > time)
@@ -447,7 +476,7 @@ void PrintWelcomeMessage(entity pl)
 	}
 
 	local string versionmessage;
-	versionmessage = GetClientVersionMessage(self.version);
+	versionmessage = GetClientVersionMessage();
 
 	s = strcat(s, NEWLINES, "This is Nexuiz ", cvar_string("g_nexuizversion"), "\n", versionmessage);
 	s = strcat(s, "^8\n\nmatch type is ^1", mutator, gamemode_name, "^8\n");
@@ -600,6 +629,8 @@ void CheckAllowedTeams (entity for_whom)
 		// cover anything else by treating it like tdm with no teams spawned
 		if(g_keyhunt)
 			dm = kh_teams;
+		else if(g_race)
+			dm = race_teams;
 		else
 			dm = cvar("g_tdm_teams");
 		if(dm < 2)

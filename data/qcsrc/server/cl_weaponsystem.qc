@@ -119,11 +119,11 @@ void W_SetupShot(entity ent, vector vecs, float antilag, float recoil, string sn
 		self.punchangle_x = recoil * -1;
 
 	if (snd != "")
-		sound (self, CHAN_WEAPON, snd, 1, ATTN_NORM);
+		sound (self, CHAN_WEAPON, snd, VOL_BASE, ATTN_NORM);
 
 	if (self.items & IT_STRENGTH)
 	if (!g_minstagib)
-		sound (self, CHAN_AUTO, "weapons/strength_fire.wav", 1, ATTN_NORM);
+		sound (self, CHAN_AUTO, "weapons/strength_fire.wav", VOL_BASE, ATTN_NORM);
 };
 
 void LaserTarget_Think()
@@ -422,12 +422,13 @@ void weapon_setup(float windex, string wname, float hudammo)
 };
 
 // perform weapon to attack (weaponstate and attack_finished check is here)
+.float race_penalty;
 float weapon_prepareattack(float secondary, float attacktime)
 {
 	//if sv_ready_restart_after_countdown is set, don't allow the player to shoot
 	//if all players readied up and the countdown is running
 	if (cvar("sv_ready_restart_after_countdown"))
-		if(time < restart_countdown) {
+		if(time < restart_countdown || time < self.race_penalty) {
 			return FALSE;
 		}
 	
