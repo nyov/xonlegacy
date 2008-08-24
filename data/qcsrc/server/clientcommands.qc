@@ -347,6 +347,8 @@ void SV_ParseClientCommand(string s) {
 		if(cvar("sv_timeout")) {
 			evaluateResumeGame();
 		}
+	} else if(argv(0) == "teamstatus") {
+		Score_NicePrint(self);
 	} else {
 		//if(ctf_clientcommand())
 		//	return;
@@ -383,6 +385,8 @@ void ReadyRestart()
 	local entity e;
 
 	bprint("^1Server is restarting...\n");
+
+	VoteReset();
 
 	// no arena, assault support yet...
 	if(g_arena | g_assault | gameover | intermission_running | race_completing)

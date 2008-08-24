@@ -1102,10 +1102,8 @@ void ClientConnect (void)
 
 	self.welcomemessage_time = 0;
 
+	stuffcmd(self, strcat(clientstuff, "\n"));
 	stuffcmd(self, strcat("exec maps/", mapname, ".cfg\n"));
-	// TODO: is this being used for anything else than cd tracks?
-	// Remember: SVC_CDTRACK exists. Maybe it should be used.
-	//
 	stuffcmd(self, "cl_particles_reloadeffects\n");
 
 	FixClientCvars(self);
@@ -1552,6 +1550,7 @@ void player_powerups (void)
 	if (g_midair)
 		self.spawnshieldtime = max(self.spawnshieldtime, time + cvar("g_midair_shieldtime"));
 
+	if (time > restart_countdown)
 	if (time < self.spawnshieldtime)
 		self.effects = self.effects | (EF_ADDITIVE | EF_FULLBRIGHT);
 }
@@ -1920,6 +1919,7 @@ Called every frame for each client before the physics are run
 */
 void() ctf_setstatus;
 .float vote_nagtime;
+.float spectatee_status;
 void PlayerPreThink (void)
 {
 	if(blockSpectators)
@@ -2186,6 +2186,24 @@ void PlayerPreThink (void)
 		ObserverThink();
 	} else if(self.classname == "spectator") {
 		SpectatorThink();
+	}
+
+	float oldspectatee_status;
+	oldspectatee_status = self.spectatee_status;
+	if(self.classname == "spectator")
+		self.spectatee_status = num_for_edict(self.enemy);
+	else if(self.classname == "observer")
+		self.spectatee_status = num_for_edict(self);
+	else
+		self.spectatee_status = 0;
+	if(self.spectatee_status != oldspectatee_status)
+	{
+		msg_entity = self;
+		WriteByte(MSG_ONE, SVC_TEMPENTITY);
+		WriteByte(MSG_ONE, TE_CSQC_SPECTATING);
+		WriteByte(MSG_ONE, self.spectatee_status);
+		if(g_race)
+			race_InitSpectator();
 	}
 }
 

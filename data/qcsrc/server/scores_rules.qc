@@ -6,12 +6,25 @@ void CheckAllowedTeams (entity for_whom);
 float ScoreRules_teams;
 void ScoreRules_basics(float teams, float sprio)
 {
+	float i;
+	for(i = 0; i < MAX_SCORE; ++i)
+		ScoreInfo_SetLabel_PlayerScore(i, "", 0);
+	for(i = 0; i < MAX_TEAMSCORE; ++i)
+		ScoreInfo_SetLabel_TeamScore(i, "", 0);
+
 	ScoreRules_teams = teams;
+
 	if(sprio)
 		ScoreInfo_SetLabel_TeamScore  (ST_SCORE,        "score",     sprio);
-	ScoreInfo_SetLabel_PlayerScore(SP_KILLS,        "kills",     0);
+
+	if not(independent_players)
+		ScoreInfo_SetLabel_PlayerScore(SP_KILLS,        "kills",     0);
+
 	ScoreInfo_SetLabel_PlayerScore(SP_DEATHS,       "deaths",    SFL_LOWER_IS_BETTER);
-	ScoreInfo_SetLabel_PlayerScore(SP_SUICIDES,     "suicides",  SFL_LOWER_IS_BETTER);
+
+	if not(independent_players)
+		ScoreInfo_SetLabel_PlayerScore(SP_SUICIDES,     "suicides",  SFL_LOWER_IS_BETTER);
+
 	if(sprio)
 		ScoreInfo_SetLabel_PlayerScore(SP_SCORE,        "score",     sprio);
 }
@@ -136,8 +149,6 @@ void ScoreRules_race()
 	}
 	else if(g_race_qualifying)
 	{
-		ScoreInfo_SetLabel_TeamScore(  ST_RACE_LAPS,    "laps",      0);
-		ScoreInfo_SetLabel_PlayerScore(SP_RACE_LAPS,    "laps",      0);
 		ScoreInfo_SetLabel_PlayerScore(SP_RACE_FASTEST, "fastest",   SFL_SORT_PRIO_PRIMARY | SFL_LOWER_IS_BETTER | SFL_TIME);
 	}
 	else

@@ -39,20 +39,22 @@ void func_ladder_touch()
 {
 	if (other.classname != "player")
 		return;
+
+	EXACTTRIGGER_TOUCH;
+
 	other.ladder_time = time + 0.1;
 	other.ladder_entity = self;
 };
 
 void spawnfunc_func_ladder()
 {
-	InitTrigger ();
+	EXACTTRIGGER_INIT;
 	self.touch = func_ladder_touch;
 };
 
 void spawnfunc_func_water()
 {
-	self.solid = SOLID_TRIGGER;
-	setmodel (self, self.model);	// set size and link into world, precision set by mapper
+	EXACTTRIGGER_INIT;
 	self.touch = func_ladder_touch;
 };
 

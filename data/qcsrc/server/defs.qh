@@ -446,7 +446,8 @@ float tracebox_hits_trigger_hurt(vector start, vector mi, vector ma, vector end)
 float next_pingtime;
 
 .float Version;
-.float(entity to) SendEntity;
+.float SendFlags;
+.float(entity to, float sendflags) SendEntity;
 
 // player sounds, voice messages
 .string playersound_attack;
@@ -486,3 +487,5 @@ void VoiceMessage(string type);
 float independent_players;
 #define IS_INDEPENDENT_PLAYER(e) ((e).solid == SOLID_TRIGGER)
 #define MAKE_INDEPENDENT_PLAYER(e) ((e).solid = SOLID_TRIGGER)
+
+string clientstuff;

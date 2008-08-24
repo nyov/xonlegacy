@@ -189,6 +189,8 @@ void spawnfunc_worldspawn (void)
 
 #ifdef MAPINFO
 	MapInfo_LoadMapSettings(mapname);
+	clientstuff = strzone(MapInfo_Map_clientstuff);
+	MapInfo_ClearTemps();
 #endif
 
 	if(sv_cheats)
@@ -334,27 +336,39 @@ void spawnfunc_worldspawn (void)
 		cvar_set("timelimit", "0");
 	}
 
-	fd = fopen(strcat("maps/", mapname, ".cfg"), FILE_READ);
-	if(fd != -1)
+	if(whichpack(strcat("maps/", mapname, ".cfg")) != "")
 	{
-		while((s = fgets(fd)))
+		fd = fopen(strcat("maps/", mapname, ".cfg"), FILE_READ);
+		if(fd != -1)
 		{
-			l = tokenize(s);
-			if(l < 2)
-				continue;
-			if(argv(0) != "fog")
-				continue;
-			s = "";
-			while(l >= 2)
+			while((s = fgets(fd)))
 			{
-				--l;
-				s = strcat(argv(l), " ", s);
+				l = tokenize(s);
+				if(l < 2)
+					continue;
+				if(argv(0) == "cd")
+				{
+					print("Found ^1DEPRECATED^7 cd loop command in .cfg file; put this line in mapinfo instead:\n");
+					print("  cdtrack ", argv(2), "\n");
+				}
+				else if(argv(0) == "fog")
+				{
+					print("Found ^1DEPRECATED^7 fog command in .cfg file; put this line in worldspawn in the .map/.bsp/.ent file instead:\n");
+					print("  \"fog\" \"", s, "\"\n");
+				}
+				else if(argv(0) == "set")
+				{
+					print("Found ^1DEPRECATED^7 set command in .cfg file; put this line in mapinfo instead:\n");
+					print("  clientsettemp_for_type all ", argv(1), " ", argv(2), "\n");
+				}
+				else if(argv(0) != "//")
+				{
+					print("Found ^1DEPRECATED^7 set command in .cfg file; put this line in mapinfo instead:\n");
+					print("  clientsettemp_for_type all ", argv(0), " ", argv(1), "\n");
+				}
 			}
-			s = substring(s, 0, strlen(s) - 1);
-			print("Found ^1DEPRECATED^7 fog command in .cfg file: ", s, "\n");
-			world.fog = strzone(s);
+			fclose(fd);
 		}
-		fclose(fd);
 	}
 
 	next_pingtime = time + 5;
@@ -1477,6 +1491,14 @@ float WinningCondition_Scores(float limit)
 	// TODO make everything use THIS winning condition (except LMS)
 	WinningConditionHelper();
 	
+	if(teams_matter)
+	{
+		team1_score = TeamScore_GetCompareValue(COLOR_TEAM1);
+		team2_score = TeamScore_GetCompareValue(COLOR_TEAM2);
+		team3_score = TeamScore_GetCompareValue(COLOR_TEAM3);
+		team4_score = TeamScore_GetCompareValue(COLOR_TEAM4);
+	}
+	
 	ClearWinners();
 	if(WinningConditionHelper_winner)
 		WinningConditionHelper_winner.winning = 1;
@@ -1491,7 +1513,7 @@ float WinningCondition_Scores(float limit)
 		WinningConditionHelper_topscore = -WinningConditionHelper_topscore;
 		limit = -limit;
 	}
-	
+
 	return GetWinningCode(limit && WinningConditionHelper_topscore && (WinningConditionHelper_topscore >= limit), WinningConditionHelper_equality);
 }
 
@@ -1882,12 +1904,7 @@ void MapVote_Init()
 	mapvote_screenshot_dir = strzone(mapvote_screenshot_dir);
 
 	if(!cvar("g_maplist_textonly"))
-	{
-		// FIXME reenable this when it works in the engine
-		// MapVote_SendData(MSG_ALL);
-		FOR_EACH_REALCLIENT(msg_entity)
-			MapVote_SendData(MSG_ONE);
-	}
+		MapVote_SendData(MSG_ALL);
 }
 
 void MapVote_SendPicture(float id)
@@ -2178,10 +2195,7 @@ void MapVote_Tick()
 	if(!cvar("g_maplist_textonly"))
 	if(mapvote_dirty) // 1 if "keeptwo" or "impulse" happened before
 	{
-		// FIXME reenable this when it works in the engine
-		// MapVote_UpdateData(MSG_BROADCAST);
-		FOR_EACH_REALCLIENT(msg_entity)
-			MapVote_UpdateData(MSG_ONE);
+		MapVote_UpdateData(MSG_BROADCAST);
 		mapvote_dirty = FALSE;
 	}
 

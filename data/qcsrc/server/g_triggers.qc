@@ -187,6 +187,8 @@ void multi_touch()
 			return;		// not facing the right way
 	}
 
+	EXACTTRIGGER_TOUCH;
+
 	self.enemy = other;
 	multi_trigger ();
 };
@@ -238,7 +240,7 @@ void spawnfunc_trigger_multiple()
 		self.wait = 0.2;
 	self.use = multi_use;
 
-	InitTrigger ();
+	EXACTTRIGGER_INIT;
 
 	if (self.health)
 	{
@@ -355,17 +357,25 @@ void spawnfunc_trigger_counter()
 .float triggerhurttime;
 void trigger_hurt_touch()
 {
+	// only do the EXACTTRIGGER_TOUCH checks when really needed (saves some cpu)
 	if (!other.owner)
 	{
 		if (other.items & IT_KEY1 || other.items & IT_KEY2)	// reset flag
+		{
+			EXACTTRIGGER_TOUCH;
 			other.pain_finished = min(other.pain_finished, time + 2);
+		}
 		else if (other.classname == "rune")			// reset runes
+		{
+			EXACTTRIGGER_TOUCH;
 			other.nextthink = min(other.nextthink, time + 1);
+		}
 	}
 
 	if (other.takedamage)
 	if (other.triggerhurttime < time)
 	{
+		EXACTTRIGGER_TOUCH;
 		other.triggerhurttime = time + 1;
 		Damage (other, self, self, self.dmg, DEATH_HURTTRIGGER, other.origin, '0 0 0');
 	}
@@ -383,7 +393,7 @@ entity trigger_hurt_last;
 entity trigger_hurt_first;
 void spawnfunc_trigger_hurt()
 {
-	InitTrigger ();
+	EXACTTRIGGER_INIT;
 	self.touch = trigger_hurt_touch;
 	if (!self.dmg)
 		self.dmg = 1000;
@@ -544,10 +554,7 @@ void spawnfunc_func_rain()
 	self.angles = '0 0 0';
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
-	if(self.model != "")
-		setmodel(self, self.model); // no precision needed
-	setorigin(self, self.origin);
-	setsize(self, self.mins, self.maxs);
+	SetBrushEntityModel();
 	self.model = "";
 	if (!self.cnt)
 		self.cnt = 12;
@@ -599,10 +606,7 @@ void spawnfunc_func_snow()
 	self.angles = '0 0 0';
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_NOT;
-	if(self.model != "")
-		setmodel(self, self.model); // no precision needed
-	setorigin(self, self.origin);
-	setsize(self, self.mins, self.maxs);
+	SetBrushEntityModel();
 	self.model = "";
 	if (!self.cnt)
 		self.cnt = 12;
@@ -719,6 +723,8 @@ void trigger_impulse_touch1()
 	if (other.deadflag && other.classname == "player")
 		return;
 
+	EXACTTRIGGER_TOUCH;
+
     targ = find(world, targetname, self.target);
     if(!targ)
     {
@@ -764,6 +770,8 @@ void trigger_impulse_touch2()
 	if (other.deadflag && other.classname == "player")
 		return;
 
+	EXACTTRIGGER_TOUCH;
+
     pushdeltatime = time - other.lastpushtime;
     if (pushdeltatime > 0.15) pushdeltatime = 0;
     other.lastpushtime = time;
@@ -797,6 +805,8 @@ void trigger_impulse_touch3()
 
 	if (other.deadflag && other.classname == "player")
 		return;
+
+	EXACTTRIGGER_TOUCH;
 
     pushdeltatime = time - other.lastpushtime;
     if (pushdeltatime > 0.15) pushdeltatime = 0;
@@ -837,7 +847,7 @@ in directional and sperical mode. For damper/accelerator mode this is not nesses
 
 void spawnfunc_trigger_impulse()
 {
-    InitTrigger ();
+	EXACTTRIGGER_INIT;
     if(self.radius)
     {
         if(!self.strength) self.strength = 2000;

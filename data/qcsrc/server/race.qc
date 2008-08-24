@@ -32,14 +32,11 @@ float race_PreviousCheckpoint(float f)
 		return f - 1;
 }
 
-void race_SendNextCheckpoint(entity e)
+void race_SendNextCheckpoint(entity e, float spec)
 {
 	float recordtime;
 	string recordholder;
 	float cp;
-
-	if(clienttype(e) != CLIENTTYPE_REAL)
-		return;
 
 	if(!e.race_laptime)
 		return;
@@ -54,13 +51,29 @@ void race_SendNextCheckpoint(entity e)
 	if(recordholder == e.netname)
 		recordholder = "";
 
-	msg_entity = e;
-	WriteByte(MSG_ONE, SVC_TEMPENTITY);
-	WriteByte(MSG_ONE, TE_CSQC_RACE);
-	WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_NEXT_QUALIFYING);
-	WriteByte(MSG_ONE, cp); // checkpoint the player will be at next
-	WriteShort(MSG_ONE, recordtime);
-	WriteString(MSG_ONE, recordholder);
+	if(!spec)
+		msg_entity = e;
+	WRITESPECTATABLE_MSG_ONE({
+		WriteByte(MSG_ONE, SVC_TEMPENTITY);
+		WriteByte(MSG_ONE, TE_CSQC_RACE);
+		if(spec)
+		{
+			WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_NEXT_SPEC_QUALIFYING);
+			WriteCoord(MSG_ONE, e.race_laptime);
+		}
+		else
+			WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_NEXT_QUALIFYING);
+		WriteByte(MSG_ONE, cp); // checkpoint the player will be at next
+		WriteShort(MSG_ONE, recordtime);
+		WriteString(MSG_ONE, recordholder);
+	});
+}
+
+void race_InitSpectator()
+{
+	if(g_race_qualifying)
+		if(msg_entity.enemy.race_laptime)
+			race_SendNextCheckpoint(msg_entity.enemy, 1);
 }
 
 void race_SendTime(entity e, float cp, float t, float tvalid)
@@ -95,11 +108,13 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 				e.race_completed = 1;
 				MAKE_INDEPENDENT_PLAYER(e);
 				bprint(e.netname, "^7 has finished the race.\n");
+				// TODO support spectators with this (e.g. set a flag for forced sbar)
 				if(clienttype(e) == CLIENTTYPE_REAL)
 				{
 					msg_entity = e;
 					WriteByte(MSG_ONE, SVC_TEMPENTITY);
 					WriteByte(MSG_ONE, TE_CSQC_FORCESCOREBOARD);
+					WriteByte(MSG_ONE, 1);
 					// he can still move, but will see the scoreboard now
 				}
 			}
@@ -161,7 +176,7 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 					entity p;
 					FOR_EACH_REALPLAYER(p)
 						if(p.race_checkpoint == cp)
-							race_SendNextCheckpoint(p);
+							race_SendNextCheckpoint(p, 0);
 				}
 			}
 		}
@@ -173,11 +188,10 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 			recordholder = "";
 		}
 
-		if(clienttype(e) == CLIENTTYPE_REAL)
+		msg_entity = e;
+		if(g_race_qualifying)
 		{
-			msg_entity = e;
-			if(g_race_qualifying)
-			{
+			WRITESPECTATABLE_MSG_ONE({
 				WriteByte(MSG_ONE, SVC_TEMPENTITY);
 				WriteByte(MSG_ONE, TE_CSQC_RACE);
 				WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_HIT_QUALIFYING);
@@ -185,7 +199,7 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 				WriteShort(MSG_ONE, t); // time to that intermediate
 				WriteShort(MSG_ONE, recordtime); // previously best time
 				WriteString(MSG_ONE, recordholder); // record holder
-			}
+			});
 		}
 	}
 	else // RACE! Not Qualifying
@@ -202,9 +216,8 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 		else
 			lself = lother = othtime = 0;
 
-		if(clienttype(e) == CLIENTTYPE_REAL)
-		{
-			msg_entity = e;
+		msg_entity = e;
+		WRITESPECTATABLE_MSG_ONE({
 			WriteByte(MSG_ONE, SVC_TEMPENTITY);
 			WriteByte(MSG_ONE, TE_CSQC_RACE);
 			WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_HIT_RACE);
@@ -221,16 +234,14 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 				WriteByte(MSG_ONE, lself - lother);
 				WriteString(MSG_ONE, oth.netname); // record holder
 			}
-		}
+		});
 
 		race_checkpoint_lastplayers[cp] = e;
 		race_checkpoint_lasttimes[cp] = time;
 		race_checkpoint_lastlaps[cp] = lself;
 
-		if(clienttype(oth) == CLIENTTYPE_REAL)
-		if(oth.flags & FL_CLIENT)
-		{
-			msg_entity = oth;
+		msg_entity = oth;
+		WRITESPECTATABLE_MSG_ONE({
 			WriteByte(MSG_ONE, SVC_TEMPENTITY);
 			WriteByte(MSG_ONE, TE_CSQC_RACE);
 			WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_HIT_RACE_BY_OPPONENT);
@@ -247,7 +258,7 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 				WriteByte(MSG_ONE, lother - lself);
 				WriteString(MSG_ONE, e.netname); // record holder
 			}
-		}
+		});
 	}
 }
 
@@ -256,19 +267,44 @@ void race_ClearTime(entity e)
 	e.race_checkpoint = -1;
 	e.race_laptime = 0;
 
-	if(clienttype(e) != CLIENTTYPE_REAL)
-		return;
-
 	msg_entity = e;
-	WriteByte(MSG_ONE, SVC_TEMPENTITY);
-	WriteByte(MSG_ONE, TE_CSQC_RACE);
-	WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_CLEAR); // next
+	WRITESPECTATABLE_MSG_ONE({
+		WriteByte(MSG_ONE, SVC_TEMPENTITY);
+		WriteByte(MSG_ONE, TE_CSQC_RACE);
+		WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_CLEAR); // next
+	});
+}
+
+void dumpsurface(entity e)
+{
+	float n, si, ni;
+	vector norm, vec;
+	print("Surfaces of ", etos(e), ":\n");
+
+	print("TEST = ", ftos(getsurfacenearpoint(e, '0 0 0')), "\n");
+
+	for(si = 0; ; ++si)
+	{
+		n = getsurfacenumpoints(e, si);
+		if(n <= 0)
+			break;
+		print("  Surface ", ftos(si), ":\n");
+		norm = getsurfacenormal(e, si);
+		print("    Normal = ", vtos(norm), "\n");
+		for(ni = 0; ni < n; ++ni)
+		{
+			vec = getsurfacepoint(e, si, ni);
+			print("    Point ", ftos(ni), " = ", vtos(vec), " (", ftos(norm * vec), ")\n");
+		}
+	}
 }
 
 void checkpoint_touch()
 {
 	if(other.classname != "player")
 		return;
+
+	EXACTTRIGGER_TOUCH;
 
 	if(other.race_checkpoint == -1 || other.race_checkpoint == self.race_checkpoint)
 	{
@@ -280,7 +316,7 @@ void checkpoint_touch()
 			other.race_laptime = time;
 
 		if(g_race_qualifying)
-			race_SendNextCheckpoint(other);
+			race_SendNextCheckpoint(other, 0);
 	}
 	else if(other.race_checkpoint == race_NextCheckpoint(self.race_checkpoint))
 	{
@@ -317,7 +353,9 @@ void spawnfunc_trigger_race_checkpoint()
 		remove(self);
 		return;
 	}
-	InitTrigger();
+
+	EXACTTRIGGER_INIT;
+
 	self.use = checkpoint_use;
 	if not(self.spawnflags & 1)
 		self.touch = checkpoint_touch;
@@ -378,11 +416,13 @@ void race_PreSpawn()
 		self.race_completed = 1;
 		MAKE_INDEPENDENT_PLAYER(self);
 		bprint(self.netname, "^7 has abandoned the race.\n");
+		// TODO support spectators with this (e.g. set a flag for forced sbar)
 		if(clienttype(self) == CLIENTTYPE_REAL)
 		{
 			msg_entity = self;
 			WriteByte(MSG_ONE, SVC_TEMPENTITY);
 			WriteByte(MSG_ONE, TE_CSQC_FORCESCOREBOARD);
+			WriteByte(MSG_ONE, 1);
 			// he can still move, but will see the scoreboard now
 		}
 	}

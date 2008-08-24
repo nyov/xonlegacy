@@ -561,29 +561,7 @@ string Sbar_GetField(entity pl, float field)
 				sbar_field_rgb = '0 1 1';
 			else
 				sbar_field_rgb = '1 1 1';
-			if(!tmp)
-				if(f & (SFL_HIDE_ZERO | SFL_RANK | SFL_TIME))
-					return "";
-			if(f & SFL_RANK)
-			{
-				str = ftos(floor(tmp + 0.5));
-				num = strlen(str);
-				if((num >= 2) && (substring(str, num - 2, 1) == "1"))
-					return strcat(str, "th");
-				else if(substring(str, num - 1, 1) == "1")
-					return strcat(str, "st");
-				else if(substring(str, num - 1, 1) == "2")
-					return strcat(str, "nd");
-				else if(substring(str, num - 1, 1) == "3")
-					return strcat(str, "rd");
-				else
-					return strcat(str, "th");
-			}
-			else if(f & SFL_TIME)
-			{
-				return mmsss(tmp);
-			}
-			return ftos(tmp);
+			return ScoreString(f, tmp);
 	}
 	//return "error";
 }
@@ -742,12 +720,6 @@ void Sbar_DrawScoreboard()
 		lastpingstime = time;
 	}
 
-	sbar_fontsize = Sbar_GetFontsize();
-	if(sbar_fontsize_x == 0)
-		sbar_fontsize = '8 8 0';
-	if(sbar_fontsize_y == 0)
-		sbar_fontsize_y = sbar_fontsize_x;
-	
 	xmin = vid_conwidth / 5;
 	ymin = 20;
 
@@ -1106,7 +1078,7 @@ void Sbar_Score(float margin)
 		drawfont = sbar_bigfont;
 		float a;
 		vector m;
-		string s;
+		string s, forcetime;
 
 		m = '0.5 0 0' * vid_conwidth + '0 0.25 0' * vid_conheight;
 
@@ -1115,12 +1087,15 @@ void Sbar_Score(float margin)
 
 			a = bound(0, 2 - (time - race_checkpointtime), 1);
 			s = "";
+			forcetime = "";
 			if(a > 0) // just hit a checkpoint?
 			{
 				if(race_time && race_previousbesttime)
 					s = MakeRaceString(race_checkpoint, race_time / 10 - race_previousbesttime / 10, 0, 0, race_previousbestname);
 				else
 					s = MakeRaceString(race_checkpoint, 0, -1, 0, race_previousbestname);
+				if(race_time)
+					forcetime = mmsss(race_time);
 			}
 			else
 			{
@@ -1134,17 +1109,27 @@ void Sbar_Score(float margin)
 				}
 			}
 
-			if(s != "")
-			if(a > 0)
+			if(s != "" && a > 0)
 			{
 				dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
 				drawcolorcodedstring(m - '0 16 0' - '8 0 0' * stringwidth(s, TRUE), s, '16 16 0', sbar_alpha_fg * a, 0);
 			}
 
+			if(forcetime != "")
+			{
+				float sz;
+				a = bound(0, 1 - 2 * (time - race_checkpointtime), 1);
+				sz = 1.2 / (a + 0.2);
+				drawstring(m - '0 0 0' - '0 16 0' * (sz - 1) - '16 0 0' * sz * stringwidth(forcetime, FALSE), forcetime, '32 32 0' * sz, '1 1 1', sbar_alpha_fg * a, 0);
+				a = 1 - a;
+			}
+			else
+				a = 1;
+
 			if(race_laptime)
 			{
 				s = mmsss(10*(time - race_laptime));
-				drawstring(m - '0 0 0' - '16 0 0' * stringwidth(s, FALSE), s, '32 32 0', '1 1 1', sbar_alpha_fg, 0);
+				drawstring(m - '0 0 0' - '16 0 0' * stringwidth(s, FALSE), s, '32 32 0', '1 1 1', sbar_alpha_fg * a, 0);
 			}
 		}
 		else
@@ -1312,11 +1297,86 @@ void Sbar_Draw (void)
 	float x, fade;
 	float stat_items;
 
+	sbar_fontsize = Sbar_GetFontsize();
+
+	if(spectatee_status)
+	{
+		string s;
+		vector o;
+		o = '1 0 0' * vid_conwidth;
+		if(spectatee_status == -1)
+			s = "^1Observing";
+		else
+			s = strcat("^1Spectating ^7", getplayerkey(spectatee_status - 1, "name"));
+		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+		drawcolorcodedstring(
+			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
+			s,
+			sbar_fontsize,
+			sbar_alpha_fg,
+			0
+		);
+		o += sbar_fontsize_y * '0 1 0';
+
+		if(spectatee_status == -1)
+			s = "^1Press ^3primary fire^1 to spectate";
+		else
+			s = "^1Press ^3primary fire^1 for another player";
+		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+		drawcolorcodedstring(
+			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
+			s,
+			sbar_fontsize,
+			sbar_alpha_fg,
+			0
+		);
+		o += sbar_fontsize_y * '0 1 0';
+
+		if(spectatee_status == -1)
+			s = "^1Use ^3weapon switching^1 to change the speed";
+		else
+			s = "^1Press ^3secondary fire^1 to observe";
+		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+		drawcolorcodedstring(
+			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
+			s,
+			sbar_fontsize,
+			sbar_alpha_fg,
+			0
+		);
+		o += sbar_fontsize_y * '0 1 0';
+
+		if(gametype == GAME_ARENA)
+			s = "^1Wait for your turn to join";
+		else if(gametype == GAME_LMS)
+		{
+			entity sk;
+			sk = playerslots[player_localentnum - 1];
+			if(sk.(scores[ps_primary]) >= 666)
+				s = "^1Match has already begun";
+			else if(sk.(scores[ps_primary]) > 0)
+				s = "^1You have no more lives left";
+			else
+				s = "^1Press ^7jump^1 to join";
+		}
+		else
+			s = "^1Press ^7jump^1 to join";
+		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+		drawcolorcodedstring(
+			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
+			s,
+			sbar_fontsize,
+			sbar_alpha_fg,
+			0
+		);
+		o += sbar_fontsize_y * '0 1 0';
+	}
+	
 	//Sbar_SortFrags();
 	Sbar_UpdatePlayerTeams();
 
 	sb_lines = 24;
-	
+
 	if (sb_showscores)
 		Sbar_DrawScoreboard();
 	else if (intermission == 1)

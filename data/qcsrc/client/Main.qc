@@ -2,6 +2,8 @@
 // BEGIN REQUIRED CSQC FUNCTIONS
 //include "main.qh"
 
+#define DP_CSQC_ENTITY_REMOVE_IS_B0RKED
+
 void() menu_show_error =
 {
 	drawstring('0 200 0', "ERROR - MENU IS VISIBLE BUT NO MENU WAS DEFINED!", '8 8 0', '1 0 0', 1, 0);
@@ -96,6 +98,10 @@ void CSQC_Shutdown(void)
 	remove(teams);
 	remove(players);
 	db_close(configdb);
+
+	entity e;
+	for(e = world; (e = find(e, classname, "saved_cvar_value")); )
+			cvar_set(e.netname, e.message);
 }
 
 .float has_team;
@@ -237,6 +243,18 @@ float GameCommand(string msg)
 		Cmd_MapVote_MapDownload(argc);
 		return true;
 	}
+	else if(cmd == "settemp") {
+		entity e;
+		for(e = world; (e = find(e, classname, "saved_cvar_value")); )
+			if(e.netname == argv(1))
+				goto saved;
+		e = spawn();
+		e.classname = "saved_cvar_value";
+		e.netname = strzone(argv(1));
+		e.message = strzone(cvar_string(argv(1)));
+:saved
+		cvar_set(argv(1), argv(2));
+	}
 	
 	return false;
 }
@@ -301,16 +319,29 @@ void Ent_RemoveONS()
 	}
 }
 
+void Ent_Remove();
 void Ent_ReadPlayerScore()
 {
-	float i, Team;
+	float i, Team, n;
 	float isNew;
 	entity o;
 
 	// damnit -.- don't want to go change every single .sv_entnum in sbar.qc AGAIN
 	// (no I've never heard of M-x replace-string, sed, or anything like that)
 	isNew = !self.owner; // workaround for DP bug
-	self.sv_entnum = ReadByte()-1;
+	n = ReadByte()-1;
+
+#ifdef DP_CSQC_ENTITY_REMOVE_IS_B0RKED
+	if(!isNew && n != self.sv_entnum)
+	{
+		print("A CSQC entity changed its owner!\n");
+		isNew = true;
+		Ent_Remove();
+		self.enttype = ENT_CLIENT_SCORES;
+	}
+#endif
+
+	self.sv_entnum = n;
 	Team = GetPlayerColor(self.sv_entnum);
 
 	if not(playerslots[self.sv_entnum])
@@ -323,8 +354,21 @@ void Ent_ReadPlayerScore()
 
 	SetTeam(o, Team);
 
+#if MAX_SCORE <= 3
 	for(i = 0; i < MAX_SCORE; ++i)
 		o.(scores[i]) = ReadShort();
+#else
+	float sf;
+#if MAX_SCORE <= 8
+	sf = ReadByte();
+#else
+	sf = ReadShort();
+#endif
+	float p;
+	for(i = 0, p = 1; i < MAX_SCORE; ++i, p *= 2)
+		if(sf & p)
+			o.(scores[i]) = ReadShort();
+#endif
 
 	Sbar_UpdatePlayerPos(o);
 }
@@ -337,22 +381,39 @@ void Ent_ReadTeamScore()
 	self.team = ReadByte();
 	o = self.owner = GetTeam(self.team, true);
 
+#if MAX_TEAMSCORE <= 3
 	for(i = 0; i < MAX_TEAMSCORE; ++i)
 		o.(teamscores[i]) = ReadShort();
+#else
+	float sf;
+#if MAX_TEAMSCORE <= 8
+	sf = ReadByte();
+#else
+	sf = ReadShort();
+#endif
+	float p;
+	for(i = 0, p = 1; i < MAX_TEAMSCORE; ++i, p *= 2)
+		if(sf & p)
+			o.(teamscores[i]) = ReadShort();
+#endif
 
 	Sbar_UpdateTeamPos(o);
 }
 
 // CSQC_Ent_Update : Called every frame that the server has indicated an update to the SSQC / CSQC entity has occured.
 // The only parameter reflects if the entity is "new" to the client, meaning it just came into the client's PVS.
-void Ent_Remove();
 void(float bIsNewEntity) CSQC_Ent_Update =
 {
 	float msg, t;
 	t = ReadByte();
+#ifdef DP_CSQC_ENTITY_REMOVE_IS_B0RKED
 	if(self.enttype)
 		if(t != self.enttype)
+		{
+			print("A CSQC entity changed its type!\n");
 			Ent_Remove();
+		}
+#endif
 	self.enttype = t;
 	if(self.enttype == ENT_CLIENT_ENTCS)
 	{
@@ -590,6 +651,10 @@ void Net_ReadRace()
 			race_checkpointtime = 0;
 			break;
 
+		case RACE_NET_CHECKPOINT_NEXT_SPEC_QUALIFYING:
+			race_laptime = ReadCoord();
+			race_checkpointtime = -99999;
+			// fall through
 		case RACE_NET_CHECKPOINT_NEXT_QUALIFYING:
 			race_nextcheckpoint = ReadByte();
 
@@ -623,6 +688,28 @@ void Net_ReadRace()
 			race_othercheckpointenemy = strzone(ReadString());
 			break;
 	}
+}
+
+void Net_ReadForceScoreboard()
+{
+	sb_showscores_force = ReadByte();
+}
+
+void Net_Reset()
+{
+	race_laptime = 0;
+	race_checkpointtime = 0;
+}
+
+void Net_ReadSpectating()
+{
+	float newspectatee_status;
+	newspectatee_status = ReadByte();
+	if(newspectatee_status == player_localentnum)
+		newspectatee_status = -1; // observing
+	if(newspectatee_status != spectatee_status)
+		Net_Reset();
+	spectatee_status = newspectatee_status;
 }
 
 // CSQC_Parse_TempEntity : Handles all temporary entity network data in the CSQC layer.
@@ -660,7 +747,15 @@ float CSQC_Parse_TempEntity()
 			bHandled = true;
 			break;
 		case TE_CSQC_FORCESCOREBOARD:
-			sb_showscores_force = true;
+			Net_ReadForceScoreboard();
+			bHandled = true;
+			break;
+		case TE_CSQC_SPECTATING:
+			Net_ReadSpectating();
+			bHandled = true;
+			break;
+		case 13: // TE_BEAM
+			Net_GrapplingHook();
 			bHandled = true;
 			break;
 		default:

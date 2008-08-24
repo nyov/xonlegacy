@@ -47,6 +47,31 @@ And you should be done!
 
 ============================================*/
 
+.string aiment_classname;
+.float aiment_deadflag;
+void SetMovetypeFollow(entity ent, entity e)
+{
+	ent.movetype = MOVETYPE_FOLLOW; // make the hole follow
+	ent.solid = SOLID_NOT; // MOVETYPE_FOLLOW is always non-solid
+	ent.aiment = e; // make the hole follow bmodel
+	ent.punchangle = e.angles; // the original angles of bmodel
+	ent.view_ofs = ent.origin - e.origin; // relative origin
+	ent.v_angle = ent.angles - e.angles; // relative angles
+	ent.aiment_classname = strzone(e.classname);
+	ent.aiment_deadflag = e.deadflag;
+}
+float LostMovetypeFollow(entity ent)
+{
+	if(ent.aiment)
+	{
+		if(ent.aiment.classname != ent.aiment_classname)
+			return 1;
+		if(ent.aiment.deadflag != ent.aiment_deadflag)
+			return 1;
+	}
+	return 0;
+}
+
 .float rope_length;
 .float button6_pressed_before;
 
@@ -67,10 +92,15 @@ void RemoveGrapplingHook(entity pl)
 void GrapplingHookThink()
 {
 	float spd, dist, minlength, pullspeed, ropestretch, ropeairfriction, rubberforce, newlength, rubberforce_overstretch;
-	vector dir, org, end;
+	vector dir, org, end, v0, dv;
 	if(self.owner.health <= 0 || self.owner.hook != self)	// how did that happen?
 	{														// well, better fix it anyway
 		remove(self);
+		return;
+	}
+	if(LostMovetypeFollow(self))
+	{
+		RemoveGrapplingHook(self.owner);
 		return;
 	}
 
@@ -112,6 +142,7 @@ void GrapplingHookThink()
 		if(cvar("g_grappling_hook_tarzan"))
 		{
 			newlength = self.rope_length;
+			v0 = self.owner.velocity;
 
 			// first pull the rope...
 			newlength = max(newlength - pullspeed * frametime, minlength);
@@ -130,6 +161,19 @@ void GrapplingHookThink()
 			spd = bound(0, (dist - self.rope_length) / ropestretch, 1);
 			self.owner.velocity = self.owner.velocity * (1 - frametime * ropeairfriction);
 			self.owner.velocity = self.owner.velocity + frametime * dir * spd * rubberforce;
+
+			dv = ((self.owner.velocity - v0) * dir) * dir;
+			if(cvar("g_grappling_hook_tarzan") >= 2)
+			{
+				if(self.aiment.movetype == MOVETYPE_WALK || self.aiment.movetype == MOVETYPE_TOSS)
+				{
+					self.owner.velocity = self.owner.velocity - dv * 0.5;
+					self.aiment.velocity = self.aiment.velocity - dv * 0.5;
+					self.aiment.flags = self.aiment.flags - (self.aiment.flags & FL_ONGROUND);
+					self.aiment.pusher = self.owner;
+					self.aiment.pushltime = time + cvar("g_maxpushtime");
+				}
+			}
 		}
 		else
 		{
@@ -151,7 +195,7 @@ void GrapplingHookThink()
 	}
 
 	makevectors(self.angles_x * '-1 0 0' + self.angles_y * '0 1 0');
-	te_beam(self, self.origin + v_forward * (-9), org);
+	te_beam(self.owner, self.origin + v_forward * (-9), org);
 }
 
 void GrapplingHookTouch (void)
@@ -194,6 +238,10 @@ void GrapplingHookTouch (void)
 	self.velocity = '0 0 0';
 	self.movetype = MOVETYPE_NONE;
 	self.rope_length = -1;
+
+	if(other)
+		if(other.movetype != MOVETYPE_NONE)
+			SetMovetypeFollow(self, other);
 
 	//self.owner.disableclientprediction = TRUE;
 }
