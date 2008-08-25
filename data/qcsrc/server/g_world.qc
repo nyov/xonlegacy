@@ -187,12 +187,6 @@ void spawnfunc_worldspawn (void)
 	if(GotoFirstMap())
 		return;
 
-#ifdef MAPINFO
-	MapInfo_LoadMapSettings(mapname);
-	clientstuff = strzone(MapInfo_Map_clientstuff);
-	MapInfo_ClearTemps();
-#endif
-
 	if(sv_cheats)
 		ServerProgsDB = db_create();
 	else
@@ -248,24 +242,22 @@ void spawnfunc_worldspawn (void)
 	// 63 testing
 	lightstyle(63, "a");
 
-	// for setting by mapinfo
-	q3acompat_machineshotgunswap = cvar("sv_q3acompat_machineshotgunswap");
-	cvar_set("sv_q3acompat_machineshotgunswap", "0");
+	if(cvar("g_campaign"))
+		CampaignPreInit();
+
+	InitGameplayMode();
+	readlevelcvars();
 
 	player_count = 0;
-	lms_lowest_lives = 0;
-	lms_next_place = 0;
-
 	bot_waypoints_for_items = cvar("g_waypoints_for_items");
 	if(bot_waypoints_for_items == 1)
 		if(self.spawnflags & SPAWNFLAG_NO_WAYPOINTS_FOR_ITEMS)
 			bot_waypoints_for_items = 0;
 
-	if(cvar("g_campaign"))
-		CampaignPreInit();
+	// for setting by mapinfo
+	q3acompat_machineshotgunswap = cvar("sv_q3acompat_machineshotgunswap");
+	cvar_set("sv_q3acompat_machineshotgunswap", "0");
 
-	readlevelcvars();
-	InitGameplayMode();
 	precache();
 
 	WaypointSprite_Init();
@@ -1536,10 +1528,10 @@ float WinningCondition_Race(float fraglimit)
 }
 
 void ReadyRestart();
-float WinningCondition_QualifyingThenRace()
+float WinningCondition_QualifyingThenRace(float limit)
 {
 	float wc;
-	wc = WinningCondition_Scores(0);
+	wc = WinningCondition_Scores(limit);
 
 	// NEVER initiate overtime
 	if(wc == WINNING_YES || wc == WINNING_STARTOVERTIME)
@@ -1719,7 +1711,7 @@ void CheckRules_World()
 	}
 	else if(g_race && g_race_qualifying == 2 && timelimit >= 0)
 	{
-		status = WinningCondition_QualifyingThenRace();
+		status = WinningCondition_QualifyingThenRace(fraglimit);
 	}
 	else if(g_assault)
 	{
