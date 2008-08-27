@@ -51,6 +51,7 @@ void CSQC_Init(void)
 	CSQC_CheckEngine();
 
 	configdb = db_create();
+	compressShortVector_init();
 
 	drawfont = 0;
 	menu_visible = FALSE;
@@ -434,6 +435,12 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		Ent_ReadPlayerScore();
 	else if(self.enttype == ENT_CLIENT_TEAMSCORES)
 		Ent_ReadTeamScore();
+	else if(self.enttype == ENT_CLIENT_POINTPARTICLES)
+		Ent_PointParticles();
+	else if(self.enttype == ENT_CLIENT_RAINSNOW)
+		Ent_RainOrSnow();
+	else if(self.enttype == ENT_CLIENT_LASER)
+		Ent_Laser();
 	else
 		error("unknown entity type in CSQC_Ent_Update\n");
 	
@@ -477,10 +484,14 @@ void Ent_Remove()
 		*/
 		// we don't NEED to remove them... they won't display anyway
 		// plus, svqc never does this anyway
+	} else if(self.enttype == ENT_CLIENT_POINTPARTICLES)
+	{
+		Ent_PointParticles_Remove();
 	}
 
 	self.enttype = 0;
 	self.classname = "";
+	self.draw = menu_sub_null;
 	// TODO possibly set more stuff to defaults
 }
 // CSQC_Ent_Remove : Called when the server requests a SSQC / CSQC entity to be removed.  Essentially call remove(self) as well.

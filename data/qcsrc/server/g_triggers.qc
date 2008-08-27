@@ -485,53 +485,140 @@ void spawnfunc_func_stardust() {
 	self.effects = EF_STARDUST;
 }
 
-
-/*
-void sparksthink()
+float pointparticles_SendEntity(entity to, float fl)
 {
-  self.nextthink = time + 0.1;
-
-  if(random() < self.wait) {
-    te_spark(self.origin,'0 0 -1',self.cnt);
-  }
+	WriteByte(MSG_ENTITY, ENT_CLIENT_POINTPARTICLES);
+	WriteByte(MSG_ENTITY, fl);
+	if(fl & 2)
+	{
+		if(self.state)
+			WriteCoord(MSG_ENTITY, self.impulse);
+		else
+			WriteCoord(MSG_ENTITY, 0); // off
+	}
+	if(fl & 4)
+	{
+		WriteCoord(MSG_ENTITY, self.origin_x);
+		WriteCoord(MSG_ENTITY, self.origin_y);
+		WriteCoord(MSG_ENTITY, self.origin_z);
+	}
+	if(fl & 1)
+	{
+		if(self.modelindex != 4.2)
+		{
+			WriteShort(MSG_ENTITY, self.modelindex);
+			WriteCoord(MSG_ENTITY, self.mins_x);
+			WriteCoord(MSG_ENTITY, self.mins_y);
+			WriteCoord(MSG_ENTITY, self.mins_z);
+			WriteCoord(MSG_ENTITY, self.maxs_x);
+			WriteCoord(MSG_ENTITY, self.maxs_y);
+			WriteCoord(MSG_ENTITY, self.maxs_z);
+		}
+		else
+		{
+			WriteShort(MSG_ENTITY, 0);
+			WriteCoord(MSG_ENTITY, self.maxs_x);
+			WriteCoord(MSG_ENTITY, self.maxs_y);
+			WriteCoord(MSG_ENTITY, self.maxs_z);
+		}
+		WriteShort(MSG_ENTITY, self.cnt);
+		WriteShort(MSG_ENTITY, compressShortVector(self.velocity));
+		WriteShort(MSG_ENTITY, compressShortVector(self.movedir));
+		WriteCoord(MSG_ENTITY, self.waterlevel);
+		WriteCoord(MSG_ENTITY, self.count);
+		WriteByte(MSG_ENTITY, self.glow_color);
+		WriteString(MSG_ENTITY, self.noise);
+	}
+	return 1;
 }
 
-
-void func_sparks()
+void pointparticles_use()
 {
-  self.think = sparksthink;
-  self.nextthink = time + 0.2;
-
-  // self.cnt is the amount of sparks that one burst will spawn
-  if(self.cnt < 1) {
-    self.cnt = 25.0; // nice default value
-  }
-
-  // self.wait is the probability that a sparkthink will spawn a spark shower
-  // range: 0 - 1, but 0 makes little sense, so...
-  if(self.wait < 0.05) {
-    self.wait = 0.25; // nice default value
-  }
-
-  // sound
-  if(self.noise) {
-    precache_sound (self.noise);
-    ambientsound (self.origin, self.noise, VOL_BASE, ATTN_STATIC);
-  }
+	self.state = !self.state;
+	self.SendFlags |= 2;
 }
-*/
-void rain_think()
+
+void pointparticles_think()
 {
-	self.nextthink = time + 0.1;
-	te_particlerain(self.absmin, self.absmax, self.dest, self.count, self.cnt);
-//	te_particlesnow(self.absmin, self.absmax, self.dest * 0.25, self.count, self.cnt);
-//	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-//	WriteByte (MSG_BROADCAST, TE_PARTICLERAIN);
-//	WriteVec (MSG_BROADCAST, self.absmin);
-//	WriteVec (MSG_BROADCAST, self.absmax);
-//	WriteVec (MSG_BROADCAST, self.dest);
-//	WriteShort (MSG_BROADCAST, self.count);
-//	WriteByte (MSG_BROADCAST, self.cnt);
+	if(self.origin != self.oldorigin)
+	{
+		self.SendFlags |= 4;
+		self.oldorigin = self.origin;
+	}
+	self.nextthink = time;
+}
+
+void spawnfunc_func_pointparticles()
+{
+	if(self.model != "")
+		setmodel(self, self.model);
+	if(self.noise != "")
+		precache_sound (self.noise);
+
+	self.effects = EF_NODEPTHTEST;
+	self.SendEntity = pointparticles_SendEntity;
+	self.SendFlags = 7;
+	if(!self.modelindex)
+	{
+		self.modelindex = 4.2;
+		self.origin += self.mins;
+		self.maxs -= self.mins;
+	}
+	self.model = "net_entity";
+	if(!self.cnt)
+		self.cnt = particleeffectnum(self.mdl);
+	if(self.targetname != "")
+	{
+		self.use = pointparticles_use;
+		if(self.spawnflags & 1)
+			self.state = 1;
+		else
+			self.state = 0;
+	}
+	else
+		self.state = 1;
+	self.think = pointparticles_think;
+	self.nextthink = time;
+}
+
+void spawnfunc_func_sparks()
+{
+	// self.cnt is the amount of sparks that one burst will spawn
+	if(self.cnt < 1) {
+		self.cnt = 25.0; // nice default value
+	}
+
+	// self.wait is the probability that a sparkthink will spawn a spark shower
+	// range: 0 - 1, but 0 makes little sense, so...
+	if(self.wait < 0.05) {
+		self.wait = 0.25; // nice default value
+	}
+
+	self.count = self.cnt;
+	self.mins = '0 0 0';
+	self.maxs = '0 0 0';
+	self.velocity = '0 0 -1';
+	self.mdl = "func_sparks";
+	self.impulse = 0.1 / self.wait;
+	self.wait = 0;
+
+	spawnfunc_func_pointparticles();
+}
+
+float rainsnow_SendEntity(float to)
+{
+	WriteByte(MSG_ENTITY, ENT_CLIENT_RAINSNOW);
+	WriteByte(MSG_ENTITY, self.state);
+	WriteCoord(MSG_ENTITY, self.origin_x + self.mins_x);
+	WriteCoord(MSG_ENTITY, self.origin_y + self.mins_y);
+	WriteCoord(MSG_ENTITY, self.origin_z + self.mins_z);
+	WriteCoord(MSG_ENTITY, self.maxs_x - self.mins_x);
+	WriteCoord(MSG_ENTITY, self.maxs_y - self.mins_y);
+	WriteCoord(MSG_ENTITY, self.maxs_z - self.mins_z);
+	WriteShort(MSG_ENTITY, compressShortVector(self.dest));
+	WriteShort(MSG_ENTITY, self.count);
+	WriteByte(MSG_ENTITY, self.cnt);
+	return 1;
 };
 
 /*QUAKED spawnfunc_func_rain (0 .5 .8) ?
@@ -560,31 +647,20 @@ void spawnfunc_func_rain()
 		self.cnt = 12;
 	if (!self.count)
 		self.count = 2000;
-	self.count = 0.1 * self.count * (self.size_x / 1024) * (self.size_y / 1024);
+	self.count = 0.01 * self.count * (self.size_x / 1024) * (self.size_y / 1024);
 	if (self.count < 1)
-	{
-		remove(self);
-		return;
-	}
-	// convert from per second to per 0.1 sec,
-	self.count = ceil(self.count * 0.1);
-	self.think = rain_think;
-	self.nextthink = time + 0.5;
+		self.count = 1;
+	if(self.count > 65535)
+		self.count = 65535;
+
+	self.state = 1; // 1 is rain, 0 is snow
+	self.effects = EF_NODEPTHTEST;
+	self.SendEntity = rainsnow_SendEntity;
+	self.Version = 1;
+	self.modelindex = 1;
+	self.model = "net_entity";
 };
 
-
-void snow_think()
-{
-	self.nextthink = time + 0.1 + random() * 0.05;
-	te_particlesnow(self.absmin, self.absmax, self.dest, self.count, self.cnt);
-//	WriteByte (MSG_BROADCAST, SVC_TEMPENTITY);
-//	WriteByte (MSG_BROADCAST, TE_PARTICLESNOW);
-//	WriteVec (MSG_BROADCAST, self.absmin);
-//	WriteVec (MSG_BROADCAST, self.absmax);
-//	WriteVec (MSG_BROADCAST, self.dest);
-//	WriteShort (MSG_BROADCAST, self.count);
-//	WriteByte (MSG_BROADCAST, self.cnt);
-};
 
 /*QUAKED spawnfunc_func_snow (0 .5 .8) ?
 This is an invisible area like a trigger, which snow falls inside of.
@@ -612,37 +688,59 @@ void spawnfunc_func_snow()
 		self.cnt = 12;
 	if (!self.count)
 		self.count = 2000;
-	self.count = 0.1 * self.count * (self.size_x / 1024) * (self.size_y / 1024);
+	self.count = 0.01 * self.count * (self.size_x / 1024) * (self.size_y / 1024);
 	if (self.count < 1)
-	{
-		remove(self);
-		return;
-	}
-	// convert from per second to per 0.1 sec,
-	self.count = ceil(self.count * 0.1);
-	self.think = snow_think;
-	self.nextthink = time + 0.5;
+		self.count = 1;
+	if(self.count > 65535)
+		self.count = 65535;
+
+	self.state = 0; // 1 is rain, 0 is snow
+	self.effects = EF_NODEPTHTEST;
+	self.SendEntity = rainsnow_SendEntity;
+	self.Version = 1;
+	self.modelindex = 1;
+	self.model = "net_entity";
 };
 
 
 void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, float deathtype);
+
+void misc_laser_aim()
+{
+	vector a;
+	if(self.enemy)
+	{
+		a = vectoangles(self.enemy.origin - self.origin);
+		a_x = -a_x;
+		if(a != self.angles)
+		{
+			self.angles = a;
+			self.SendFlags |= 2;
+		}
+	}
+	if(self.origin != self.oldorigin)
+		self.SendFlags |= 1;
+}
+
 void misc_laser_think()
 {
 	vector o;
-	if(!self.state)
+
+	self.nextthink = time;
+
+	if(!self.count)
 	{
 		self.enemy = find(world, targetname, self.target);
-		self.state = 1;
+		self.count = 1;
 	}
-	if(self.enemy)
-	{
-		o = self.enemy.origin;
-	}
-	else
-	{
-		makevectors(self.angles);
-		o = self.origin + v_forward * MAX_SHOT_DISTANCE;
-	}
+
+	if(!self.state)
+		return;
+
+	misc_laser_aim();
+
+	makevectors(self.angles);
+	o = self.origin + 32768 * v_forward;
 
 	if(self.dmg)
 	{
@@ -651,46 +749,89 @@ void misc_laser_think()
 		else
 			FireRailgunBullet(self.origin, o, self.dmg * frametime, 0, DEATH_HURTTRIGGER);
 	}
-
-	if(time > self.ltime)
-	{
-		traceline(self.origin, o, MOVE_WORLDONLY, self);
-		trailparticles(self, self.cnt, self.origin, trace_endpos);
-		pointparticles(self.lip, trace_endpos, trace_plane_normal, 256 * frametime);
-		self.ltime = time + self.wait;
-	}
-	self.nextthink = time;
 }
-/*QUAKED spawnfunc_misc_laser (.5 .5 .5) ?
+
+float laser_SendEntity(entity to, float fl)
+{
+	WriteByte(MSG_ENTITY, ENT_CLIENT_LASER);
+	WriteByte(MSG_ENTITY, fl);
+	if(fl & 1)
+	{
+		WriteCoord(MSG_ENTITY, self.origin_x);
+		WriteCoord(MSG_ENTITY, self.origin_y);
+		WriteCoord(MSG_ENTITY, self.origin_z);
+	}
+	if(fl & 8)
+	{
+		WriteByte(MSG_ENTITY, self.colormod_x * 255.0);
+		WriteByte(MSG_ENTITY, self.colormod_y * 255.0);
+		WriteByte(MSG_ENTITY, self.colormod_z * 255.0);
+		WriteShort(MSG_ENTITY, self.cnt);
+	}
+	if(fl & 2)
+	{
+		WriteCoord(MSG_ENTITY, self.angles_x);
+		WriteCoord(MSG_ENTITY, self.angles_y);
+	}
+	if(fl & 4)
+		WriteByte(MSG_ENTITY, self.state);
+	return 1;
+}
+
+/*QUAKED spawnfunc_misc_laser (.5 .5 .5) ? START_ON
 Any object touching the beam will be hurt
 Keys:
 "target"
  spawnfunc_target_position where the laser ends
 "mdl"
- name of beam effect to use
+ name of beam end effect to use
+"colormod"
+ color of the beam (default: red)
 "dmg"
  damage per second (-1 for a laser that kills immediately)
-"wait"
- delay between sending the particle effect
 */
+void laser_use()
+{
+	self.state = !self.state;
+	self.SendFlags |= 4;
+	misc_laser_aim();
+}
+
 void spawnfunc_misc_laser()
 {
 	if(self.mdl)
 	{
-		self.cnt = particleeffectnum(self.mdl);
-		self.lip = particleeffectnum(strcat(self.mdl, "_end"));
+		self.cnt = particleeffectnum(strcat(self.mdl, "_end"));
+		if(self.cnt < 0)
+			self.cnt = particleeffectnum(self.mdl);
 	}
 	else
 	{
-		self.cnt = particleeffectnum("misc_laser_beam");
-		self.lip = particleeffectnum("misc_laser_beam_end");
+		self.cnt = particleeffectnum("misc_laser_beam_end");
 	}
-	if(!self.wait)
-		self.wait = 1;
+	if(self.colormod == '0 0 0')
+		self.colormod = '1 0 0';
 	if(!self.message)
 		self.message = "saw the light";
 	self.think = misc_laser_think;
 	self.nextthink = time;
+
+	self.effects = EF_NODEPTHTEST;
+	self.SendEntity = laser_SendEntity;
+	self.SendFlags = 15;
+	self.modelindex = 1;
+	self.model = "net_entity";
+
+	if(self.targetname != "")
+	{
+		self.use = laser_use;
+		if(self.spawnflags & 1)
+			self.state = 1;
+		else
+			self.state = 0;
+	}
+	else
+		self.state = 1;
 }
 
 // tZorks trigger impulse / gravity
@@ -870,3 +1011,84 @@ void spawnfunc_trigger_impulse()
     }
 }
 
+/*QUAKED spawnfunc_trigger_flipflop (.5 .5 .5) (-8 -8 -8) (8 8 8) START_ENABLED
+"Flip-flop" trigger gate... lets only every second trigger event through
+*/
+void flipflop_use()
+{
+	self.state = !self.state;
+	if(self.state)
+		SUB_UseTargets();
+}
+
+void spawnfunc_trigger_flipflop()
+{
+	if(self.spawnflags & 1)
+		self.state = 1;
+    self.use = flipflop_use;
+}
+
+/*QUAKED spawnfunc_trigger_monoflop (.5 .5 .5) (-8 -8 -8) (8 8 8)
+"Mono-flop" trigger gate... turns one trigger event into one "on" and one "off" event, separated by a delay of "wait"
+*/
+void monoflop_use()
+{
+	self.nextthink = time + self.wait;
+	if(self.state)
+		return;
+	self.state = 1;
+	SUB_UseTargets();
+}
+void monoflop_fixed_use()
+{
+	if(self.state)
+		return;
+	self.nextthink = time + self.wait;
+	self.state = 1;
+	SUB_UseTargets();
+}
+
+void monoflop_think()
+{
+	self.state = 0;
+	SUB_UseTargets();
+}
+
+void spawnfunc_trigger_monoflop()
+{
+	if(!self.wait)
+		self.wait = 1;
+	if(self.spawnflags & 1)
+		self.use = monoflop_fixed_use;
+	else
+		self.use = monoflop_use;
+	self.think = monoflop_think;
+	self.state = 0;
+}
+
+void follow_think()
+{
+	entity src, dst;
+	src = find(world, targetname, self.killtarget);
+	dst = find(world, targetname, self.target);
+
+	if(!src || !dst)
+	{
+		objerror("follow: could not find target/killtarget");
+		return;
+	}
+
+	dst.movetype = MOVETYPE_FOLLOW;
+	dst.aiment = src;
+	dst.punchangle = src.angles;
+	dst.view_ofs = dst.origin - src.origin;
+	dst.v_angle = dst.angles - src.angles;
+
+	remove(self);
+}
+
+void spawnfunc_misc_follow()
+{
+	self.think = follow_think;
+	self.nextthink = time;
+}

@@ -1,3 +1,5 @@
+const string string_null;
+
 // --------------------------------------------------------------------------
 // MENU Functionality
 
@@ -107,3 +109,7 @@ entity playerslots[255]; // 255 is engine limit on maxclients
 entity teamslots[17];    // 17 teams (including "spectator team")
 .float gotscores;
 .entity owner;
+
+.void(void) draw;
+float drawframetime;
+vector view_origin, view_angles, view_forward, view_right, view_up;
