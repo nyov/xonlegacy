@@ -598,7 +598,7 @@ void spawnfunc_func_sparks()
 	self.mins = '0 0 0';
 	self.maxs = '0 0 0';
 	self.velocity = '0 0 -1';
-	self.mdl = "func_sparks";
+	self.mdl = "TE_SPARK";
 	self.impulse = 0.1 / self.wait;
 	self.wait = 0;
 
@@ -710,16 +710,35 @@ void misc_laser_aim()
 	vector a;
 	if(self.enemy)
 	{
-		a = vectoangles(self.enemy.origin - self.origin);
-		a_x = -a_x;
-		if(a != self.angles)
+		if(self.spawnflags & 2)
 		{
-			self.angles = a;
-			self.SendFlags |= 2;
+			if(self.enemy.origin != self.mangle)
+			{
+				self.mangle = self.enemy.origin;
+				self.SendFlags |= 2;
+			}
+		}
+		else
+		{
+			a = vectoangles(self.enemy.origin - self.origin);
+			a_x = -a_x;
+			if(a != self.mangle)
+			{
+				self.mangle = a;
+				self.SendFlags |= 2;
+			}
 		}
 	}
 	if(self.origin != self.oldorigin)
+	{
 		self.SendFlags |= 1;
+		self.oldorigin = self.origin;
+	}
+}
+
+void misc_laser_init()
+{
+	self.enemy = find(world, targetname, self.target);
 }
 
 void misc_laser_think()
@@ -728,19 +747,14 @@ void misc_laser_think()
 
 	self.nextthink = time;
 
-	if(!self.count)
-	{
-		self.enemy = find(world, targetname, self.target);
-		self.count = 1;
-	}
-
 	if(!self.state)
 		return;
 
 	misc_laser_aim();
 
-	makevectors(self.angles);
-	o = self.origin + 32768 * v_forward;
+	o = self.enemy.origin;
+	if not(self.spawnflags & 2)
+		o = self.origin + normalize(o - self.origin) * 32768;
 
 	if(self.dmg)
 	{
@@ -754,6 +768,11 @@ void misc_laser_think()
 float laser_SendEntity(entity to, float fl)
 {
 	WriteByte(MSG_ENTITY, ENT_CLIENT_LASER);
+	fl = fl - (fl & 0xC0); // use that bit to indicate finite length laser
+	if(self.spawnflags & 2)
+		fl |= 0x80;
+	if(self.alpha)
+		fl |= 0x40;
 	WriteByte(MSG_ENTITY, fl);
 	if(fl & 1)
 	{
@@ -766,19 +785,30 @@ float laser_SendEntity(entity to, float fl)
 		WriteByte(MSG_ENTITY, self.colormod_x * 255.0);
 		WriteByte(MSG_ENTITY, self.colormod_y * 255.0);
 		WriteByte(MSG_ENTITY, self.colormod_z * 255.0);
+		if(fl & 0x40)
+			WriteByte(MSG_ENTITY, self.alpha * 255.0);
 		WriteShort(MSG_ENTITY, self.cnt);
 	}
 	if(fl & 2)
 	{
-		WriteCoord(MSG_ENTITY, self.angles_x);
-		WriteCoord(MSG_ENTITY, self.angles_y);
+		if(fl & 0x80)
+		{
+			WriteCoord(MSG_ENTITY, self.enemy.origin_x);
+			WriteCoord(MSG_ENTITY, self.enemy.origin_y);
+			WriteCoord(MSG_ENTITY, self.enemy.origin_z);
+		}
+		else
+		{
+			WriteCoord(MSG_ENTITY, self.mangle_x);
+			WriteCoord(MSG_ENTITY, self.mangle_y);
+		}
 	}
 	if(fl & 4)
 		WriteByte(MSG_ENTITY, self.state);
 	return 1;
 }
 
-/*QUAKED spawnfunc_misc_laser (.5 .5 .5) ? START_ON
+/*QUAKED spawnfunc_misc_laser (.5 .5 .5) ? START_ON DEST_IS_FIXED
 Any object touching the beam will be hurt
 Keys:
 "target"
@@ -810,11 +840,13 @@ void spawnfunc_misc_laser()
 		self.cnt = particleeffectnum("misc_laser_beam_end");
 	}
 	if(self.colormod == '0 0 0')
-		self.colormod = '1 0 0';
+		if(!self.alpha)
+			self.colormod = '1 0 0';
 	if(!self.message)
 		self.message = "saw the light";
 	self.think = misc_laser_think;
 	self.nextthink = time;
+	InitializeEntity(self, misc_laser_init, INITPRIO_FINDTARGET);
 
 	self.effects = EF_NODEPTHTEST;
 	self.SendEntity = laser_SendEntity;
@@ -1066,7 +1098,7 @@ void spawnfunc_trigger_monoflop()
 	self.state = 0;
 }
 
-void follow_think()
+void follow_init()
 {
 	entity src, dst;
 	src = find(world, targetname, self.killtarget);
@@ -1089,6 +1121,5 @@ void follow_think()
 
 void spawnfunc_misc_follow()
 {
-	self.think = follow_think;
-	self.nextthink = time;
+	InitializeEntity(self, follow_init, INITPRIO_FINDTARGET);
 }

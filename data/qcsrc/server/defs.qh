@@ -28,6 +28,7 @@ float sv_foginterval;
 
 entity	activator;
 string	string_null;
+const var void(void)	func_null;
 
 float player_count;
 float currentbots;
@@ -489,3 +490,4 @@ float independent_players;
 #define MAKE_INDEPENDENT_PLAYER(e) ((e).solid = SOLID_TRIGGER)
 
 string clientstuff;
+.float stat_sys_ticrate;
