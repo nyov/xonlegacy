@@ -161,7 +161,7 @@ void ActivateTeamplay()
 
 void InitGameplayMode()
 {
-	float fraglimit_override, timelimit_override, capturelimit_override;
+	float fraglimit_override, timelimit_override;
 
 	VoteReset();
 	
@@ -172,14 +172,12 @@ void InitGameplayMode()
 	ReadGameCvars();
 	WriteGameCvars();
 
-#ifdef MAPINFO
 	MapInfo_LoadMapSettings(mapname);
 	clientstuff = strzone(MapInfo_Map_clientstuff);
 	MapInfo_ClearTemps();
 
 	// in case mapinfo switched the type
 	ReadGameCvars();
-#endif
 
 	// set both here, gamemode can override it later
 	timelimit_override = cvar("timelimit_override");
@@ -352,7 +350,6 @@ string GetClientVersionMessage() {
 void PrintWelcomeMessage(entity pl)
 {
 	string s, mutator, modifications;
-	float p;
 
 	/*if(self.welcomemessage_time > time)
 		return;

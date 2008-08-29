@@ -257,6 +257,7 @@ void spawnfunc_trigger_multiple()
 		if ( !(self.spawnflags & SPAWNFLAG_NOTOUCH) )
 		{
 			self.touch = multi_touch;
+			setorigin (self, self.origin);	// make sure it links into the world
 		}
 	}
 };
@@ -474,7 +475,7 @@ void spawnfunc_target_speaker()
 {
 	if(self.noise)
 		precache_sound (self.noise);
-	if(self.targetname)
+	IFTARGETED
 		self.use = target_speaker_use;
 	else
 		ambientsound (self.origin, self.noise, VOL_BASE, ATTN_STATIC);
@@ -567,7 +568,7 @@ void spawnfunc_func_pointparticles()
 	self.model = "net_entity";
 	if(!self.cnt)
 		self.cnt = particleeffectnum(self.mdl);
-	if(self.targetname != "")
+	IFTARGETED
 	{
 		self.use = pointparticles_use;
 		if(self.spawnflags & 1)
@@ -729,6 +730,14 @@ void misc_laser_aim()
 			}
 		}
 	}
+	else
+	{
+		if(self.angles != self.mangle)
+		{
+			self.mangle = self.angles;
+			self.SendFlags |= 2;
+		}
+	}
 	if(self.origin != self.oldorigin)
 	{
 		self.SendFlags |= 1;
@@ -738,12 +747,15 @@ void misc_laser_aim()
 
 void misc_laser_init()
 {
-	self.enemy = find(world, targetname, self.target);
+	if(self.target != "")
+		self.enemy = find(world, targetname, self.target);
 }
 
+.entity pusher;
 void misc_laser_think()
 {
 	vector o;
+	entity oldself;
 
 	self.nextthink = time;
 
@@ -752,9 +764,17 @@ void misc_laser_think()
 
 	misc_laser_aim();
 
-	o = self.enemy.origin;
-	if not(self.spawnflags & 2)
-		o = self.origin + normalize(o - self.origin) * 32768;
+	if(self.enemy)
+	{
+		o = self.enemy.origin;
+		if not(self.spawnflags & 2)
+			o = self.origin + normalize(o - self.origin) * 32768;
+	}
+	else
+	{
+		makevectors(self.mangle);
+		o = self.origin + v_forward * 32768;
+	}
 
 	if(self.dmg)
 	{
@@ -762,6 +782,38 @@ void misc_laser_think()
 			FireRailgunBullet(self.origin, o, 100000, 0, DEATH_HURTTRIGGER);
 		else
 			FireRailgunBullet(self.origin, o, self.dmg * frametime, 0, DEATH_HURTTRIGGER);
+	}
+
+	if(self.enemy.target != "") // DETECTOR laser
+	{
+		traceline(self.origin, o, MOVE_NORMAL, self);
+		if(trace_ent.classname == "player")
+		{
+			self.pusher = trace_ent;
+			if(!self.count)
+			{
+				self.count = 1;
+
+				oldself = self;
+				self = self.enemy;
+				activator = self.pusher;
+				SUB_UseTargets();
+				self = oldself;
+			}
+		}
+		else
+		{
+			if(self.count)
+			{
+				self.count = 0;
+
+				oldself = self;
+				self = self.enemy;
+				activator = self.pusher;
+				SUB_UseTargets();
+				self = oldself;
+			}
+		}
 	}
 }
 
@@ -853,8 +905,9 @@ void spawnfunc_misc_laser()
 	self.SendFlags = 15;
 	self.modelindex = 1;
 	self.model = "net_entity";
+	self.mangle = self.angles;
 
-	if(self.targetname != "")
+	IFTARGETED
 	{
 		self.use = laser_use;
 		if(self.spawnflags & 1)
@@ -1097,6 +1150,75 @@ void spawnfunc_trigger_monoflop()
 	self.think = monoflop_think;
 	self.state = 0;
 }
+
+void multivibrator_send()
+{
+	float newstate;
+	float cyclestart;
+
+	cyclestart = floor((time + self.phase) / (self.wait + self.respawntime)) * (self.wait + self.respawntime) - self.phase;
+
+	newstate = (time < cyclestart + self.wait);
+
+	if(self.state != newstate)
+		SUB_UseTargets();
+	self.state = newstate;
+
+	if(self.state)
+		self.nextthink = cyclestart + self.wait + 0.01;
+	else
+		self.nextthink = cyclestart + self.wait + self.respawntime + 0.01;
+}
+
+void multivibrator_toggle()
+{
+	if(self.nextthink == 0)
+	{
+		multivibrator_send();
+	}
+	else
+	{
+		if(self.state)
+		{
+			SUB_UseTargets();
+			self.state = 0;
+		}
+		self.nextthink = 0;
+	}
+}
+
+/*QUAKED trigger_multivibrator (.5 .5 .5) (-8 -8 -8) (8 8 8) START_ON
+"Multivibrator" trigger gate... repeatedly sends trigger events. When triggered, turns on or off.
+-------- KEYS --------
+target: trigger all entities with this targetname when it goes off
+targetname: name that identifies this entity so it can be triggered; when off, it always uses the OFF state
+phase: offset of the timing
+wait: "on" cycle time (default: 1)
+respawntime: "off" cycle time (default: same as wait)
+-------- SPAWNFLAGS --------
+START_ON: assume it is already turned on (when targeted)
+*/
+void spawnfunc_trigger_multivibrator()
+{
+	if(!self.wait)
+		self.wait = 1;
+	if(!self.respawntime)
+		self.respawntime = self.wait;
+
+	self.state = 0;
+	self.use = multivibrator_toggle;
+	self.think = multivibrator_send;
+	self.nextthink = time;
+
+	IFTARGETED
+	{
+		if(!(self.spawnflags & 1))
+			self.nextthink = 0; // wait for a trigger event
+	}
+	else
+		self.nextthink = time;
+}
+
 
 void follow_init()
 {

@@ -39,7 +39,7 @@ float (string s)							cvar = #45;
 void (string s, ...)							localcmd = #46;
 entity (entity e)							nextent = #47;
 
-vector (vector v)							vectoangles = #51;
+vector (vector v, ...)							vectoangles = #51;
 
 void (string var, string val)						cvar_set = #72;
 
@@ -115,7 +115,7 @@ void (float efnum, vector org, vector vel, float countmultiplier, ...)	pointpart
 void (string s, ...)							cprint = #338;
 void (string s, ...)							print = #339;
 
-void (float scale)							setsensitivityscale = #347;
+void (float scale)							setsensitivityscale = #346;
 
 
 void (float framenum)							RetrieveMovementFrame = #345;

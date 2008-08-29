@@ -1,18 +1,23 @@
 // FIXME make this generic code, to be used for other entities too?
 .vector iorigin1, iorigin2;
 .vector ivelocity1, ivelocity2;
-.vector iangles1, iangles2;
+.vector iforward1, iforward2;
+.vector iright1, iright2;
 .float itime1, itime2;
 void InterpolateOrigin_Note()
 {
 	float dt;
 
+	makevectors(self.angles);
+
 	self.iorigin1 = self.iorigin2;
-	self.iangles1 = self.iangles2;
+	self.iforward1 = self.iforward2;
+	self.iright1 = self.iright2;
 	self.ivelocity1 = self.ivelocity2;
 
 	self.iorigin2 = self.origin;
-	self.iangles2 = self.angles;
+	self.iforward2 = v_forward;
+	self.iright2 = v_right;
 	self.ivelocity2 = self.velocity;
 
 	dt = time - self.itime1;
@@ -20,19 +25,21 @@ void InterpolateOrigin_Note()
 	if(vlen(self.iorigin2 - self.iorigin1) > 1000)
 	{
 		self.iorigin1 = self.iorigin2;
-		self.iangles1 = self.iangles2;
+		self.iforward1 = self.iforward2;
+		self.iright1 = self.iright2;
 		self.ivelocity1 = self.ivelocity2;
 	}
 	else if(vlen(self.ivelocity2 - self.ivelocity1) > 1000)
 	{
-		self.iangles1 = self.iangles2;
+		self.iforward1 = self.iforward2;
+		self.iright1 = self.iright2;
 		self.ivelocity1 = self.ivelocity2;
 	}
 
 	if(dt < 0.2)
 	{
 		self.itime1 = time;
-		self.itime2 = time + getstatf(STAT_SYS_TICRATE);
+		self.itime2 = time + getstatf(STAT_SYS_TICRATE) * getstatf(STAT_MOVEVARS_TIMESCALE);
 	}
 	else
 	{
@@ -42,19 +49,24 @@ void InterpolateOrigin_Note()
 }
 void InterpolateOrigin_Do()
 {
+	vector forward, right;
 	if(self.itime1 && self.itime2 && self.itime1 != self.itime2)
 	{
 		float f;
 		f = bound(0, (time - self.itime1) / (self.itime2 - self.itime1), 1);
 		self.origin = (1 - f) * self.iorigin1 + f * self.iorigin2;
-		self.angles = (1 - f) * self.iangles1 + f * self.iangles2;
+		forward = (1 - f) * self.iforward1 + f * self.iforward2;
+		right = (1 - f) * self.iright1 + f * self.iright2;
+		self.angles = vectoangles(forward, right);
+		self.angles_x = -self.angles_x;
 		self.velocity = (1 - f) * self.ivelocity1 + f * self.ivelocity2;
 	}
 }
 void InterpolateOrigin_Undo()
 {
 	self.origin = self.iorigin2;
-	self.angles = self.iangles2;
+	self.angles = vectoangles(self.iforward2, self.iright2);
+	self.angles_x = -self.angles_x;
 	self.velocity = self.ivelocity2;
 }
 
@@ -88,7 +100,7 @@ void Draw_Laser()
 	}
 	else
 	{
-		Draw_CylindricLine(self.origin, trace_endpos, 2, "particles/laserbeam", 0, time * 3, self.colormod, 1, DRAWFLAG_ADDITIVE); // TODO make a texture to make the laser look smoother
+		Draw_CylindricLine(self.origin, trace_endpos, 2, "particles/laserbeam", 0, time * 3, self.colormod, 0.5, DRAWFLAG_ADDITIVE); // TODO make a texture to make the laser look smoother
 	}
 	pointparticles(self.cnt, trace_endpos, trace_plane_normal, 256 * drawframetime);
 }

@@ -1196,6 +1196,7 @@ float ExactTriggerHit()
 #define INITPRIO_GAMETYPE_FALLBACK  1
 #define INITPRIO_FINDTARGET        10
 #define INITPRIO_SETLOCATION       90
+#define INITPRIO_LINKDOORS         91
 #define INITPRIO_LAST              99
 
 .void(void) initialize_entity;
@@ -1260,3 +1261,6 @@ void InitializeEntitiesRun()
 	}
 	initialize_entity_first = world;
 }
+
+.float nottargeted;
+#define IFTARGETED if(!self.nottargeted && self.targetname != "")

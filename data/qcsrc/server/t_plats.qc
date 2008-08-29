@@ -140,6 +140,11 @@ void plat_use()
 	plat_go_down();
 };
 
+void plat_init_movedown()
+{
+	setorigin (self, self.pos2);
+	self.state = 2;
+}
 
 .string sound1, sound2;
 
@@ -208,113 +213,15 @@ void spawnfunc_func_plat()
 
 	plat_spawn_inside_trigger ();	// the "start moving" trigger
 
-	if (self.targetname)
+	IFTARGETED
 	{
 		self.state = 4;
 		self.use = plat_use;
 	}
 	else
-	{
-		setorigin (self, self.pos2);
-		self.state = 2;
-	}
+		InitializeEntity(self, plat_init_movedown, INITPRIO_SETLOCATION);
 };
 
-
-/*
-void() train_next;
-void() func_train_find;
-
-void train_blocked()
-{
-	if (time < self.attack_finished_single)
-		return;
-	self.attack_finished_single = time + 0.5;
-};
-void train_use()
-{
-	if (self.think != func_train_find)
-		return;
-	train_next();
-};
-
-void train_wait()
-{
-	if (self.wait)
-	{
-		self.nextthink = self.ltime + self.wait;
-		sound (self, CHAN_TRIGGER, self.noise, VOL_BASE, ATTN_NORM);
-	}
-	else
-		self.nextthink = self.ltime + 0.1;
-
-	self.think = train_next;
-};
-
-void train_next()
-{
-	local entity targ;
-
-	targ = find (world, targetname, self.target);
-	self.target = targ.target;
-	if (!self.target)
-		objerror ("train_next: no next target");
-	if (targ.wait)
-		self.wait = targ.wait;
-	else
-		self.wait = 0;
-	sound (self, CHAN_TRIGGER, self.noise1, VOL_BASE, ATTN_NORM);
-	SUB_CalcMove (targ.origin - self.mins, self.speed, train_wait);
-};
-
-void func_train_find()
-{
-	local entity targ;
-
-	targ = find (world, targetname, self.target);
-	self.target = targ.target;
-	setorigin (self, targ.origin - self.mins);
-	if (!self.targetname)
-	{	// not triggered, so start immediately
-		self.nextthink = self.ltime + 0.1;
-		self.think = train_next;
-	}
-};
-
-
-void spawnfunc_func_train()
-{
-	if (!self.speed)
-		self.speed = 100;
-	if (!self.target)
-		objerror ("func_train without a target");
-
-	if (self.sounds == 0)
-	{
-		self.noise = ("misc/null.wav");
-		precache_sound ("misc/null.wav");
-		self.noise1 = ("misc/null.wav");
-		precache_sound ("misc/null.wav");
-	}
-
-	if (self.sounds == 1)
-	{
-		self.noise = ("plats/train2.wav");
-		precache_sound ("plats/train2.wav");
-		self.noise1 = ("plats/train1.wav");
-		precache_sound ("plats/train1.wav");
-	}
-
-	self.blocked = train_blocked;
-	self.use = train_use;
-	self.classname = "train";
-
-	InitMovingBrushTrigger();
-	self.effects |= EF_LOWPRECISION;
-	self.nextthink = self.ltime + 0.1;
-	self.think = func_train_find;
-};
-*/
 
 void() train_next;
 void train_wait()
@@ -333,10 +240,20 @@ void train_next()
 	self.wait = targ.wait;
 	if (!self.wait)
 		self.wait = 0.1;
-	if (targ.speed)
-		SUB_CalcMove(targ.origin - self.mins, targ.speed, train_wait);
+	if(self.wait < 0)
+	{
+		if (targ.speed)
+			SUB_CalcMove(targ.origin - self.mins, targ.speed, train_next);
+		else
+			SUB_CalcMove(targ.origin - self.mins, self.speed, train_next);
+	}
 	else
-		SUB_CalcMove(targ.origin - self.mins, self.speed, train_wait);
+	{
+		if (targ.speed)
+			SUB_CalcMove(targ.origin - self.mins, targ.speed, train_wait);
+		else
+			SUB_CalcMove(targ.origin - self.mins, self.speed, train_wait);
+	}
 };
 
 void func_train_find()
@@ -436,7 +353,6 @@ void spawnfunc_func_rotating()
 };
 
 .float height;
-.float phase;
 void func_bobbing_controller_think()
 {
 	local vector v;
@@ -978,7 +894,7 @@ void LinkDoors()
 
 		if (self.health)
 			starte.health = self.health;
-		if (self.targetname)
+		IFTARGETED
 			starte.targetname = self.targetname;
 		if (self.message != "")
 			starte.message = self.message;
@@ -995,7 +911,7 @@ void LinkDoors()
 
 			if (self.health)
 				return;
-			if (self.targetname)
+			IFTARGETED
 				return;
 			if (self.items)
 				return;
@@ -1056,6 +972,13 @@ FIXME: only one sound set available at the time being
 
 */
 
+void door_init_startopen()
+{
+	setorigin (self, self.pos2);
+	self.pos2 = self.pos1;
+	self.pos1 = self.origin;
+}
+
 void spawnfunc_func_door()
 {
 	//if (!self.deathtype) // map makers can override this
@@ -1069,11 +992,6 @@ void spawnfunc_func_door()
 
 	self.blocked = door_blocked;
 	self.use = door_use;
-
-    if(self.targetname == "") {
-        self.spawnflags = 0;
-        self.dmg = 0;
-    }
 
     if(self.spawnflags & 8)
         self.dmg = 10000;
@@ -1106,11 +1024,7 @@ void spawnfunc_func_door()
 // DOOR_START_OPEN is to allow an entity to be lighted in the closed position
 // but spawn in the open position
 	if (self.spawnflags & DOOR_START_OPEN)
-	{
-		setorigin (self, self.pos2);
-		self.pos2 = self.pos1;
-		self.pos1 = self.origin;
-	}
+		InitializeEntity(self, door_init_startopen, INITPRIO_SETLOCATION);
 
 	self.state = STATE_BOTTOM;
 
@@ -1127,7 +1041,7 @@ void spawnfunc_func_door()
 
 // LinkDoors can't be done until all of the doors have been spawned, so
 // the sizes can be detected properly.
-	InitializeEntity(self, LinkDoors, INITPRIO_FINDTARGET);
+	InitializeEntity(self, LinkDoors, INITPRIO_LINKDOORS);
 };
 
 /*
@@ -1258,12 +1172,12 @@ void fd_secret_move6()
 
 void fd_secret_done()
 {
-	if (!self.targetname || self.spawnflags&SECRET_YES_SHOOT)
+	if (self.spawnflags&SECRET_YES_SHOOT)
 	{
 		self.health = 10000;
 		self.takedamage = DAMAGE_YES;
 		//self.th_pain = fd_secret_use;
-        }
+	}
 	if (self.noise3 != "")
 		sound(self, CHAN_TRIGGER, self.noise3, VOL_BASE, ATTN_NORM);
 };
@@ -1337,7 +1251,10 @@ void spawnfunc_func_door_secret()
 	self.blocked = secret_blocked;
 	self.speed = 50;
 	self.use = fd_secret_use;
-	if ( !self.targetname || self.spawnflags&SECRET_YES_SHOOT)
+	IFTARGETED
+		self.spawnflags |= SECRET_YES_SHOOT;
+
+	if(self.spawnflags&SECRET_YES_SHOOT)
 	{
 		self.health = 10000;
 		self.takedamage = DAMAGE_YES;
