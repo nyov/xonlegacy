@@ -80,6 +80,11 @@ void InterpolateOrigin_Undo()
 .vector velocity;
 .float alpha;
 
+// TODO move these into a heade file
+float trace_dphitq3surfaceflags;
+float Q3SURFACEFLAG_SKY = 4; // sky surface (also has NOIMPACT and NOMARKS set)
+float Q3SURFACEFLAG_NOIMPACT = 16; // projectiles should remove themselves on impact (this is set on sky)
+
 void Draw_Laser()
 {
 	if(!self.state)
@@ -93,6 +98,8 @@ void Draw_Laser()
 	{
 		makevectors(self.angles);
 		traceline(self.origin, self.origin + v_forward * 32768, 0, self);
+		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_SKY)
+			trace_endpos = self.origin + v_forward * 1048576;
 	}
 	if(self.alpha)
 	{
@@ -102,7 +109,13 @@ void Draw_Laser()
 	{
 		Draw_CylindricLine(self.origin, trace_endpos, 2, "particles/laserbeam", 0, time * 3, self.colormod, 0.5, DRAWFLAG_ADDITIVE); // TODO make a texture to make the laser look smoother
 	}
-	pointparticles(self.cnt, trace_endpos, trace_plane_normal, 256 * drawframetime);
+	if not(trace_dphitq3surfaceflags & (Q3SURFACEFLAG_SKY | Q3SURFACEFLAG_NOIMPACT))
+	{
+		if(self.cnt >= 0)
+			pointparticles(self.cnt, trace_endpos, trace_plane_normal, drawframetime * 1000);
+		if(self.colormod != '0 0 0')
+			R_AddDynamicLight(trace_endpos + trace_plane_normal * 1, 50, self.colormod * 5);
+	}
 }
 
 void Ent_Laser()
@@ -127,7 +140,7 @@ void Ent_Laser()
 			self.alpha = ReadByte() / 255.0;
 		else
 			self.alpha = 0;
-		self.cnt = ReadShort(); // effect number
+		self.cnt = ReadShort() - 1; // effect number
 	}
 	if(f & 2)
 	{

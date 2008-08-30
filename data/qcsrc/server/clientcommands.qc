@@ -96,7 +96,7 @@ void Say(entity source, float teamsay, string msgin)
 		}
 		else
 			sprint(self, msgstr);
-		ServerConsoleEcho(strcat("NOTE: ", playername(self), "^7 is flooding."), TRUE);
+		print("NOTE: ", playername(self), "^7 is flooding.\n");
 	}
 	else if(teamsay)
 	{
@@ -131,7 +131,6 @@ void Say(entity source, float teamsay, string msgin)
 		}
 		else
 			bprint(msgstr);
-		//ServerConsoleEcho(substring(msgstr, 1, strlen(msgstr) - 2), TRUE);
 	}
 
 	strunzone(msgstr);
@@ -370,7 +369,7 @@ void SV_ParseClientCommand(string s) {
 		if(cmd != "playerskin")
 		if(cmd != "god") if(cmd != "notarget") if(cmd != "fly") if(cmd != "give") if(cmd != "noclip")
 		{
-			ServerConsoleEcho(strcat("WARNING: Invalid clientcommand by ", self.netname, ": ", s), TRUE);
+			print("WARNING: Invalid clientcommand by ", self.netname, ": ", s, "\n");
 			return;
 		}
 		*/
@@ -389,6 +388,10 @@ void ReadyRestart()
 	// no arena, assault support yet...
 	if(g_arena | g_assault | gameover | intermission_running | race_completing)
 		localcmd("restart\n");
+
+	// clear overtime
+	if(checkrules_overtimeend)
+		checkrules_overtimeend = 0;
 
 	if(readyNagActive) { //if every player is ready, remove the ready-nagger again
 		readyNagActive = 0;
@@ -452,7 +455,7 @@ void ReadyRestart()
 		reset_map();
 	
 	if(cvar("sv_eventlog"))
-		GameLogEcho(":restart", FALSE);
+		GameLogEcho(":restart");
 }
 
 /**
