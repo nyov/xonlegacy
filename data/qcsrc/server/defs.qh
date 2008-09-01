@@ -1,3 +1,5 @@
+#define INDEPENDENT_ATTACK_FINISHED
+
 float require_spawnfunc_prefix; // if this float exists, only functions with spawnfunc_ name prefix qualify as spawn functions
 
 #define BUTTON_ATCK   button0
@@ -212,11 +214,10 @@ float WEP_CRYLINK			= 6; // float	IT_CRYLINK				= 16;
 float WEP_NEX				= 7; // float	IT_NEX					= 32;
 float WEP_HAGAR				= 8; // float	IT_HAGAR				= 64;
 float WEP_ROCKET_LAUNCHER	= 9; // float	IT_ROCKET_LAUNCHER		= 128;
-float WEP_ANTINEX			= 10;
 // For weapon cycling commands
 float WEP_FIRST				= 1;
-float WEP_LAST				= 10;
-float WEP_COUNT             = 11;
+float WEP_LAST				= 9;
+float WEP_COUNT             = 10;
 
 void(entity client, string s) centerprint_builtin = #73;
 .vector dest1, dest2;
@@ -402,7 +403,11 @@ float bot_waypoints_for_items;
 
 .float	attack_finished_for[WEP_COUNT];
 .float attack_finished_single;
+#ifdef INDEPENDENT_ATTACK_FINISHED
 #define ATTACK_FINISHED(ent) ((ent).(attack_finished_for[(ent).weapon]))
+#else
+#define ATTACK_FINISHED(ent) ((ent).attack_finished_single)
+#endif
 
 // assault game mode: Which team is attacking in this round?
 float assault_attacker_team;
