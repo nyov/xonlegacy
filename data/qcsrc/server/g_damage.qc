@@ -105,7 +105,7 @@ string AppendItemcodes(string s, entity player)
 	//	w = player.switchweapon;
 	if(w == 0)
 		w = player.cnt; // previous weapon!
-	s = strcat(s, ftos(W_ItemCode(w)));
+	s = strcat(s, ftos(w));
 	if(time < player.strength_finished)
 		s = strcat(s, "S");
 	if(time < player.invincible_finished)
@@ -143,6 +143,7 @@ void LogDeath(string mode, float deathtype, entity killer, entity killed)
 void Obituary (entity attacker, entity targ, float deathtype)
 {
 	string	s, a;
+	float p;
 
 	if (targ.classname == "player" || targ.classname == "corpse")
 	{
@@ -202,13 +203,12 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				if (targ.killcount > 2)
 					bprint ("^1",s,"^1 ended it all with a ",ftos(targ.killcount)," scoring spree\n");
 			} else {
-
-				if (deathtype == IT_GRENADE_LAUNCHER)
-					bprint ("^1",s, "^1 detonated\n");
-				else if (deathtype == IT_ELECTRO)
-					bprint ("^1",s, "^1 played with plasma\n");
-				else if (deathtype == IT_ROCKET_LAUNCHER)
-					bprint ("^1",s, "^1 exploded\n");
+				if(deathtype >= WEP_FIRST && deathtype <= WEP_LAST)
+				{
+					w_deathtypestring = "couldn't resist the urge to self-destruct";
+					weapon_action(deathtype, WR_SUICIDEMESSAGE);
+					bprint("^1", s, "^1 ", w_deathtypestring, "\n");
+				}
 				else if (deathtype == DEATH_KILL)
 					bprint ("^1",s, "^1 couldn't take it anymore\n");
 				else if (deathtype == DEATH_ROT)
@@ -283,24 +283,16 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				if(sv_gentle) {
 					bprint ("^1",s, "^1 needs a restart thanks to ", a, "\n");
 				} else {
-					if (deathtype == IT_LASER)
-						bprint ("^1",s, "^1 was blasted by ", a, "\n");
-					else if (deathtype == IT_UZI)
-						bprint ("^1",s, "^1 was riddled full of holes by ", a, "\n");
-					else if (deathtype == IT_SHOTGUN)
-						bprint ("^1",s, "^1 was gunned by ", a, "\n");
-					else if (deathtype == IT_GRENADE_LAUNCHER)
-						bprint ("^1", s, "^1 was blasted by ", a, "\n");
-					else if (deathtype == IT_ELECTRO)
-						bprint ("^1",s, "^1 was blasted by ", a, "\n");
-					else if (deathtype == IT_CRYLINK)
-						bprint ("^1",s, "^1 was blasted by ", a, "\n");
-					else if (deathtype == IT_NEX)
-						bprint ("^1",s, "^1 has been vaporized by ", a, "\n");
-					else if (deathtype == IT_HAGAR)
-						bprint ("^1",s, "^1 was pummeled by ", a, "\n");
-					else if (deathtype == IT_ROCKET_LAUNCHER)
-						bprint ("^1",s, "^1 was blasted by ", a, "\n");
+					if(deathtype >= WEP_FIRST && deathtype <= WEP_LAST)
+					{
+						w_deathtypestring = "was blasted by";
+						weapon_action(deathtype, WR_KILLMESSAGE);
+						p = strstrofs(w_deathtypestring, "#", 0);
+						if(p < 0)
+							bprint("^1", s, "^1 ", w_deathtypestring, " ", a, "\n");
+						else
+							bprint("^1", s, "^1 ", substring(w_deathtypestring, 0, p), a, "^1", substring(w_deathtypestring, p+1, strlen(w_deathtypestring) - (p+1)), "\n");
+					}
 					else if (deathtype == DEATH_TELEFRAG)
 						bprint ("^1",s, "^1 was telefragged by ", a, "\n");
 					else if (deathtype == DEATH_DROWN)
@@ -572,20 +564,20 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				(deathtype == DEATH_SLIME) ||
 				(deathtype == DEATH_LAVA))
 				return;
-			if (targ.armorvalue && (deathtype == IT_NEX) && damage)
+			if (targ.armorvalue && (deathtype == WEP_MINSTANEX) && damage)
 			{
 				targ.armorvalue -= 1;
 				centerprint(targ, strcat("^3Remaining extra lives: ",ftos(targ.armorvalue),"\n"));
 				damage = 0;
 				targ.hitsound += 1;
 			}
-			else if (deathtype == IT_NEX && targ.items & IT_STRENGTH)
+			else if (deathtype == WEP_MINSTANEX && targ.items & IT_STRENGTH)
 			{
 				if(clienttype(attacker) == CLIENTTYPE_REAL)
 					if(IsDifferentTeam(targ, attacker))
 						yoda = 1;
 			}
-			if (deathtype == IT_LASER)
+			if (deathtype == WEP_LASER)
 			{
 				damage = 0;
 				if (targ != attacker)
@@ -671,7 +663,6 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		// Savage: vampire mode
 		if (g_vampire)
 		if (!g_minstagib)
-		if (!g_instagib)
 		if (time > self.spawnshieldtime)
 		{
 			attacker.health += damage;

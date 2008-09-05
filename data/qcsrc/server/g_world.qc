@@ -157,6 +157,7 @@ float GotoFirstMap()
 }
 
 float world_already_spawned;
+void RegisterWeapons();
 void spawnfunc_worldspawn (void)
 {
 	float fd, l;
@@ -178,6 +179,9 @@ void spawnfunc_worldspawn (void)
 		++maxclients;
 		head = nextent(head);
 	}
+
+	// needs to be done so early as they would still spawn
+	RegisterWeapons();
 
 	if(GotoFirstMap())
 		return;
@@ -312,7 +316,7 @@ void spawnfunc_worldspawn (void)
 	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 1);
 
 	//if tourney is used map starts in warmup mode. if this mode shall stay unlimited, reset timelimit, but save the original one
-	if(g_tourney && cvar("g_tourney_warmup_unlimited_time")) {
+	if(g_tourney && (-1 == g_tourney_warmup_limit)) {
 		timelimit_orig = cvar("timelimit");
 		cvar_set("timelimit", "0");
 	}
@@ -353,6 +357,8 @@ void spawnfunc_worldspawn (void)
 	}
 
 	addstat(STAT_SYS_TICRATE, AS_FLOAT, stat_sys_ticrate);
+	addstat(STAT_WEAPONS, AS_INT, weapons);
+	addstat(STAT_SWITCHWEAPON, AS_INT, switchweapon);
 
 	next_pingtime = time + 5;
 	world_initialized = 1;

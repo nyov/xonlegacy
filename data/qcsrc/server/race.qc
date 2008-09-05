@@ -301,13 +301,61 @@ void dumpsurface(entity e)
 
 void checkpoint_touch()
 {
-	if(other.classname != "player")
-		return;
+	string oldmsg;
+	entity oldself;
 
 	EXACTTRIGGER_TOUCH;
 
+	if(other.classname == "porto")
+	{
+		// do not allow portalling through checkpoints
+		trace_plane_normal = normalize(-1 * other.velocity);
+		self = other;
+		W_Porto_Fail(0);
+		return;
+	}
+
+	/*
+	 * Trigger targets
+	 */
+	if not(self.spawnflags & 2)
+	{
+		activator = other;
+		oldmsg = self.message;
+		self.message = "";
+		SUB_UseTargets();
+		self.message = oldmsg;
+	}
+
+	if(other.classname != "player")
+		return;
+
+	/*
+	 * Remove unauthorized equipment
+	 */
+	Portal_ClearAll(other);
+	if(other.porto_current)
+	{
+		oldself = self;
+		self = other.porto_current;
+		W_Porto_Fail(1);
+		self = oldself;
+	}
+
 	if(other.race_checkpoint == -1 || other.race_checkpoint == self.race_checkpoint)
 	{
+		/*
+		 * Trigger targets
+		 */
+		if(self.spawnflags & 2)
+		{
+			activator = other;
+			oldmsg = self.message;
+			self.message = "";
+			SUB_UseTargets();
+			self.message = oldmsg;
+		}
+
 		other.race_checkpoint = race_NextCheckpoint(self.race_checkpoint);
 
 		race_SendTime(other, self.race_checkpoint, time - other.race_laptime, !!other.race_laptime);

@@ -15,7 +15,7 @@ void W_Uzi_Attack (void)
 {
 	local entity flash, flash2;
 
-	if (cvar("g_use_ammunition"))
+	if not(self.items & IT_UNLIMITED_AMMO)
 	{
 		if (self.uzi_bulletcounter == 1)
 			self.ammo_nails = self.ammo_nails - cvar("g_balance_uzi_first_ammo");
@@ -34,9 +34,9 @@ void W_Uzi_Attack (void)
 	ATTACK_FINISHED(self) = time + cvar("g_balance_uzi_first_refire");
 
 	if (self.uzi_bulletcounter == 1)
-		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_first_spread"), cvar("g_balance_uzi_first_damage"), cvar("g_balance_uzi_first_force"), IT_UZI, TRUE);
+		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_first_spread"), cvar("g_balance_uzi_first_damage"), cvar("g_balance_uzi_first_force"), WEP_UZI, TRUE);
 	else
-		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_sustained_spread"), cvar("g_balance_uzi_sustained_damage"), cvar("g_balance_uzi_sustained_force"), IT_UZI, (self.uzi_bulletcounter & 3) == 0);
+		fireBullet (w_shotorg, w_shotdir, cvar("g_balance_uzi_sustained_spread"), cvar("g_balance_uzi_sustained_damage"), cvar("g_balance_uzi_sustained_force"), WEP_UZI, (self.uzi_bulletcounter & 3) == 0);
 
 	pointparticles(particleeffectnum("uzi_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -85,9 +85,7 @@ void uzi_fire1_02()
 	{
 		if (!weapon_action(self.weapon, WR_CHECKAMMO2))
 		{
-			self.switchweapon = w_getbestweapon(self);
-			if (self.switchweapon != self.weapon)
-				self.cnt = self.weapon;
+			W_SwitchWeapon_Force(self, w_getbestweapon(self));
 			w_ready();
 			return;
 		}
@@ -99,6 +97,8 @@ void uzi_fire1_02()
 	else
 		weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_uzi_sustained_refire"), w_ready);
 };
+
+void spawnfunc_weapon_machinegun(); // defined in t_items.qc
 
 float w_uzi(float req)
 {
@@ -142,12 +142,14 @@ float w_uzi(float req)
 			precache_model ("models/casing_bronze.mdl");
 	}
 	else if (req == WR_SETUP)
-		weapon_setup(WEP_UZI, "uzi", IT_NAILS);
+		weapon_setup(WEP_UZI);
 	else if (req == WR_CHECKAMMO1)
 		return self.ammo_nails >= cvar("g_balance_uzi_first_ammo");
 	else if (req == WR_CHECKAMMO2)
 		return self.ammo_nails >= cvar("g_balance_uzi_first_ammo");
-	else if (req == WR_REGISTER)
-		weapon_register(WEP_UZI, cvar("g_balance_uzi_first_ammo"));
+	else if (req == WR_SUICIDEMESSAGE)
+		w_deathtypestring = "did the impossible";
+	else if (req == WR_KILLMESSAGE)
+		w_deathtypestring = "was riddled full of holes by";
 	return TRUE;
 };

@@ -13,7 +13,7 @@ void W_Hagar_Explode (void)
 		sound (self, CHAN_PROJECTILE, "weapons/hagexp3.wav", VOL_BASE, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_primary_damage"), cvar("g_balance_hagar_primary_edgedamage"), cvar("g_balance_hagar_primary_radius"), world, cvar("g_balance_hagar_primary_force"), IT_HAGAR);
+	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_primary_damage"), cvar("g_balance_hagar_primary_edgedamage"), cvar("g_balance_hagar_primary_radius"), world, cvar("g_balance_hagar_primary_force"), WEP_HAGAR);
 
 	remove (self);
 }
@@ -33,7 +33,7 @@ void W_Hagar_Explode2 (void)
 		sound (self, CHAN_PROJECTILE, "weapons/hagexp3.wav", VOL_BASE, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_secondary_damage"), cvar("g_balance_hagar_secondary_edgedamage"), cvar("g_balance_hagar_secondary_radius"), world, cvar("g_balance_hagar_secondary_force"), IT_HAGAR);
+	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_secondary_damage"), cvar("g_balance_hagar_secondary_edgedamage"), cvar("g_balance_hagar_secondary_radius"), world, cvar("g_balance_hagar_secondary_force"), WEP_HAGAR);
 
 	remove (self);
 }
@@ -80,7 +80,7 @@ void W_Hagar_Attack (void)
 {
 	local entity missile;
 
-	if (cvar("g_use_ammunition"))
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_hagar_primary_ammo");
 	W_SetupShot (self, '25 5 -8', FALSE, 2, "weapons/hagar_fire.wav");
 	//W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/hagar_fire.wav"); // TODO: move model a little to the right
@@ -119,7 +119,7 @@ void W_Hagar_Attack2 (void)
 {
 	local entity missile;
 
-	if (cvar("g_use_ammunition"))
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_hagar_secondary_ammo");
 	W_SetupShot (self, '25 5 -8', FALSE, 2, "weapons/hagar_fire.wav");
 	//W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/hagar_fire.wav"); // TODO: move model a little to the right
@@ -154,6 +154,11 @@ void W_Hagar_Attack2 (void)
 
 	missile.angles = vectoangles (missile.velocity);
 	missile.flags = FL_PROJECTILE;
+}
+
+void spawnfunc_weapon_hagar (void)
+{
+	weapon_defaultspawnfunc(WEP_HAGAR);
 }
 
 float w_hagar(float req)
@@ -193,12 +198,13 @@ float w_hagar(float req)
 		precache_sound ("weapons/hagexp3.wav");
 	}
 	else if (req == WR_SETUP)
-		weapon_setup(WEP_HAGAR, "hagar", IT_ROCKETS);
+		weapon_setup(WEP_HAGAR);
 	else if (req == WR_CHECKAMMO1)
 		return self.ammo_rockets >= cvar("g_balance_hagar_primary_ammo");
 	else if (req == WR_CHECKAMMO2)
 		return self.ammo_rockets >= cvar("g_balance_hagar_secondary_ammo");
-	else if (req == WR_REGISTER)
-		weapon_register(WEP_HAGAR, min(cvar("g_balance_hagar_primary_ammo"), cvar("g_balance_hagar_secondary_ammo")));
+	// else if (req == WR_SUICIDEMESSAGE) // TODO
+	else if (req == WR_KILLMESSAGE)
+		w_deathtypestring = "was pummeled by";
 	return TRUE;
 };

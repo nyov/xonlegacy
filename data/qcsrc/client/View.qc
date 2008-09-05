@@ -1,4 +1,101 @@
-//include "main.qh"
+float angles_held_status[24];
+vector angles_held[24];
+void Net_ReadHoldAngles()
+{
+	float wpn;
+	vector v;
+	wpn = ReadByte();
+	--wpn;
+	angles_held_status[wpn] = ReadByte();
+	if(angles_held_status[wpn])
+	{
+		v_x = ReadCoord();
+		v_y = ReadCoord();
+		v_z = 0;
+		angles_held[wpn] = v;
+	}
+}
+
+entity porto;
+vector polyline[16];
+float Q3SURFACEFLAG_SLICK = 2; // low friction surface
+void Porto_Draw()
+{
+	vector p, dir, ang, q, nextdir;
+	float idx, portal_number, portal1_idx;
+
+	if(activeweapon != WEP_PORTO)
+		return;
+
+	dir = view_forward;
+
+	if(angles_held_status[WEP_PORTO-1])
+	{
+		makevectors(angles_held[WEP_PORTO-1]);
+		dir = v_forward;
+	}
+
+	p = view_origin;
+
+	polyline[0] = p;
+	idx = 1;
+	portal_number = 0;
+	nextdir = dir;
+
+	for(;;)
+	{
+		dir = nextdir;
+		traceline(p, p + 65536 * dir, TRUE, world);
+		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
+			return;
+		nextdir = dir - 2 * (dir * trace_plane_normal) * trace_plane_normal; // mirror dir at trace_plane_normal
+		p = trace_endpos;
+		polyline[idx] = p;
+		++idx;
+		if(idx >= 16)
+			return;
+		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_SLICK)
+			continue;
+		++portal_number;
+		ang = vectoangles(trace_plane_normal, dir);
+		ang_x = -ang_x;
+		makevectors(ang);
+		if(!CheckWireframeBox(porto, p - 48 * v_right - 48 * v_up + 16 * v_forward, 96 * v_right, 96 * v_up, 96 * v_forward))
+			return;
+		if(portal_number == 1)
+			portal1_idx = idx;
+		if(portal_number >= 2)
+			break;
+	}
+
+	while(idx >= 2)
+	{
+		p = polyline[idx-2];
+		q = polyline[idx-1];
+		if(idx == 2)
+			p = p - view_up * 16;
+		if(idx-1 >= portal1_idx)
+		{
+			Draw_CylindricLine(p, q, 4, "", 1, 0, '0 0 1', 0.5, DRAWFLAG_NORMAL);
+		}
+		else
+		{
+			Draw_CylindricLine(p, q, 4, "", 1, 0, '1 0 0', 0.5, DRAWFLAG_NORMAL);
+		}
+		--idx;
+	}
+}
+
+float DPCONTENTS_SOLID = 1; // hit a bmodel, not a bounding box
+float DPCONTENTS_BODY = 32; // hit a bounding box, not a bmodel
+float DPCONTENTS_PLAYERCLIP = 256; // blocks player movement
+void Porto_Init()
+{
+	porto = spawn();
+	porto.classname = "porto";
+	porto.draw = Porto_Draw;
+	porto.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_PLAYERCLIP;
+}
 
 float drawtime;
 
@@ -28,7 +125,7 @@ vector GetCurrentFov(float fov)
 			zoomspeed = 3.5;
 
 	zoomdir = button_zoom;
-	if(activeweapon == 7 && !minstagib)
+	if(activeweapon == WEP_NEX)
 		zoomdir += button_attack2;
 	if(spectatee_status > 0 || isdemo())
 	{
@@ -121,7 +218,7 @@ void CSQC_UpdateView(void)
 	
 	sbar_alpha_fg = cvar("sbar_alpha_fg" );
 	sbar_hudselector = cvar("sbar_hudselector");
-	activeweapon = getstati(STAT_ACTIVEWEAPON);
+	activeweapon = getstati(STAT_SWITCHWEAPON);
 	teamplay = cvar("teamplay");
 
 	if(last_weapon != activeweapon) {

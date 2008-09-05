@@ -15,8 +15,8 @@ void W_Shotgun_Attack (void)
 
 	W_SetupShot (self, '25 8 -8', TRUE, 5, "weapons/shotgun_fire.wav");
 	for (sc = 0;sc < bullets;sc = sc + 1)
-		fireBullet (w_shotorg, w_shotdir, spread, d, f, IT_SHOTGUN, sc < 3);
-	if (cvar("g_use_ammunition"))
+		fireBullet (w_shotorg, w_shotdir, spread, d, f, WEP_SHOTGUN, sc < 3);
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_shells = self.ammo_shells - cvar("g_balance_shotgun_primary_ammo");
 
 	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 1000, cvar("g_balance_shotgun_primary_ammo"));
@@ -58,8 +58,8 @@ void W_Shotgun_Attack2 (void)
 
 	W_SetupShot (self, '25 8 -8', TRUE, 5, "weapons/shotgun_fire.wav");
 	for (sc = 0;sc < bullets;sc = sc + 1)
-		fireBullet (w_shotorg, w_shotdir, spread, d, f, IT_SHOTGUN, sc < 3);
-	if (cvar("g_use_ammunition"))
+		fireBullet (w_shotorg, w_shotdir, spread, d, f, WEP_SHOTGUN, sc < 3);
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_shells = self.ammo_shells - cvar("g_balance_shotgun_secondary_ammo");
 
 	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 1000, cvar("g_balance_shotgun_secondary_ammo"));
@@ -94,6 +94,8 @@ void shotgun_fire2_02()
 	W_Shotgun_Attack2();
 	weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_shotgun_secondary_animtime"), shotgun_fire2_03);
 }
+
+void spawnfunc_weapon_shotgun(); // defined in t_items.qc
 
 float w_shotgun(float req)
 {
@@ -134,12 +136,14 @@ float w_shotgun(float req)
 			precache_model ("models/casing_shell.mdl");
 	}
 	else if (req == WR_SETUP)
-		weapon_setup(WEP_SHOTGUN, "shotgun", IT_SHELLS);
+		weapon_setup(WEP_SHOTGUN);
 	else if (req == WR_CHECKAMMO1)
 		return self.ammo_shells >= cvar("g_balance_shotgun_primary_ammo");
 	else if (req == WR_CHECKAMMO2)
 		return self.ammo_shells >= cvar("g_balance_shotgun_secondary_ammo") * 3;
-	else if (req == WR_REGISTER)
-		weapon_register(WEP_SHOTGUN, min(cvar("g_balance_shotgun_primary_ammo"), cvar("g_balance_shotgun_secondary_ammo")));
+	else if (req == WR_SUICIDEMESSAGE)
+		w_deathtypestring = "did the impossible";
+	else if (req == WR_KILLMESSAGE)
+		w_deathtypestring = "was gunned by";
 	return TRUE;
 };

@@ -7,6 +7,12 @@
 ===========================================================================
 */
 
+void W_SwitchWeapon_Force(entity e, float w)
+{
+	e.cnt = e.weapon ? e.weapon : e.switchweapon;
+	e.switchweapon = w;
+}
+
 .float antilag_debug;
 
 // VorteX: static frame globals
@@ -324,7 +330,7 @@ void CL_SpawnWeaponentity()
 
 float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 {
-	local float itemcode, f;
+	local float weaponbit, f;
 	local entity oldself;
 
 	if (wpn < WEP_FIRST || wpn > WEP_LAST)
@@ -333,8 +339,8 @@ float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 			sprint(self, "Invalid weapon\n");
 		return FALSE;
 	}
-	itemcode = W_ItemCode(wpn);
-	if (cl.items & itemcode)
+	weaponbit = W_WeaponBit(wpn);
+	if (cl.weapons & weaponbit)
 	{
 		if (andammo)
 		{
@@ -346,7 +352,7 @@ float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 			if (!f)
 			{
 				if (complain)
-					sprint(self, "You don't have any ammo for that weapon\n");
+					sprint(cl, strcat("You don't have any ammo for the ^2", W_Name(wpn), "\n"));
 				return FALSE;
 			}
 		}
@@ -356,10 +362,10 @@ float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 	{
 		// DRESK - 3/16/07
 		// Report Proper Weapon Status / Modified Weapon Ownership Message
-		if(itemsInMap & itemcode)
-			sprint(self, strcat("You do not have the ^2", W_Name(wpn), "\n") );
+		if(weaponsInMap & weaponbit)
+			sprint(cl, strcat("You do not have the ^2", W_Name(wpn), "\n") );
 		else
-			sprint(self, strcat("The ^2", W_Name(wpn), "^7 is ^1NOT AVAILABLE^7 in this map\n") );
+			sprint(cl, strcat("The ^2", W_Name(wpn), "^7 is ^1NOT AVAILABLE^7 in this map\n") );
 	}
 	return FALSE;
 };
@@ -384,41 +390,17 @@ void w_ready()
 	weapon_thinkf(WFRAME_IDLE, 1000000, w_ready);
 };
 
-// FIXME: add qw-style client-custom weaponrating (cl_weaponrating)?
-float w_getbestweapon(entity e)
-{ 
-// add new weapons here
-	if (client_hasweapon(e, WEP_ROCKET_LAUNCHER, TRUE, FALSE))
-		return WEP_ROCKET_LAUNCHER;
-	else if (client_hasweapon(e, WEP_NEX, TRUE, FALSE))
-		return WEP_NEX;
-	else if (client_hasweapon(e, WEP_HAGAR, TRUE, FALSE))
-		return WEP_HAGAR;
-	else if (client_hasweapon(e, WEP_GRENADE_LAUNCHER, TRUE, FALSE))
-		return WEP_GRENADE_LAUNCHER;
-	else if (client_hasweapon(e, WEP_ELECTRO, TRUE, FALSE))
-		return WEP_ELECTRO;
-	else if (client_hasweapon(e, WEP_CRYLINK, TRUE, FALSE))
-		return WEP_CRYLINK;
-	else if (client_hasweapon(e, WEP_UZI, TRUE, FALSE))
-		return WEP_UZI;
-	else if (client_hasweapon(e, WEP_SHOTGUN, TRUE, FALSE))
-		return WEP_SHOTGUN;
-	else if (client_hasweapon(e, WEP_LASER, FALSE, FALSE))
-		return WEP_LASER;
-	else
-		return 0;
-};
-
 // Setup weapon for client (after this raise frame will be launched)
-void weapon_setup(float windex, string wname, float hudammo)
+void weapon_setup(float windex)
 {
-	self.items = self.items - (self.items & (IT_SHELLS | IT_NAILS | IT_ROCKETS | IT_CELLS));
-	self.items = self.items | hudammo;
+	entity e;
+	e = get_weaponinfo(windex);
+	self.items = self.items - (self.items & IT_AMMO);
+	self.items = self.items | e.items;
 
 	// the two weapon entities will notice this has changed and update their models
 	self.weapon = windex;
-	self.weaponname = wname;
+	self.weaponname = e.mdl;
 };
 
 // perform weapon to attack (weaponstate and attack_finished check is here)
@@ -434,9 +416,7 @@ float weapon_prepareattack(float secondary, float attacktime)
 	
 	if (!weapon_action(self.weapon, WR_CHECKAMMO1 + secondary))
 	{
-		self.switchweapon = w_getbestweapon(self);
-		if (self.switchweapon != self.weapon)
-			self.cnt = self.weapon;
+		W_SwitchWeapon_Force(self, w_getbestweapon(self));
 		return FALSE;
 	}
 
@@ -603,27 +583,52 @@ void W_SetupProjectileVelocity(entity missile)
 	missile.velocity = W_CalculateProjectileVelocity(missile.owner.velocity, missile.velocity);
 }
 
-void weapon_register(float wepcode, float minammo)
+
+// WEAPON PLUGIN SYSTEM
+entity weapon_info[24];
+entity dummy_weapon_info;
+.float(float) weapon_func;
+void register_weapon(float id, float(float) func, float ammotype, float i, float normalweapon, float pickupbasevalue, string modelname, string shortname, string name)
 {
-	string s;
-	float itemcode;
-	s = strcat("register_bestweapon ", ftos(wepcode), " "); // char for bestweapon
-	s = strcat(s, ftos(wepcode), " "); // impulse
-	s = strcat(s, ftos(W_ItemCode(wepcode)), " "); // item code
-	s = strcat(s, ftos(wepcode), " "); // self.weapon code
-
-	// ammo stat
-	itemcode = W_AmmoItemCode(wepcode);
-	if(itemcode == IT_SHELLS)
-		s = strcat(s, "6 ");
-	else if(itemcode == IT_NAILS)
-		s = strcat(s, "7 ");
-	else if(itemcode == IT_ROCKETS)
-		s = strcat(s, "8 ");
-	else // if(itemcode == IT_CELLS)
-		s = strcat(s, "9 ");
-
-	s = strcat(s, ftos(minammo), "\n");
-	//dprint(s);
-	stuffcmd(self, s);
+	entity e;
+	weapon_info[id - 1] = e = spawn();
+	e.classname = "weapon_info";
+	e.weapon = id;
+	e.weapons = power2of(id - 1);
+	e.netname = shortname;
+	e.message = name;
+	e.items = ammotype;
+	e.weapon_func = func;
+	e.mdl = modelname;
+	e.model = strzone(strcat("models/weapons/g_", modelname, ".md3"));
+	e.spawnflags = normalweapon;
+	e.impulse = i;
+	e.bot_pickupbasevalue = pickupbasevalue;
+}
+float w_null(float dummy)
+{
+	return 0;
+}
+void register_dummy_weapon()
+{
+	dummy_weapon_info = spawn();
+	dummy_weapon_info.classname = "weapon_info";
+	dummy_weapon_info.weapon = 0;
+	dummy_weapon_info.weapons = 0;
+	dummy_weapon_info.netname = "@!#%'n Tuba";
+	dummy_weapon_info.items = 0;
+	dummy_weapon_info.weapon_func = w_null;
+	dummy_weapon_info.mdl = "";
+	dummy_weapon_info.model = "";
+	dummy_weapon_info.spawnflags = 0;
+	dummy_weapon_info.impulse = -1;
+	dummy_weapon_info.bot_pickupbasevalue = 0;
+}
+entity get_weaponinfo(float id)
+{
+	entity w;
+	w = weapon_info[id - 1];
+	if(w)
+		return w;
+	return dummy_weapon_info;
 }

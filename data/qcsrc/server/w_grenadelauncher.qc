@@ -1,4 +1,3 @@
-
 void W_Grenade_Explode (void)
 {
 	vector	org2;
@@ -7,7 +6,7 @@ void W_Grenade_Explode (void)
 	sound (self, CHAN_PROJECTILE, "weapons/grenade_impact.wav", VOL_BASE, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_grenadelauncher_primary_damage"), cvar("g_balance_grenadelauncher_primary_edgedamage"), cvar("g_balance_grenadelauncher_primary_radius"), world, cvar("g_balance_grenadelauncher_primary_force"), IT_GRENADE_LAUNCHER);
+	RadiusDamage (self, self.owner, cvar("g_balance_grenadelauncher_primary_damage"), cvar("g_balance_grenadelauncher_primary_edgedamage"), cvar("g_balance_grenadelauncher_primary_radius"), world, cvar("g_balance_grenadelauncher_primary_force"), WEP_GRENADE_LAUNCHER);
 
 	remove (self);
 }
@@ -20,7 +19,7 @@ void W_Grenade_Explode2 (void)
 	sound (self, CHAN_PROJECTILE, "weapons/grenade_impact.wav", VOL_BASE, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_grenadelauncher_secondary_damage"), cvar("g_balance_grenadelauncher_secondary_edgedamage"), cvar("g_balance_grenadelauncher_secondary_radius"), world, cvar("g_balance_grenadelauncher_secondary_force"), IT_GRENADE_LAUNCHER);
+	RadiusDamage (self, self.owner, cvar("g_balance_grenadelauncher_secondary_damage"), cvar("g_balance_grenadelauncher_secondary_edgedamage"), cvar("g_balance_grenadelauncher_secondary_radius"), world, cvar("g_balance_grenadelauncher_secondary_force"), WEP_GRENADE_LAUNCHER);
 
 	remove (self);
 }
@@ -77,7 +76,7 @@ void W_Grenade_Attack (void)
 {
 	local entity gren;
 
-	if (cvar("g_use_ammunition"))
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_grenadelauncher_primary_ammo");
 	W_SetupShot (self, '25 6 -8', FALSE, 4, "weapons/grenade_fire.wav");
 	//W_SetupShot (self, '25 8 -8', FALSE, 4, "weapons/grenade_fire.wav"); // TODO: move model to the right a little
@@ -112,7 +111,7 @@ void W_Grenade_Attack2 (void)
 {
 	local entity gren;
 
-	if (cvar("g_use_ammunition"))
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_grenadelauncher_secondary_ammo");
 	W_SetupShot (self, '25 6 -8', FALSE, 4, "weapons/grenade_fire.wav");
 	//W_SetupShot (self, '25 8 -8', FALSE, 4, "weapons/grenade_fire.wav"); // TODO: move model to the right a little
@@ -145,6 +144,11 @@ void W_Grenade_Attack2 (void)
 
 	gren.angles = vectoangles (gren.velocity);
 	gren.flags = FL_PROJECTILE;
+}
+
+void spawnfunc_weapon_grenadelauncher (void)
+{
+	weapon_defaultspawnfunc(WEP_GRENADE_LAUNCHER);
 }
 
 .float bot_secondary_grenademooth;
@@ -202,12 +206,14 @@ float w_glauncher(float req)
 		precache_sound ("weapons/grenade_impact.wav");
 	}
 	else if (req == WR_SETUP)
-		weapon_setup(WEP_GRENADE_LAUNCHER, "gl", IT_ROCKETS);
+		weapon_setup(WEP_GRENADE_LAUNCHER);
 	else if (req == WR_CHECKAMMO1)
 		return self.ammo_rockets >= cvar("g_balance_grenadelauncher_primary_ammo");
 	else if (req == WR_CHECKAMMO2)
 		return self.ammo_rockets >= cvar("g_balance_grenadelauncher_secondary_ammo");
-	else if (req == WR_REGISTER)
-		weapon_register(WEP_GRENADE_LAUNCHER, min(cvar("g_balance_grenadelauncher_primary_ammo"), cvar("g_balance_grenadelauncher_secondary_ammo")));
+	else if (req == WR_SUICIDEMESSAGE)
+		w_deathtypestring = "detonated";
+	else if (req == WR_KILLMESSAGE)
+		w_deathtypestring = "was blasted by";
 	return TRUE;
 };

@@ -17,11 +17,16 @@ float require_spawnfunc_prefix; // if this float exists, only functions with spa
 // Globals
 
 float g_dm, g_domination, g_ctf, g_tdm, g_keyhunt, g_onslaught, g_assault, g_arena, g_lms, g_runematch, g_race;
-float g_cloaked, g_footsteps, g_jump_grunt, g_grappling_hook, g_instagib, g_laserguided_missile, g_midair, g_minstagib, g_nixnex, g_nixnex_with_laser, g_norecoil, g_rocketarena, g_vampire, g_minstagib_invis_alpha;
+float g_cloaked, g_footsteps, g_jump_grunt, g_grappling_hook, g_laserguided_missile, g_midair, g_minstagib, g_nixnex, g_nixnex_with_laser, g_norecoil, g_rocketarena, g_vampire, g_minstagib_invis_alpha;
 float g_tourney;
+float g_tourney_warmup_limit;
 float g_ctf_win_mode;
 float g_race_qualifying;
 float tourneyInMatchStage;
+float g_pickup_respawntime_short;
+float g_pickup_respawntime_medium;
+float g_pickup_respawntime_long;
+float g_pickup_respawntime_powerup;
 
 float sv_cheats;
 float sv_gentle;
@@ -196,28 +201,18 @@ float WS_INUSE			= 3; // fire state
 float WS_READY			= 4; // idle frame
 
 // weapon requests
-float WR_SETUP		  = 1; // setup weapon data
-float WR_THINK		  = 2; // logic to run every frame
-float WR_CHECKAMMO1	  = 3; // checks ammo for weapon
-float WR_CHECKAMMO2	  = 4; // checks ammo for weapon
-float WR_AIM		  = 5; // runs bot aiming code for this weapon
-float WR_PRECACHE	  = 6; // precaches models/sounds used by this weapon
-float WR_REGISTER	  = 7; // send data about the weapon to the client self (for ClientConnect)
+float WR_SETUP		    = 1; // setup weapon data
+float WR_THINK		    = 2; // logic to run every frame
+float WR_CHECKAMMO1	    = 3; // checks ammo for weapon
+float WR_CHECKAMMO2	    = 4; // checks ammo for weapon
+float WR_AIM		    = 5; // runs bot aiming code for this weapon
+float WR_PRECACHE	    = 6; // precaches models/sounds used by this weapon
+float WR_SUICIDEMESSAGE = 7; // sets w_deathtypestring or leaves it alone
+float WR_KILLMESSAGE    = 8; // sets w_deathtypestring or leaves it alone
 
-// Weapon indexes
-float WEP_LASER				= 1; // float	IT_LASER				= 4096;
-float WEP_SHOTGUN			= 2; // float	IT_SHOTGUN				= 1;
-float WEP_UZI				= 3; // float	IT_UZI					= 2;
-float WEP_GRENADE_LAUNCHER	= 4; // float	IT_GRENADE_LAUNCHER		= 4;
-float WEP_ELECTRO			= 5; // float	IT_ELECTRO				= 8;
-float WEP_CRYLINK			= 6; // float	IT_CRYLINK				= 16;
-float WEP_NEX				= 7; // float	IT_NEX					= 32;
-float WEP_HAGAR				= 8; // float	IT_HAGAR				= 64;
-float WEP_ROCKET_LAUNCHER	= 9; // float	IT_ROCKET_LAUNCHER		= 128;
-// For weapon cycling commands
-float WEP_FIRST				= 1;
-float WEP_LAST				= 9;
-float WEP_COUNT             = 10;
+void weapon_defaultspawnfunc(float wpn);
+
+string w_deathtypestring;
 
 void(entity client, string s) centerprint_builtin = #73;
 .vector dest1, dest2;
@@ -340,14 +335,14 @@ float default_weapon_alpha;
 
 .float() customizeentityforclient;
 .float cvar_cl_handicap;
-.float cvar_cl_zoomfactor;
-.float cvar_cl_zoomspeed;
 .float cvar_cl_playerdetailreduction;
 .float cvar_cl_nogibs;
 .float cvar_scr_centertime;
 .float cvar_cl_shownames;
 .float cvar_cl_hidewaypoints;
 .string cvar_g_nexuizversion;
+.string cvar_cl_weaponpriority;
+.string cvar_cl_weaponpriorities[10];
 
 .float version_nagtime;
 
@@ -372,11 +367,9 @@ void DropAllRunes(entity pl);
 
 typedef .float floatfield;
 floatfield Item_CounterField(float it);
-float Item_WeaponCode(float it);
-void Item_SpawnByItemCode(float it);
 
 float W_AmmoItemCode(float wpn);
-float W_ItemCode(float wpn);
+float W_WeaponBit(float wpn);
 string W_Name(float weaponid);
 
 void UpdateSelectedPlayer();
@@ -391,7 +384,7 @@ void ClearSelectedPlayer();
 void FixIntermissionClient(entity e);
 void FixClientCvars(entity e);
 
-float itemsInMap;
+float weaponsInMap;
 
 void centerprint_atprio(entity e, float prio, string s);
 void centerprint_expire(entity e, float prio);
@@ -494,3 +487,4 @@ float independent_players;
 string clientstuff;
 .float stat_sys_ticrate;
 .float phase;
+.float weapons;

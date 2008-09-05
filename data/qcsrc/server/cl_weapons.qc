@@ -1,99 +1,233 @@
+// switch between weapons
+void W_SwitchWeapon(float imp)
+{
+	if (self.weapon != imp)
+	if (client_hasweapon(self, imp, TRUE, TRUE))
+		W_SwitchWeapon_Force(self, imp);
+};
+
+float W_GetCycleWeapon(entity pl, string weaponorder, float dir, float imp, float complain)
+{
+	float n, i, weaponwant, first_valid, prev_valid, switchtonext, switchtolast;
+	n = tokenize(weaponorder);
+	switchtonext = switchtolast = 0;
+	first_valid = prev_valid = 0;
+
+	if(dir == 0)
+		switchtonext = 1;
+
+	for(i = 0; i < n; ++i)
+	{
+		weaponwant = stof(argv(i));
+
+		if(imp >= 0)
+			if((get_weaponinfo(weaponwant)).impulse != imp)
+				continue;
+
+		if(client_hasweapon(pl, weaponwant, TRUE, FALSE))
+		{
+			if(switchtonext)
+				return weaponwant;
+			if(!first_valid)
+				first_valid = weaponwant;
+			if(weaponwant == pl.switchweapon)
+			{
+				if(dir >= 0)
+					switchtonext = 1;
+				else if(prev_valid)
+					return prev_valid;
+				else
+					switchtolast = 1;
+			}
+			prev_valid = weaponwant;
+		}
+	}
+	if(first_valid)
+	{
+		if(switchtolast)
+			return prev_valid;
+		else
+			return first_valid;
+	}
+	// complain
+	if(complain)
+	{
+		for(i = 0; i < n; ++i)
+		{
+			weaponwant = stof(argv(i));
+			if(imp >= 0)
+				if((get_weaponinfo(weaponwant)).impulse != imp)
+					continue;
+			client_hasweapon(pl, weaponwant, TRUE, TRUE);
+		}
+	}
+	return 0;
+}
+
+void W_CycleWeapon(string weaponorder, float dir)
+{
+	float w;
+	w = W_GetCycleWeapon(self, weaponorder, dir, -1, 1);
+	if(w > 0)
+		W_SwitchWeapon(w);
+}
+
+void W_NextWeaponOnImpulse(float imp)
+{
+	float w;
+	w = W_GetCycleWeapon(self, self.cvar_cl_weaponpriority, +1, imp, 1);
+	if(w > 0)
+		W_SwitchWeapon(w);
+}
+
+// next weapon
+void W_NextWeapon()
+{
+	W_CycleWeapon(self.cvar_cl_weaponpriority, -1);
+}
+
+// prev weapon
+void W_PreviousWeapon()
+{
+	W_CycleWeapon(self.cvar_cl_weaponpriority, +1);
+}
+
+string W_FixWeaponOrder(string order, float complete)
+{
+	string neworder;
+	float i, n, w;
+
+	n = tokenize(order);
+	for(i = 0; i < n; ++i)
+	{
+		w = stof(argv(i));
+		if(w >= WEP_FIRST && w <= WEP_LAST && w == floor(w))
+			neworder = strcat(neworder, ftos(w), " ");
+	}
+
+	if(complete)
+	{
+		n = tokenize(neworder);
+		for(w = WEP_LAST; w >= WEP_FIRST; --w)
+		{
+			for(i = 0; i < n; ++i)
+				if(stof(argv(i)) == w)
+					break;
+			if(i == n) // not found
+				neworder = strcat(neworder, ftos(w), " ");
+		}
+	}
+	
+	return substring(neworder, 0, strlen(neworder) - 1);
+}
+
+string W_FixWeaponOrder_AllowIncomplete(string order)
+{
+	return W_FixWeaponOrder(order, 0);
+}
+
+string W_FixWeaponOrder_ForceComplete(string order)
+{
+	if(order == "")
+		order = cvar_string("cl_weaponpriority");
+	return W_FixWeaponOrder(order, 1);
+}
+
+float w_getbestweapon(entity e)
+{ 
+	return W_GetCycleWeapon(e, e.cvar_cl_weaponpriority, 0, -1, 0);
+};
 
 // generic weapons table
-// add new weapons here
+// TODO should they be macros instead?
 float weapon_action(float wpn, float wrequest)
 {
-	if (wpn == WEP_LASER)
-		return w_laser(wrequest);
-	else if (wpn == WEP_SHOTGUN)
-		return w_shotgun(wrequest);
-	else if (wpn == WEP_UZI)
-		return w_uzi(wrequest);
-	else if (wpn == WEP_GRENADE_LAUNCHER)
-		return w_glauncher(wrequest);
-	else if (wpn == WEP_ELECTRO)
-		return w_electro(wrequest);
-	else if (wpn == WEP_CRYLINK)
-		return w_crylink(wrequest);
-	else if (wpn == WEP_NEX)
-		return w_nex(wrequest);
-	else if (wpn == WEP_HAGAR)
-		return w_hagar(wrequest);
-	else if (wpn == WEP_ROCKET_LAUNCHER)
-		return w_rlauncher(wrequest);
-	return FALSE;
+	return (get_weaponinfo(wpn)).weapon_func(wrequest);
 };
 
 string W_Name(float weaponid)
 {
-	if(weaponid == WEP_LASER)             return "Laser";
-	if(weaponid == WEP_UZI)               return "Machine Gun";
-	if(weaponid == WEP_SHOTGUN)           return "Shotgun";
-	if(weaponid == WEP_GRENADE_LAUNCHER)  return "Mortar";
-	if(weaponid == WEP_ELECTRO)           return "Electro";
-	if(weaponid == WEP_NEX)               return "Nex";
-	if(weaponid == WEP_HAGAR)             return "Hagar";
-	if(weaponid == WEP_ROCKET_LAUNCHER)   return "Rocket Launcher";
-	if(weaponid == WEP_CRYLINK)           return "Crylink";
-	return "@!#%'n Tuba";
+	return (get_weaponinfo(weaponid)).message;
 }
 
-float W_ItemCode(float wpn)
+float W_WeaponBit(float wpn)
 {
-	switch(wpn)
-	{
-		case WEP_LASER:            return IT_LASER;
-		case WEP_SHOTGUN:          return IT_SHOTGUN;
-		case WEP_UZI:              return IT_UZI;
-		case WEP_GRENADE_LAUNCHER: return IT_GRENADE_LAUNCHER;
-		case WEP_ELECTRO:          return IT_ELECTRO;
-		case WEP_CRYLINK:          return IT_CRYLINK;
-		case WEP_NEX:              return IT_NEX;
-		case WEP_HAGAR:            return IT_HAGAR;
-		case WEP_ROCKET_LAUNCHER:  return IT_ROCKET_LAUNCHER;
-		default:                   return 0;
-	}
+	return (get_weaponinfo(wpn)).weapons;
 }
 
 float W_AmmoItemCode(float wpn)
 {
-	switch(wpn)
-	{
-		case WEP_SHOTGUN:          return IT_SHELLS;
-		case WEP_UZI:              return IT_NAILS;
-		case WEP_GRENADE_LAUNCHER: return IT_ROCKETS;
-		case WEP_ELECTRO:          return IT_CELLS;
-		case WEP_CRYLINK:          return IT_CELLS;
-		case WEP_NEX:              return IT_CELLS;
-		case WEP_HAGAR:            return IT_ROCKETS;
-		case WEP_ROCKET_LAUNCHER:  return IT_ROCKETS;
-		default:                   return 0;
-	}
+	return (get_weaponinfo(wpn)).items;
 }
 
-// think function for tossed weapons
 void thrown_wep_think()
 {
 	self.solid = SOLID_TRIGGER;
 	self.owner = world;
 	SUB_SetFade(self, time + 20, 1);
-	setorigin(self, self.origin);
-};
+}
+
+// returns amount of ammo used, or -1 for failure, or 0 for no ammo count
+float W_ThrowNewWeapon(entity own, float wpn, float doreduce, vector org, vector velo)
+{
+	entity oldself, wep;
+	float wa, ammo;
+	var .float ammofield;
+
+	wep = spawn();
+
+	setorigin(wep, org);
+	wep.classname = "droppedweapon";
+	wep.velocity = velo;
+	wep.owner = wep.enemy = own;
+	wep.classname = "droppedweapon";
+	wep.flags = wep.flags | FL_TOSSED;
+	wep.colormap = own.colormap;
+
+	wa = W_AmmoItemCode(wpn);
+	if(wa == IT_SUPERWEAPON || wa == 0)
+	{
+		oldself = self;
+		self = wep;
+		weapon_defaultspawnfunc(wpn);
+		self = oldself;
+		if(startitem_failed)
+			return -1;
+		wep.think = thrown_wep_think;
+		wep.nextthink = time + 0.5;
+		return 0;
+	}
+	else
+	{
+		ammofield = Item_CounterField(wa);
+		oldself = self;
+		self = wep;
+		weapon_defaultspawnfunc(wpn);
+		self = oldself;
+		if(startitem_failed)
+			return -1;
+		if(doreduce)
+		{
+			ammo = min(own.ammofield, wep.ammofield);
+			wep.ammofield = ammo;
+			own.ammofield -= ammo;
+		}
+		wep.think = thrown_wep_think;
+		wep.nextthink = time + 0.5;
+		return wep.ammofield;
+	}
+}
 
 // toss current weapon
 void W_ThrowWeapon(vector velo, vector delta, float doreduce)
 {
-	local float w, ammo;
-	local entity wep, e;
-	local .float ammofield;
+	local float w, a, wb;
 
 	w = self.weapon;
 	if (w == 0)
 		return; // just in case
 	if (w == WEP_LASER)
-		return;
-	if (g_instagib)
-		return;
+		return; // just in case
 	if (g_rocketarena)
 		return;
 	if (g_lms)
@@ -103,118 +237,19 @@ void W_ThrowWeapon(vector velo, vector delta, float doreduce)
 	if (!cvar("g_pickup_items"))
 		return;
 
-	e = self;
-	wep = spawn();
-	self = wep;
-
-	setorigin(wep, e.origin + delta);
-	makevectors(e.angles);
-	wep.classname = "droppedweapon";
-	wep.velocity = velo; // e.velocity * 0.5 + v_forward * 750;
-	SUB_SetFade(wep, time + 20, 1);
-
-	ammofield = Item_CounterField(W_AmmoItemCode(w));
-	w = W_ItemCode(w);
-	if(!(e.items & w))
+	wb = W_WeaponBit(w);
+	self.weapons = self.weapons - (self.weapons & wb);
+	W_SwitchWeapon_Force(self, w_getbestweapon(self));
+	a = W_ThrowNewWeapon(self, w, doreduce, self.origin + delta, velo);
+	if(a < 0)
+		return;
+	if(self.health >= 1)
 	{
-		remove(wep);
-		goto leave;
+		if(a == 0)
+			sprint(self, strcat("You dropped the ^2", W_Name(w), "\n"));
+		else
+			sprint(self, strcat("You dropped the ^2", W_Name(w), " with ", ftos(a), " ", Item_CounterFieldName(W_AmmoItemCode(w)), "\n"));
 	}
-	Item_SpawnByItemCode(w);
-	if(startitem_failed)
-		goto leave;
-	if(doreduce)
-	{
-		ammo = min(e.ammofield, wep.ammofield);
-		wep.ammofield = ammo;
-		e.ammofield -= ammo;
-	}
-
-	if(e.items & w)
-		if(e.health >= 1)
-			sprint(e, strcat("You dropped the ^2", wep.netname, " with ", ftos(wep.ammofield), " ammo", "\n"));
-
-	wep.owner = e;
-	setorigin(wep, wep.origin);
-	wep.nextthink = time + 0.5;
-	wep.think = thrown_wep_think;
-	wep.classname = "droppedweapon";
-	wep.flags = wep.flags | FL_TOSSED;
-	e.items = e.items - (e.items & w);
-	e.switchweapon = w_getbestweapon(e);
-	wep.colormap = e.colormap;
-	if (e.switchweapon != e.weapon)
-		e.cnt = e.weapon;
-
-:leave
-	self = e;
-};
-
-// switch between weapons
-void W_SwitchWeapon(float imp)
-{
-	if (self.weapon != imp)
-	if (client_hasweapon(self, imp, TRUE, TRUE))
-	{
-		self.cnt = self.weapon ? self.weapon : self.switchweapon;
-		self.switchweapon = imp;
-	}
-};
-
-// next weapon
-void W_NextWeapon()
-{
-	local float weaponwant, maxtries;
-
-	maxtries = WEP_LAST;
-
-	weaponwant = self.switchweapon + 1;
-	if (weaponwant < WEP_FIRST)
-		weaponwant = WEP_LAST;
-	if (weaponwant > WEP_LAST)
-		weaponwant = WEP_FIRST;
-	while(!client_hasweapon(self, weaponwant, TRUE, FALSE))
-	{
-		if(!maxtries)
-			return;
-
-		maxtries -= 1;
-		weaponwant = weaponwant + 1;
-		if (weaponwant < WEP_FIRST)
-			weaponwant = WEP_LAST;
-		if (weaponwant > WEP_LAST)
-			weaponwant = WEP_FIRST;
-	}
-	self.cnt = self.weapon ? self.weapon : self.switchweapon;
-	self.switchweapon = weaponwant;
-};
-
-// prev weapon
-void W_PreviousWeapon()
-{
-	local float weaponwant, maxtries;
-
-	maxtries = WEP_LAST;
-
-	weaponwant = self.switchweapon - 1;
-	if (weaponwant < WEP_FIRST)
-		weaponwant = WEP_LAST;
-	if (weaponwant > WEP_LAST)
-		weaponwant = WEP_FIRST;
-	while(!client_hasweapon(self, weaponwant, TRUE, FALSE))
-	{
-		if(!maxtries)
-			return;
-
-		maxtries -= 1;
-		weaponwant = weaponwant - 1;
-		if (weaponwant < WEP_FIRST)
-			weaponwant = WEP_LAST;
-		if (weaponwant > WEP_LAST)
-			weaponwant = WEP_FIRST;
-	}
-	self.cnt = self.weapon ? self.weapon : self.switchweapon;
-	self.switchweapon = weaponwant;
 };
 
 // Bringed back weapon frame
@@ -250,8 +285,8 @@ void W_WeaponFrame()
 		}
 		else if (self.weaponentity.state == WS_READY)
 		{
-#ifdef INDEPENDENT_ATTACK_FINISHED
-			if(ATTACK_FINISHED(self) > time + frametime * 0.5)
+#ifndef INDEPENDENT_ATTACK_FINISHED
+			if(ATTACK_FINISHED(self) <= time + frametime * 0.5)
 			{
 #endif
 			sound (self, CHAN_WEAPON, "weapons/weapon_switch.wav", VOL_BASE, ATTN_NORM);
@@ -259,11 +294,14 @@ void W_WeaponFrame()
 			// set up weapon switch think in the future, and start drop anim
 			weapon_thinkf(WFRAME_IDLE, cvar("g_balance_weaponswitchdelay"), w_clear);
 			weapon_boblayer1(PLAYER_WEAPONSELECTION_SPEED, PLAYER_WEAPONSELECTION_RANGE);
-#ifdef INDEPENDENT_ATTACK_FINISHED
+#ifndef INDEPENDENT_ATTACK_FINISHED
 			}
 #endif
 		}
 	}
+
+	float wb;
+	wb = W_WeaponBit(self.weapon);
 
 	// call the think code which may fire the weapon
 	// and do so multiple times to resolve framerate dependency issues if the
@@ -273,7 +311,13 @@ void W_WeaponFrame()
 	while (c < 5)
 	{
 		c = c + 1;
-		weapon_action(self.weapon, WR_THINK);
+		if(wb && self.weapons & wb == 0)
+		{
+			W_SwitchWeapon_Force(self, w_getbestweapon(self));
+			wb = 0;
+		}
+		if(wb)
+			weapon_action(self.weapon, WR_THINK);
 		if (time + frametime * 0.5 >= self.weapon_nextthink)
 			self.weapon_think();
 	}
@@ -355,19 +399,19 @@ void Nixnex_GiveCurrentWeapon()
 		if(nixnex_nextchange != self.nixnex_lastchange_id) // this shall only be called once per round!
 		{
 			self.nixnex_lastchange_id = nixnex_nextchange;
-			if (cvar("g_use_ammunition"))
-			{
-				self.ammo_shells = cvar("g_balance_nixnex_ammo_shells");
-				self.ammo_nails = cvar("g_balance_nixnex_ammo_nails");
-				self.ammo_rockets = cvar("g_balance_nixnex_ammo_rockets");
-				self.ammo_cells = cvar("g_balance_nixnex_ammo_cells");
-			}
-			else
+			if (self.items & IT_UNLIMITED_AMMO)
 			{
 				self.ammo_shells = cvar("g_pickup_shells_max");
 				self.ammo_nails = cvar("g_pickup_nails_max");
 				self.ammo_rockets = cvar("g_pickup_rockets_max");
 				self.ammo_cells = cvar("g_pickup_cells_max");
+			}
+			else
+			{
+				self.ammo_shells = cvar("g_balance_nixnex_ammo_shells");
+				self.ammo_nails = cvar("g_balance_nixnex_ammo_nails");
+				self.ammo_rockets = cvar("g_balance_nixnex_ammo_rockets");
+				self.ammo_cells = cvar("g_balance_nixnex_ammo_cells");
 			}
 			self.nixnex_nextincr = time + cvar("g_balance_nixnex_incrtime");
 			if(dt >= 1 && dt <= 5)
@@ -382,7 +426,7 @@ void Nixnex_GiveCurrentWeapon()
 				centerprint(self, strcat("^3", ftos(dt), "^2 seconds until weapon change...\n\nNext weapon: ^3", W_Name(nixnex_nextweapon), "\n"));
 		}
 
-		if(cvar("g_use_ammunition") && time > self.nixnex_nextincr)
+		if(!(self.items & IT_UNLIMITED_AMMO) && time > self.nixnex_nextincr)
 		{
 			self.ammo_shells = self.ammo_shells + cvar("g_balance_nixnex_ammoincr_shells");
 			self.ammo_nails = self.ammo_nails + cvar("g_balance_nixnex_ammoincr_nails");
@@ -391,10 +435,10 @@ void Nixnex_GiveCurrentWeapon()
 			self.nixnex_nextincr = time + cvar("g_balance_nixnex_incrtime");
 		}
 
-		self.items = self.items - (self.items & (IT_LASER | IT_SHOTGUN | IT_UZI | IT_GRENADE_LAUNCHER | IT_ELECTRO | IT_CRYLINK | IT_NEX | IT_HAGAR | IT_ROCKET_LAUNCHER));
+		self.weapons = 0;
 		if(g_nixnex_with_laser)
-			self.items = self.items | IT_LASER;
-		self.items = self.items | W_ItemCode(nixnex_weapon);
+			self.weapons = self.weapons | WEPBIT_LASER;
+		self.weapons = self.weapons | W_WeaponBit(nixnex_weapon);
 
 		if(self.switchweapon != nixnex_weapon)
 			if(!client_hasweapon(self, self.switchweapon, TRUE, FALSE))
@@ -403,3 +447,19 @@ void Nixnex_GiveCurrentWeapon()
 	}
 }
 
+void RegisterWeapons()
+{
+	register_dummy_weapon();
+	// %weaponaddpoint
+	register_weapon(WEP_LASER,            w_laser,     0,              1, 1,     0, "laser",     "laser",           "Laser");
+	register_weapon(WEP_SHOTGUN,          w_shotgun,   IT_SHELLS,      2, 1,  2500, "shotgun",   "shotgun",         "Shotgun");
+	register_weapon(WEP_UZI,              w_uzi,       IT_NAILS,       3, 1,  5000, "uzi",       "uzi",             "Machine Gun");
+	register_weapon(WEP_GRENADE_LAUNCHER, w_glauncher, IT_ROCKETS,     4, 1,  5000, "gl",        "grenadelauncher", "Mortar");
+	register_weapon(WEP_ELECTRO,          w_electro,   IT_CELLS,       5, 1,  5000, "electro",   "electro",         "Electro");
+	register_weapon(WEP_CRYLINK,          w_crylink,   IT_CELLS,       6, 1,  5000, "crylink",   "crylink",         "Crylink");
+	register_weapon(WEP_NEX,              w_nex,       IT_CELLS,       7, 1, 10000, "nex",       "nex",             "Nex");
+	register_weapon(WEP_HAGAR,            w_hagar,     IT_ROCKETS,     8, 1,  5000, "hagar",     "hagar",           "Hagar");
+	register_weapon(WEP_ROCKET_LAUNCHER,  w_rlauncher, IT_ROCKETS,     9, 1, 10000, "rl",        "rocketlauncher",  "Rocket Launcher");
+	register_weapon(WEP_PORTO,            w_porto,     IT_SUPERWEAPON, 0, 0,     0, "porto" ,    "porto",           "Port-O-Launch");
+	register_weapon(WEP_MINSTANEX,        w_minstanex, IT_CELLS,       7, 0, 10000, "minstanex", "minstanex",       "MinstaNex");
+}

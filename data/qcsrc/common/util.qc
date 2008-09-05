@@ -615,3 +615,28 @@ void compressShortVector_init()
 	}
 }
 
+#ifndef MENUQC
+float CheckWireframeBox(entity forent, vector v0, vector dvx, vector dvy, vector dvz)
+{
+	traceline(v0, v0 + dvx, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0, v0 + dvy, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0, v0 + dvz, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvx, v0 + dvx + dvy, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvx, v0 + dvx + dvz, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvy, v0 + dvy + dvx, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvy, v0 + dvy + dvz, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvz, v0 + dvz + dvx, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvz, v0 + dvz + dvy, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvx + dvy, v0 + dvx + dvy + dvz, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvx + dvz, v0 + dvx + dvy + dvz, TRUE, forent); if(trace_fraction < 1) return 0;
+	traceline(v0 + dvy + dvz, v0 + dvx + dvy + dvz, TRUE, forent); if(trace_fraction < 1) return 0;
+	return 1;
+}
+
+// a makevectors that inverts vectoangles
+void fixedmakevectors(vector a)
+{
+	a_x = -a_x;
+	makevectors(a);
+}
+#endif

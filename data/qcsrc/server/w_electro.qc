@@ -8,12 +8,12 @@ void W_Plasma_Explode (void)
 	if (self.movetype == MOVETYPE_BOUNCE)
 	{
 		pointparticles(particleeffectnum("electro_ballexplode"), org2, '0 0 0', 1);
-		RadiusDamage (self, self.owner, cvar("g_balance_electro_secondary_damage"), cvar("g_balance_electro_secondary_edgedamage"), cvar("g_balance_electro_secondary_radius"), world, cvar("g_balance_electro_secondary_force"), IT_ELECTRO);
+		RadiusDamage (self, self.owner, cvar("g_balance_electro_secondary_damage"), cvar("g_balance_electro_secondary_edgedamage"), cvar("g_balance_electro_secondary_radius"), world, cvar("g_balance_electro_secondary_force"), WEP_ELECTRO);
 	}
 	else
 	{
 		pointparticles(particleeffectnum("electro_impact"), org2, '0 0 0', 1);
-		RadiusDamage (self, self.owner, cvar("g_balance_electro_primary_damage"), cvar("g_balance_electro_primary_edgedamage"), cvar("g_balance_electro_primary_radius"), world, cvar("g_balance_electro_primary_force"), IT_ELECTRO);
+		RadiusDamage (self, self.owner, cvar("g_balance_electro_primary_damage"), cvar("g_balance_electro_primary_edgedamage"), cvar("g_balance_electro_primary_radius"), world, cvar("g_balance_electro_primary_force"), WEP_ELECTRO);
 	}
 	sound (self, CHAN_PROJECTILE, "weapons/electro_impact.wav", VOL_BASE, ATTN_NORM);
 
@@ -29,7 +29,7 @@ void W_Plasma_Explode_Combo (void) {
 	sound (self, CHAN_PROJECTILE, "weapons/electro_impact_combo.wav", VOL_BASE, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_electro_combo_damage"), cvar("g_balance_electro_combo_edgedamage"), cvar("g_balance_electro_combo_radius"), world, cvar("g_balance_electro_combo_force"), IT_ELECTRO);
+	RadiusDamage (self, self.owner, cvar("g_balance_electro_combo_damage"), cvar("g_balance_electro_combo_edgedamage"), cvar("g_balance_electro_combo_radius"), world, cvar("g_balance_electro_combo_force"), WEP_ELECTRO);
 	remove (self);
 }
 
@@ -109,7 +109,7 @@ void W_Electro_Attack()
 	proj.solid = SOLID_BBOX;
 	setorigin(proj, w_shotorg);
 
-	if (cvar("g_use_ammunition"))
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_electro_primary_ammo");
 	proj.effects = EF_BRIGHTFIELD | EF_LOWPRECISION;
 	proj.movetype = MOVETYPE_FLY;
@@ -143,7 +143,7 @@ void W_Electro_Attack2()
 	proj.solid = SOLID_BBOX;
 	setorigin(proj, w_shotorg);
 
-	if (cvar("g_use_ammunition"))
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_electro_secondary_ammo");
 	proj.effects = EF_LOWPRECISION;
 	//proj.glow_size = 50;
@@ -162,6 +162,11 @@ void W_Electro_Attack2()
 
 	// LordHavoc: disabled because no one likes this sound and it sometimes never stops due to packet loss
 	//sound (proj, CHAN_PROJECTILE, "weapons/electro_fly.wav", VOL_BASE, ATTN_NORM);
+}
+
+void spawnfunc_weapon_electro (void)
+{
+	weapon_defaultspawnfunc(WEP_ELECTRO);
 }
 
 .float bot_secondary_electromooth;
@@ -220,12 +225,13 @@ float w_electro(float req)
 		precache_sound ("weapons/electro_impact_combo.wav");
 	}
 	else if (req == WR_SETUP)
-		weapon_setup(WEP_ELECTRO, "electro", IT_CELLS);
+		weapon_setup(WEP_ELECTRO);
 	else if (req == WR_CHECKAMMO1)
 		return self.ammo_cells >= cvar("g_balance_electro_primary_ammo");
 	else if (req == WR_CHECKAMMO2)
 		return self.ammo_cells >= cvar("g_balance_electro_secondary_ammo");
-	else if (req == WR_REGISTER)
-		weapon_register(WEP_ELECTRO, min(cvar("g_balance_electro_primary_ammo"), cvar("g_balance_electro_secondary_ammo")));
+	else if (req == WR_SUICIDEMESSAGE)
+		w_deathtypestring = "played with plasma";
+	// else if (req == WR_KILLMESSAGE) // TODO
 	return TRUE;
 };

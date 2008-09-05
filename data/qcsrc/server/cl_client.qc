@@ -401,6 +401,8 @@ void PutObserverInServer (void)
 	DropAllRunes(self);
 	kh_Key_DropAll(self, TRUE);
 
+	Portal_ClearAll(self);
+
 	if(self.flagcarried)
 		DropFlag(self.flagcarried);
 
@@ -461,6 +463,7 @@ void PutObserverInServer (void)
 	setsize (self, '0 0 0', '0 0 0');
 	self.oldorigin = self.origin;
 	self.items = 0;
+	self.weapons = 0;
 	self.model = "";
 	self.modelindex = 0;
 	self.weapon = 0;
@@ -631,6 +634,7 @@ void PutClientInServer (void)
 		self.health = start_health;
 		self.armorvalue = start_armorvalue;
 		self.items = start_items;
+		self.weapons = start_weapons;
 		self.switchweapon = start_switchweapon;
 		self.cnt = start_switchweapon;
 		self.weapon = 0;
@@ -767,6 +771,7 @@ Send whatever CSQC needs NOW and cannot wait for SendServerInfo to happen...
 */
 void SendCSQCInfo(void)
 {
+	float i;
 	if(clienttype(self) != CLIENTTYPE_REAL)
 		return;
 	msg_entity = self;
@@ -774,7 +779,8 @@ void SendCSQCInfo(void)
 	WriteByte(MSG_ONE, TE_CSQC_INIT);
 	WriteShort(MSG_ONE, CSQC_REVISION);
 	WriteByte(MSG_ONE, maxclients);
-	WriteByte(MSG_ONE, g_minstagib);
+	for(i = 1; i <= 24; ++i)
+		WriteByte(MSG_ONE, (get_weaponinfo(i)).impulse + 1);
 }
 
 /*
@@ -1029,7 +1035,6 @@ void DecodeLevelParms (void);
 void ClientConnect (void)
 {
 	local string s;
-	float wep;
 
 	if(self.flags & FL_CLIENT)
 	{
@@ -1122,15 +1127,6 @@ void ClientConnect (void)
 
 	// get version info from player
 	stuffcmd(self, "cmd clientversion $gameversion\n");
-
-	// send all weapon info strings
-	stuffcmd(self, "register_bestweapon clear\n"); // clear the Quake stuff
-	wep = WEP_FIRST;
-	while (wep <= WEP_LAST)
-	{
-		weapon_action(wep, WR_REGISTER);
-		wep = wep + 1;
-	}
 
 	// get other cvars from player
 	GetCvars(0);
@@ -1259,6 +1255,8 @@ void ClientDisconnect (void)
 
 	DropAllRunes(self);
 	kh_Key_DropAll(self, TRUE);
+
+	Portal_ClearAll(self);
 
 	if(self.flagcarried)
 		DropFlag(self.flagcarried);
@@ -1683,6 +1681,7 @@ void SpectateCopy(entity spectatee) {
 	self.health = spectatee.health;
 	self.impulse = 0;
 	self.items = spectatee.items;
+	self.weapons = spectatee.weapons;
 	self.punchangle = spectatee.punchangle;
 	self.view_ofs = spectatee.view_ofs;
 	self.v_angle = spectatee.v_angle;
@@ -2163,7 +2162,7 @@ void PlayerPreThink (void)
 	}
 
 	if(!zoomstate_set)
-		SetZoomState(self.BUTTON_ZOOM || (self.BUTTON_ATCK2 && !g_minstagib && self.weapon == WEP_NEX));
+		SetZoomState(self.BUTTON_ZOOM || (self.BUTTON_ATCK2 && self.weapon == WEP_NEX));
 
 	float oldspectatee_status;
 	oldspectatee_status = self.spectatee_status;

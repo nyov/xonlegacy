@@ -27,10 +27,35 @@ void Sbar_FinaleOverlay()
 	MapVote_Draw();
 }
 
+float weaponspace[10];
+float weapon_first, weapon_last;
+void Sbar_DrawWeapon_Clear()
+{
+	float idx;
+	weapon_first = -2;
+	weapon_last = -1;
+	for(idx = 0; idx < 10; ++idx)
+		weaponspace[idx] = 0;
+	for(idx = 0; idx <= 23; ++idx)
+	{
+		if(weaponimpulse[idx] >= 0)
+		{
+			if(weapon_first < 0)
+				weapon_first = idx;
+			weapon_last = idx;
+		}
+	}
+}
 void Sbar_DrawWeapon(float nr, float fade, float active)
 {
 	vector pos, vsize, color;
-	float value;
+	float value, idx, imp, sp;
+
+	imp = weaponimpulse[nr];
+	if(imp == 0)
+		idx = 9;
+	else
+		idx = imp - 1;
 	
 	value = (active) ? 1 : 0.6;
 	color_x = color_y = color_z = value;
@@ -39,9 +64,12 @@ void Sbar_DrawWeapon(float nr, float fade, float active)
 	{
 		// width = 300, height = 100
 		const float w_width = 32, w_height = 12, w_space = 2, font_size = 8;
+
+		sp = weaponspace[idx] + 1;
+		weaponspace[idx] = sp;
 		
-		pos_x = (vid_conwidth - w_width * 9) * 0.5 + w_width * nr;
-		pos_y = (vid_conheight - w_height);
+		pos_x = (vid_conwidth - w_width * 9) * 0.5 + w_width * idx;
+		pos_y = (vid_conheight - w_height * sp);
 		pos_z = 0;
 		vsize_x = w_width;
 		vsize_y = w_height;
@@ -52,8 +80,7 @@ void Sbar_DrawWeapon(float nr, float fade, float active)
 		vsize_x = font_size;
 		vsize_y = font_size;
 		vsize_z = 0;
-		drawstring(pos, ftos(nr+1), vsize, '1 1 0', sbar_alpha_fg, 0);
-
+		drawstring(pos, ftos(imp), vsize, '1 1 0', sbar_alpha_fg, 0);
 	}
 	else
 	{
@@ -61,11 +88,14 @@ void Sbar_DrawWeapon(float nr, float fade, float active)
 		const float w2_width = 300, w2_height = 100, w2_space = 10;
 		const float w2_scale = 0.4;
 
-		pos_x = vid_conwidth - (w2_width + w2_space) * w2_scale;
-		pos_y = (w2_height + w2_space) * w2_scale * nr + w2_space;
+		float f;
+		f = 9 / (weapon_last + 1 - weapon_first);
+
+		pos_x = vid_conwidth - (w2_width + w2_space) * w2_scale * f;
+		pos_y = (w2_height + w2_space) * w2_scale * nr * f + w2_space;
 		pos_z = 0;
-		vsize_x = w2_width * w2_scale;
-		vsize_y = w2_height * w2_scale;
+		vsize_x = w2_width * w2_scale * f;
+		vsize_y = w2_height * w2_scale * f;
 		vsize_z = 0;
 		
 		drawpic(pos, strcat("gfx/inv_weapon", ftos(nr)), vsize, color, value * fade * sbar_alpha_fg, 0);
@@ -341,7 +371,7 @@ void Cmd_Sbar_SetFields(float argc)
 		else if(argv(1) == "all")
 		{
 			string s;
-			s = "ping name |";
+			s = "ping pl name |";
 			for(i = 0; i < MAX_SCORE; ++i)
 			{
 				if(i != ps_primary)
@@ -1296,7 +1326,7 @@ void Sbar_Draw (void)
 {
 	float i;
 	float x, fade;
-	float stat_items;
+	float stat_items, stat_weapons;
 
 	sbar_fontsize = Sbar_GetFontsize();
 
@@ -1402,6 +1432,7 @@ void Sbar_Draw (void)
 			if (sb_lines && sbar_hudselector == 1)
 			{
 				stat_items = getstati(STAT_ITEMS);
+				stat_weapons = getstati(STAT_WEAPONS);
 
 				sbar_x = (vid_conwidth - 320.0)*0.5;
 				sbar_y = vid_conheight - 24.0 - 16.0;
@@ -1411,18 +1442,15 @@ void Sbar_Draw (void)
 				fade = bound(0.7, fade, 1);
 
 				x = 1.0;
-				for(i = 0; i < 8; ++i)
+				Sbar_DrawWeapon_Clear();
+				for(i = 1; i <= 24; ++i)
 				{
-					if(stat_items & x)
+					if(weaponimpulse[i-1] >= 0)
+					if(stat_weapons & x)
 					{
-						Sbar_DrawWeapon(i+1, fade, (i + 2 == activeweapon));
+						Sbar_DrawWeapon(i-1, fade, (i == activeweapon));
 					}
 					x *= 2;
-				}
-				x *= 2*2*2*2;
-				if(stat_items & x)
-				{
-					Sbar_DrawWeapon(0, fade, (activeweapon == 1));
 				}
 
 				// armor
@@ -1465,15 +1493,15 @@ void Sbar_Draw (void)
 
 				// ammo
 				x = getstati(STAT_AMMO);
-				if ((stat_items & (NEX_IT_SHELLS | NEX_IT_BULLETS | NEX_IT_ROCKETS | NEX_IT_CELLS)) || x != 0)
+				if ((stat_items & IT_AMMO) || x != 0)
 				{
-					if (stat_items & NEX_IT_SHELLS)
+					if (stat_items & IT_SHELLS)
 						drawpic(sbar + '296 0 0', "gfx/sb_shells", '24 24 0', '1 1 1', sbar_alpha_fg, 0);
-					else if (stat_items & NEX_IT_BULLETS)
+					else if (stat_items & IT_NAILS)
 						drawpic(sbar + '296 0 0', "gfx/sb_bullets", '24 24 0', '1 1 1', sbar_alpha_fg, 0);
-					else if (stat_items & NEX_IT_ROCKETS)
+					else if (stat_items & IT_ROCKETS)
 						drawpic(sbar + '296 0 0', "gfx/sb_rocket", '24 24 0', '1 1 1', sbar_alpha_fg, 0);
-					else if (stat_items & NEX_IT_CELLS)
+					else if (stat_items & IT_CELLS)
 						drawpic(sbar + '296 0 0', "gfx/sb_cells", '24 24 0', '1 1 1', sbar_alpha_fg, 0);
 					if(x > 10)
 						Sbar_DrawXNum('224 0 0', x, 3, 24, '0.6 0.7 0.8', 1, 0);
@@ -1492,6 +1520,7 @@ void Sbar_Draw (void)
 			{
 			
 				stat_items = getstati(STAT_ITEMS);
+				stat_weapons = getstati(STAT_WEAPONS);
 			
 				sbar_x = (vid_conwidth - 640.0)*0.5;
 				sbar_y = vid_conheight - 47;
@@ -1500,18 +1529,15 @@ void Sbar_Draw (void)
 				fade = 3 - 2 * (time - weapontime);
 
 				x = 1.0;
-				for(i = 0; i < 8; ++i)
+				Sbar_DrawWeapon_Clear();
+				for(i = 1; i <= 24; ++i)
 				{
-					if(stat_items & x)
+					if(weaponimpulse[i-1] >= 0)
+					if(stat_weapons & x)
 					{
-						Sbar_DrawWeapon(i+1, fade, (i + 2 == activeweapon));
+						Sbar_DrawWeapon(i-1, fade, (i == activeweapon));
 					}
 					x *= 2;
-				}
-				x *= 2*2*2*2;
-				if(stat_items & x)
-				{
-					Sbar_DrawWeapon(0, fade, (activeweapon == 1));
 				}
 
 				if (sb_lines > 24)
@@ -1538,13 +1564,13 @@ void Sbar_Draw (void)
 				if(activeweapon != 12)
 				{
 					// (519-3*24) = 447
-					if (stat_items & NEX_IT_SHELLS)
+					if (stat_items & IT_SHELLS)
 						drawpic(sbar + '519 0 0', "gfx/sb_shells", '0 0 0', '1 1 1', sbar_alpha_fg, 0);
-					else if (stat_items & NEX_IT_BULLETS)
+					else if (stat_items & IT_NAILS)
 						drawpic(sbar + '519 0 0', "gfx/sb_bullets", '0 0 0', '1 1 1', sbar_alpha_fg, 0);
-					else if (stat_items & NEX_IT_ROCKETS)
+					else if (stat_items & IT_ROCKETS)
 						drawpic(sbar + '519 0 0', "gfx/sb_rocket", '0 0 0', '1 1 1', sbar_alpha_fg, 0);
-					else if (stat_items & NEX_IT_CELLS)
+					else if (stat_items & IT_CELLS)
 						drawpic(sbar + '519 0 0', "gfx/sb_cells", '0 0 0', '1 1 1', sbar_alpha_fg, 0);
 					if(x > 10)
 						Sbar_DrawXNum('447 12 0', x, 3, 24, '0.6 0.7 0.8', 1, 0);

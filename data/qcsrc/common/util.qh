@@ -65,3 +65,9 @@ vector cross(vector a, vector b);
 void compressShortVector_init();
 vector decompressShortVector(float data);
 float compressShortVector(vector vec);
+
+#ifndef MENUQC
+float CheckWireframeBox(entity forent, vector v0, vector dvx, vector dvy, vector dvz);
+
+void fixedmakevectors(vector a);
+#endif

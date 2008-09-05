@@ -187,6 +187,7 @@ void Playerchecker_Think()
 	self.nextthink = time + 0.2;
 }
 
+void Porto_Init();
 void PostInit(void)
 {
 	print(strcat("PostInit\n    maxclients = ", ftos(maxclients), "\n"));
@@ -196,6 +197,8 @@ void PostInit(void)
 	playerchecker = spawn();
 	playerchecker.think = Playerchecker_Think;
 	playerchecker.nextthink = time + 0.2;
+
+	Porto_Init();
 
 	postinit = true;
 }
@@ -623,10 +626,11 @@ void Net_ReadScoresInfo()
 
 void Net_ReadInit()
 {
+	float i;
 	csqc_revision = ReadShort();
 	maxclients = ReadByte();
-	minstagib = ReadByte();
-
+	for(i = 0; i < 24; ++i)
+		weaponimpulse[i] = ReadByte() - 1;
 	CSQC_CheckRevision();
 }
 
@@ -763,6 +767,7 @@ void Net_ReadSpawn()
 // CSQC_Parse_TempEntity : Handles all temporary entity network data in the CSQC layer.
 // You must ALWAYS first acquire the temporary ID, which is sent as a byte.
 // Return value should be 1 if CSQC handled the temporary entity, otherwise return 0 to have the engine process the event.
+void Net_ReadHoldAngles();
 float CSQC_Parse_TempEntity()
 {
 	local float bHandled;
@@ -812,6 +817,10 @@ float CSQC_Parse_TempEntity()
 			break;
 		case TE_CSQC_ZOOMNOTIFY:
 			Net_ReadZoomNotify();
+			bHandled = true;
+			break;
+		case TE_CSQC_HOLDANGLES:
+			Net_ReadHoldAngles();
 			bHandled = true;
 			break;
 		default:

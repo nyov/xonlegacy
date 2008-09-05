@@ -1,6 +1,99 @@
-void Teleport_Touch (void)
+.entity pusher;
+void TeleportPlayer(entity teleporter, entity player, vector to, vector to_angles, vector to_velocity, vector telefragmin, vector telefragmax)
 {
 	entity head;
+	entity oldself;
+	entity telefragger;
+
+	if(teleporter.owner)
+		telefragger = teleporter.owner;
+	else
+		telefragger = player;
+
+	sound (player, CHAN_TRIGGER, "misc/teleport.wav", VOL_BASE, ATTN_NORM);
+	pointparticles(particleeffectnum("teleport"), player.origin, '0 0 0', 1);
+
+	makevectors (to_angles);
+	pointparticles(particleeffectnum("teleport"), to + v_forward * 32, '0 0 0', 1);
+
+	// Relocate the player
+	// assuming to allows PL_MIN to PL_MAX box and some more
+	setorigin (player, to + '0 0 1' * (1 - player.mins_z - 24));
+	player.angles = to_angles;
+	player.fixangle = TRUE;
+	player.velocity = to_velocity;
+
+	if(player.classname == "player")
+	{
+		RemoveGrapplingHook(player);
+
+		// Kill anyone else in the teleporter box (NO MORE TDEATH)
+		if(player.takedamage && player.deadflag == DEAD_NO && !g_race)
+		{
+			vector deathmin;
+			vector deathmax;
+			float deathradius;
+			deathmin = player.absmin;
+			deathmax = player.absmax;
+			if(telefragmin != telefragmax)
+			{
+				if(deathmin_x > telefragmin_x) deathmin_x = telefragmin_x;
+				if(deathmin_y > telefragmin_y) deathmin_y = telefragmin_y;
+				if(deathmin_z > telefragmin_z) deathmin_z = telefragmin_z;
+				if(deathmax_x < telefragmax_x) deathmax_x = telefragmax_x;
+				if(deathmax_y < telefragmax_y) deathmax_y = telefragmax_y;
+				if(deathmax_z < telefragmax_z) deathmax_z = telefragmax_z;
+			}
+			deathradius = max(vlen(deathmin), vlen(deathmax));
+			for(head = findradius(player.origin, deathradius); head; head = head.chain)
+				if(head != player)
+					if(head.takedamage)
+						if(boxesoverlap(deathmin, deathmax, head.absmin, head.absmax))
+						{
+							if ((player.classname == "player") && (player.health >= 1))
+								Damage (head, teleporter, telefragger, 10000, DEATH_TELEFRAG, head.origin, '0 0 0');
+							else if (telefragger.health < 1) // corpses gib
+								Damage (head, teleporter, telefragger, 10000, DEATH_TELEFRAG, head.origin, '0 0 0');
+							else // dead bodies and monsters gib themselves instead of telefragging
+								Damage (telefragger, teleporter, telefragger, 10000, DEATH_TELEFRAG, telefragger.origin, '0 0 0');
+						}
+		}
+
+		// hide myself a tic
+		player.effects = player.effects | EF_NODRAW;
+		if (player.weaponentity) // misuse FL_FLY to avoid EF_NODRAW on viewmodel
+			player.weaponentity.flags = player.weaponentity.flags | FL_FLY;
+		player.teleport_time = time + cvar("sys_ticrate");
+
+		// player no longer is on ground
+		player.flags = player.flags - (player.flags & FL_ONGROUND);
+
+		// reset tracking of oldvelocity for impact damage (sudden velocity changes)
+		player.oldvelocity = player.velocity;
+
+		// reset tracking of who pushed you into a hazard (for kill credit)
+		if(teleporter.owner)
+		{
+			player.pusher = teleporter.owner;
+			player.pushltime = time + cvar("g_maxpushtime");
+		}
+		else
+		{
+			player.pushltime = 0;
+		}
+
+		// stop player name display
+		{
+			oldself = self;
+			self = player;
+			ClearSelectedPlayer();
+			self = oldself;
+		}
+	}
+}
+
+void Teleport_Touch (void)
+{
 	entity oldself;
 
 	if (other.health < 1)
@@ -10,70 +103,8 @@ void Teleport_Touch (void)
 
 	EXACTTRIGGER_TOUCH;
 
-	sound (other, CHAN_TRIGGER, "misc/teleport.wav", VOL_BASE, ATTN_NORM);
-	pointparticles(particleeffectnum("teleport"), other.origin, '0 0 0', 1);
-
-	/*
-	// Make teleport effect where the player left
-	sound (self, CHAN_TRIGGER, "misc/teleport.wav", VOL_BASE, ATTN_NORM);
-	pointparticles(particleeffectnum("teleport"), other.origin, '0 0 0', 1);
-
-	// Make teleport effect where the player arrived
-	sound (self.enemy, CHAN_TRIGGER, "misc/teleport.wav", VOL_BASE, ATTN_NORM);
-	*/
-
-	makevectors (self.enemy.mangle);
-	pointparticles(particleeffectnum("teleport"), self.enemy.origin + v_forward * 32, '0 0 0', 1);
-
-	// Relocate the player
-	setorigin (other, self.enemy.origin + '0 0 1' * (1 - other.mins_z - 24));
-	other.angles = self.enemy.mangle;
-	other.fixangle = TRUE;
-	other.velocity = v_forward * vlen(other.velocity);
-	RemoveGrapplingHook(other);
-
-	// Kill anyone else in the teleporter box (NO MORE TDEATH)
-	if(other.takedamage && !g_race)
-	{
-		vector deathmin;
-		vector deathmax;
-		float deathradius;
-		deathmin = other.absmin;
-		deathmax = other.absmax;
-		deathradius = max(vlen(deathmin), vlen(deathmax));
-		for(head = findradius(other.origin, deathradius); head; head = head.chain)
-			if(head != other)
-				if(head.takedamage)
-					if(boxesoverlap(deathmin, deathmax, head.absmin, head.absmax))
-					{
-						if ((other.classname == "player") && (other.health >= 1))
-							Damage (head, self, other, 10000, DEATH_TELEFRAG, head.origin, '0 0 0');
-						else if (other.health < 1) // corpses gib
-							Damage (head, self, other, 10000, DEATH_TELEFRAG, head.origin, '0 0 0');
-						else // dead bodies and monsters gib themselves instead of telefragging
-							Damage (other, self, other, 10000, DEATH_TELEFRAG, other.origin, '0 0 0');
-					}
-	}
-
-	// hide myself a tic
-	other.effects = other.effects | EF_NODRAW;
-	if (other.weaponentity) // misuse FL_FLY to avoid EF_NODRAW on viewmodel
-		other.weaponentity.flags = other.weaponentity.flags | FL_FLY;
-	other.teleport_time = time + cvar("sys_ticrate");
-
-	other.flags = other.flags - (other.flags & FL_ONGROUND);
-	// reset tracking of oldvelocity for impact damage (sudden velocity changes)
-	other.oldvelocity = other.velocity;
-	// reset tracking of who pushed you into a hazard (for kill credit)
-	other.pushltime = 0;
-
-	// stop player name display
-	{
-		oldself = self;
-		self = other;
-		ClearSelectedPlayer();
-		self = oldself;
-	}
+	makevectors(self.enemy.mangle);
+	TeleportPlayer(self, other, self.enemy.origin + '0 0 1' * (1 - other.mins_z - 24), self.enemy.mangle, v_forward * vlen(other.velocity), '0 0 0', '0 0 0');
 
 	if(self.enemy.target)
 	{

@@ -274,6 +274,7 @@ Large Armor (default 100 armor points)
 respawntime: time till it respawns (default: 30)
 armorvalue: amount of armor it gives (default: 100 (g_pickup_armorlarge))
 max_armorvalue: max of armor it increases to (default: 999 (g_pickup_armorlarge_max))
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -286,6 +287,7 @@ Medium Armor (default 25 armor points)
 respawntime: time till it respawns (default: 20)
 armorvalue: amount of armor it gives (default: 25 (g_pickup_armormedium))
 max_armorvalue: max of armor it increases to (default: 999 (g_pickup_armormedium_max))
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -298,6 +300,7 @@ Small Armor (default 5 armor points)
 respawntime: time till it respawns (default: 15)
 armorvalue: amount of armor it gives (default: 5 (g_pickup_armorsmall))
 max_armorvalue: max of armor it increases to (default: 999 (g_pickup_armorsmall_max))
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -309,6 +312,7 @@ Machine Gun ammo
 -------- KEYS --------
 ammo_nails: bullets gained by this item (if unset, g_pickup_nails is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -320,6 +324,7 @@ Nex, Electro and Crylink ammo
 -------- KEYS --------
 ammo_cells: cells gained by this item (if unset, g_pickup_cells is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -354,6 +359,7 @@ Large Health (default 50 health points)
 respawntime: time till it respawns (default: 20)
 health: amount of health it gives (default: 50 (g_pickup_healthlarge))
 max_health: max of health it increases to (default: 999 (g_pickup_healthlarge_max))
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -366,6 +372,7 @@ Medium Health (default 25 health points)
 respawntime: time till it respawns (default: 15)
 health: amount of health it gives (default: 25 (g_pickup_healthmedium))
 max_health: max of health it increases to (default: 999 (g_pickup_healthmedium_max))
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -379,6 +386,7 @@ In Minstagib, this randomly turns into either an invisibility, an extra lives or
 respawntime: time till it respawns (default: 30)
 health: amount of health it gives (default: 100 (g_pickup_healthmega))
 max_health: max of health it increases to (default: 999 (g_pickup_healthmega_max))
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -391,6 +399,7 @@ Small Health (default 5 health points)
 respawntime: time till it respawns (default: 15)
 health: amount of health it gives (default: 5 (g_pickup_healthsmall))
 max_health: max of health it increases to (default: 5 (g_pickup_healthsmall_max))
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -402,6 +411,7 @@ Strong Shield
 In Minstagib, this randomly turns into either an invisibility, an extra lives or a speed power-up with a default respawn time of 120.
 -------- KEYS --------
 respawntime: time till it respawns (default: 120)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -414,6 +424,7 @@ Always contains 5 (g_minstagib_ammo_drop) shots.
 It only appears when playing Minstagib and prevents auto-replacement of weapon_nex & weapon_rocketlauncher when used.
 -------- KEYS --------
 respawntime: time till it respawns (default: 45)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -425,6 +436,7 @@ Rocket Launcher, Hagar and Mortar ammo
 -------- KEYS --------
 ammo_rockets: rockets gained by this item (if unset, g_pickup_rockets is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -436,6 +448,7 @@ Shotgun ammo
 -------- KEYS --------
 ammo_shells: shells gained by this item (if unset, g_pickup_shells is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -447,6 +460,7 @@ Strength aka Quad damage
 In Minstagib, this randomly turns into either an invisibility, an extra lives or a speed power-up with a default respawn time of 120.
 -------- KEYS --------
 respawntime: time till it respawns (default: 120)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -500,7 +514,7 @@ NOANGLE: Ignore angle attenuation.
 Laser beam emitter
 -------- KEYS --------
 target: target_position the laser targets (may be another entity, preferably target_position, possibly controlled by misc_follow)
-mdl: name of particle effect for the beam end point (see effectinfo.txt; default is misc_laser_beam_end)
+mdl: name of particle effect for the beam end point (see effectinfo.txt; default is laser_deadly if dmg is set, and none if not)
 colormod: color of the laser beam (default: red, that is, 1 0 0)
 dmg: damage inflicted by the beam per second, or -1 for an instant-death ray
 targetname: name to target this (then its state is toggled)
@@ -658,6 +672,8 @@ If not targeted, it loops the sound file as an ambient noise.
 -------- KEYS --------
 noise: path/name of .wav/.ogg file to play
 targetname: the activating button or trigger points to this.
+atten: distance attenuation of the sound (a value from 0.1 to 3.9), default is 0.5 if targeted, 3 otherwise; set to -1 for no attenuation (global sound)
+volume: volume of the sound
 */
 
 /*QUAKED trigger_counter (.5 .5 .5) ? NOMESSAGE
@@ -783,6 +799,7 @@ the Crylink
 -------- KEYS --------
 ammo_cells: initial cells of the weapon (if unset, g_pickup_cells is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -794,6 +811,7 @@ the Electro
 -------- KEYS --------
 ammo_cells: initial cells of the weapon (if unset, g_pickup_cells is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -805,6 +823,7 @@ the Mortar
 -------- KEYS --------
 ammo_rockets: initial rockets of the weapon (if unset, g_pickup_rockets is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -816,6 +835,7 @@ the Hagar
 -------- KEYS --------
 ammo_rockets: initial rockets of the weapon (if unset, g_pickup_rockets is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -828,6 +848,7 @@ In Minstagib, this turns into an item_minst_cells if no explicit item_minst_cell
 -------- KEYS --------
 ammo_cells: initial cells of the weapon (if unset, g_pickup_cells is used)
 respawntime: time till it respawns (default: 15 * g_balance_nex_respawntime_modifier)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -840,6 +861,7 @@ In Minstagib, this turns into an item_minst_cells if no explicit item_minst_cell
 -------- KEYS --------
 ammo_rockets: initial rockets of the weapon (if unset, g_pickup_rockets is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -851,6 +873,7 @@ the Shotgun
 -------- KEYS --------
 ammo_shells: initial shells of the weapon (if unset, g_pickup_shells is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -862,6 +885,7 @@ the Machine Gun
 -------- KEYS --------
 ammo_nails: initial bullets of the weapon (if unset, g_pickup_nails is used)
 respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
 -------- SPAWNFLAGS --------
 FLOATING: the item will float in air, instead of aligning to the floor by falling
 -------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
@@ -894,14 +918,16 @@ _receiveshadows: Allows per-entity control over shadow reception. Defaults to 1 
 _celshader: Sets the cel shader used for this geometry. Note: omit the "textures/" prefix.
 */
 
-/*QUAKED trigger_race_checkpoint (0 1 0) ? NOTOUCH - CRUSH
+/*QUAKED trigger_race_checkpoint (0 1 0) ? NOTOUCH STRICTTRIGGER CRUSH
 A checkpoint, for the race game mode. Be sure to make them quite long, so they actually catch a player reliably!
 -------- KEYS --------
 cnt: Number of the checkpoint. 0 for finish line, and at least two other checkpoints have to exist. They MUST be touched in sequential order!
 message: Death message, when touching checkpoints in the wrong order.
 targetname: Name of the checkpoint. info_player_race can target this to assign a spawn to a checkpoint. Also used for triggering a checkpoint by an event.
+target: when the checkpoint is passed, these entities are triggered. Useful for forcing items in certain areas using trigger_items
 -------- SPAWNFLAGS --------
 NOTOUCH: the checkpoint will not become active when touched, it HAS to be targeted
+STRICTTRIGGER: only trigger the targets when the checkpoint actually was reached in a valid way (that is, not when going back)
 CRUSH: the checkpoint kills when used at the wrong time
 */
 
@@ -968,4 +994,48 @@ Makes one entity follow another. Will not work with all entities.
 -------- KEYS --------
 target: points to the entity to move (e.g. something that won't move by itself)
 killtarget: points to the entity that is to be used as the source (e.g. a func_plat)
+*/
+
+/*QUAKED weapon_minstanex (1 0 .5) (-30 -30 0) (30 30 32) FLOATING
+the MinstaGib Nex. Always kills with one shot.
+-------- KEYS --------
+ammo_cells: initial cells of the weapon (if unset, g_pickup_cells is used)
+respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
+-------- SPAWNFLAGS --------
+FLOATING: the item will float in air, instead of aligning to the floor by falling
+-------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
+model="models/weapons/g_minstanex.md3"
+*/
+
+/*QUAKED weapon_porto (1 0 .5) (-30 -30 0) (30 30 32) FLOATING
+the Port-O-Launch. Only can be shot once.
+Portals cannot be made on noimpact surfaces, and the portal missile will bounce on slick surfaces.
+-------- KEYS --------
+respawntime: time till it respawns (default: 120)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
+-------- SPAWNFLAGS --------
+FLOATING: the item will float in air, instead of aligning to the floor by falling
+-------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
+model="models/weapons/g_porto.md3"
+*/
+
+/*QUAKED trigger_items (0 0 1) (-8 -8 -8) (8 8 8) AND OR ANDNOT
+Sets the items of any player who triggers this.
+For the number fields, not specifying a value means not changing it. To clear armor, you need to explicitly set "armor" to "-1".
+-------- KEYS --------
+netname: space separated list of items (either weapon short names (like in g_start_weapon_* cvars), or item short names "unlimited_ammo", "invincible" and "strength"
+message: message to print
+ammo_shells: amount of shells
+ammo_nails: amount of bullets
+ammo_rockets: amount of rockets
+ammo_cells: amount of cells
+health: amount of health
+armorvalue: amount of armor
+strength_finished: if "strength" is specified, the time in seconds for which the strength will hold
+invincible_finished: if "invincible" is specified, the time in seconds for which the invincibility will hold
+-------- SPAWNFLAGS --------
+AND: any items not listed will get removed, and none will get added
+OR: the player may keep items not listed
+ANDNOT: the items listed will get removed from the player
 */

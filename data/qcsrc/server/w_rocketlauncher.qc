@@ -12,7 +12,7 @@ void W_Rocket_Explode (void)
 
 	//effect (org2, "models/sprites/rockexpl.spr", 0, 12, 35);
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_rocketlauncher_damage"), cvar("g_balance_rocketlauncher_edgedamage"), cvar("g_balance_rocketlauncher_radius"), world, cvar("g_balance_rocketlauncher_force"), IT_ROCKET_LAUNCHER);
+	RadiusDamage (self, self.owner, cvar("g_balance_rocketlauncher_damage"), cvar("g_balance_rocketlauncher_edgedamage"), cvar("g_balance_rocketlauncher_radius"), world, cvar("g_balance_rocketlauncher_force"), WEP_ROCKET_LAUNCHER);
 
 	if (self.owner.weapon == WEP_ROCKET_LAUNCHER)
 	{
@@ -213,7 +213,7 @@ void W_Rocket_Attack (void)
 	local entity missile;
 	local entity flash, flash2;
 
-	if (cvar("g_use_ammunition") && !g_rocketarena)
+	if not(self.items & IT_UNLIMITED_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_rocketlauncher_ammo");
 
 	W_SetupShot (self, '25 3 -4', FALSE, 5, "weapons/rocket_fire.wav");
@@ -282,6 +282,8 @@ void W_Rocket_Attack (void)
 	// common properties
 	flash.effects = flash2.effects = EF_ADDITIVE | EF_FULLBRIGHT | EF_LOWPRECISION;
 }
+
+void spawnfunc_weapon_rocketlauncher (void); // defined in t_items.qc
 
 float w_rlauncher(float req)
 {
@@ -418,7 +420,7 @@ float w_rlauncher(float req)
 			precache_model ("models/laser_dot.mdl"); // rocket launcher
 	}
 	else if (req == WR_SETUP)
-		weapon_setup(WEP_ROCKET_LAUNCHER, "rl", IT_ROCKETS);
+		weapon_setup(WEP_ROCKET_LAUNCHER);
 	else if (req == WR_CHECKAMMO1)
 	{
 		// don't switch while guiding a missile
@@ -428,7 +430,9 @@ float w_rlauncher(float req)
 	}
 	else if (req == WR_CHECKAMMO2)
 		return FALSE;
-	else if (req == WR_REGISTER)
-		weapon_register(WEP_ROCKET_LAUNCHER, cvar("g_balance_rocketlauncher_ammo"));
+	else if (req == WR_SUICIDEMESSAGE)
+		w_deathtypestring = "exploded";
+	else if (req == WR_KILLMESSAGE)
+		w_deathtypestring = "almost dodged #'s rocket";
 	return TRUE;
 };

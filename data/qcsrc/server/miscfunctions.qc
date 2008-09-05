@@ -73,21 +73,18 @@ void move_out_of_solid_expand(entity e, vector by)
 	}
 }
 
-void move_out_of_solid(entity e)
+float move_out_of_solid(entity e)
 {
 	vector o, m0, m1;
 
 	o = e.origin;
 	traceline(o, o, MOVE_WORLDONLY, e);
 	if(trace_startsolid)
-	{
-		dprint("origin is in solid too! (", vtos(o), ")");
-		return;
-	}
+		return 0;
 
 	tracebox(o, e.mins, e.maxs, o, MOVE_WORLDONLY, e);
 	if(!trace_startsolid)
-		return;
+		return 1;
 
 	m0 = e.mins;
 	m1 = e.maxs;
@@ -104,9 +101,11 @@ void move_out_of_solid(entity e)
 	tracebox(e.origin, e.mins, e.maxs, e.origin, MOVE_WORLDONLY, e);
 	if(trace_startsolid)
 	{
-		dprint("could not get out of solid (", vtos(o), ")\n");
-		return;
+		setorigin(e, o);
+		return 0;
 	}
+
+	return 1;
 }
 
 string STR_PLAYER = "player";
@@ -202,7 +201,8 @@ void relocate_spawnpoint()
 		o = self.origin;
 		self.mins = PL_MIN;
 		self.maxs = PL_MAX;
-		move_out_of_solid(self);
+		if(!move_out_of_solid(self))
+			objerror("could not get out of solid at all!");
 		print("^1NOTE: this map needs FIXING. Spawnpoint at ", vtos(o - '0 0 1'));
 		print(" needs to be moved out of solid, e.g. by '", ftos(self.origin_x - o_x));
 		print(" ", ftos(self.origin_y - o_y));
@@ -489,6 +489,21 @@ void GetCvars_handleString(float f, .string field, string name)
 	else
 		stuffcmd(self, strcat("sendcvar ", name, "\n"));
 }
+void GetCvars_handleString_Fixup(float f, .string field, string name, string(string) func)
+{
+	GetCvars_handleString(f, field, name);
+	if(f >= 0) // also initialize to the fitting value for "" when sending cvars out
+	if(argv(f) == name)
+	{
+		string s;
+		s = func(strcat1(self.field));
+		if(s != self.field)
+		{
+			strunzone(self.field);
+			self.field = strzone(s);
+		}
+	}
+}
 void GetCvars_handleFloat(float f, .float field, string name)
 {
 	if(f < 0)
@@ -502,18 +517,29 @@ void GetCvars_handleFloat(float f, .float field, string name)
 	else
 		stuffcmd(self, strcat("sendcvar ", name, "\n"));
 }
+string W_FixWeaponOrder_ForceComplete(string s);
+string W_FixWeaponOrder_AllowIncomplete(string s);
 void GetCvars(float f)
 {
 	GetCvars_handleFloat(f, autoswitch, "cl_autoswitch");
 	GetCvars_handleFloat(f, cvar_cl_hidewaypoints, "cl_hidewaypoints");
-	GetCvars_handleFloat(f, cvar_cl_zoomfactor, "cl_zoomfactor");
-	GetCvars_handleFloat(f, cvar_cl_zoomspeed, "cl_zoomspeed");
 	GetCvars_handleFloat(f, cvar_cl_playerdetailreduction, "cl_playerdetailreduction");
 	GetCvars_handleFloat(f, cvar_cl_nogibs, "cl_nogibs");
 	GetCvars_handleFloat(f, cvar_scr_centertime, "scr_centertime");
 	GetCvars_handleFloat(f, cvar_cl_shownames, "cl_shownames");
 	GetCvars_handleString(f, cvar_g_nexuizversion, "g_nexuizversion");
 	GetCvars_handleFloat(f, cvar_cl_handicap, "cl_handicap");
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriority, "cl_weaponpriority", W_FixWeaponOrder_ForceComplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[0], "cl_weaponpriority0", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[1], "cl_weaponpriority1", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[2], "cl_weaponpriority2", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[3], "cl_weaponpriority3", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[4], "cl_weaponpriority4", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[5], "cl_weaponpriority5", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[6], "cl_weaponpriority6", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[7], "cl_weaponpriority7", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[8], "cl_weaponpriority8", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[9], "cl_weaponpriority9", W_FixWeaponOrder_AllowIncomplete);
 }
 
 float fexists(string f)
@@ -674,6 +700,7 @@ float g_pickup_healthlarge_max;
 float g_pickup_healthmega;
 float g_pickup_healthmega_max;
 
+float start_weapons;
 float start_items;
 float start_switchweapon;
 float start_ammo_shells;
@@ -683,8 +710,13 @@ float start_ammo_cells;
 float start_health;
 float start_armorvalue;
 
+entity get_weaponinfo(float w);
+
 void readlevelcvars(void)
 {
+	entity e;
+	float i;
+
 	sv_cheats = cvar("sv_cheats");
 	sv_gentle = cvar("sv_gentle");
 	sv_foginterval = cvar("sv_foginterval");
@@ -692,7 +724,6 @@ void readlevelcvars(void)
 	g_jump_grunt = cvar("g_jump_grunt");
 	g_footsteps = cvar("g_footsteps");
 	g_grappling_hook = cvar("g_grappling_hook");
-	g_instagib = cvar("g_instagib");
 	g_laserguided_missile = cvar("g_laserguided_missile");
 	g_midair = cvar("g_midair");
 	g_minstagib = cvar("g_minstagib");
@@ -702,12 +733,17 @@ void readlevelcvars(void)
 	g_rocketarena = cvar("g_rocketarena");
 	g_vampire = cvar("g_vampire");
 	g_tourney = cvar("g_tourney");
+	g_tourney_warmup_limit = cvar("g_tourney_warmup_limit");
 	sv_maxidle = cvar("sv_maxidle");
 	sv_maxidle_spectatorsareidle = cvar("sv_maxidle_spectatorsareidle");
 	sv_pogostick = cvar("sv_pogostick");
 	sv_doublejump = cvar("sv_doublejump");
 
-	if(g_instagib) g_minstagib = g_nixnex = g_rocketarena = 0;
+	g_pickup_respawntime_short = cvar("g_pickup_respawntime_short");
+	g_pickup_respawntime_medium = cvar("g_pickup_respawntime_medium");
+	g_pickup_respawntime_long = cvar("g_pickup_respawntime_long");
+	g_pickup_respawntime_powerup = cvar("g_pickup_respawntime_powerup");
+
 	if(g_minstagib) g_nixnex = g_rocketarena = 0;
 	if(g_nixnex) g_rocketarena = 0;
 
@@ -735,6 +771,7 @@ void readlevelcvars(void)
 	g_pickup_healthmega_max            = cvar("g_pickup_healthmega_max");
 
 	// initialize starting values for players
+	start_weapons = 0;
 	start_items = 0;
 	start_switchweapon = 0;
 	start_ammo_shells = 0;
@@ -744,31 +781,25 @@ void readlevelcvars(void)
 	start_health = cvar("g_balance_health_start");
 	start_armorvalue = cvar("g_balance_armor_start");
 
-	if(g_instagib)
+	if(g_rocketarena)
 	{
-		start_items = IT_NEX;
-		start_switchweapon = WEP_NEX;
-		weapon_action(start_switchweapon, WR_PRECACHE);
-		start_ammo_cells = 999;
-	}
-	else if(g_rocketarena)
-	{
-		start_items = IT_ROCKET_LAUNCHER;
+		start_weapons = WEPBIT_ROCKET_LAUNCHER;
 		start_switchweapon = WEP_ROCKET_LAUNCHER;
 		weapon_action(start_switchweapon, WR_PRECACHE);
 		start_ammo_rockets = 999;
+		start_items |= IT_UNLIMITED_AMMO;
 	}
 	else if(g_nixnex)
 	{
-		start_items = 0;
+		start_weapons = 0;
 		// will be done later
 	}
 	else if(g_minstagib)
 	{
 		start_health = 100;
 		start_armorvalue = 0;
-		start_items = IT_NEX;
-		start_switchweapon = WEP_NEX;
+		start_weapons = WEPBIT_MINSTANEX;
+		start_switchweapon = WEP_MINSTANEX;
 		weapon_action(start_switchweapon, WR_PRECACHE);
 		start_ammo_cells = cvar("g_minstagib_ammo_start");
 		g_minstagib_invis_alpha = cvar("g_minstagib_invis_alpha");
@@ -802,61 +833,20 @@ void readlevelcvars(void)
 			start_ammo_nails = cvar("g_pickup_nails_max");
 			start_ammo_rockets = cvar("g_pickup_rockets_max");
 			start_ammo_cells = cvar("g_pickup_cells_max");
+			start_items |= IT_UNLIMITED_AMMO;
 		}
 
-		if (cvar("g_start_weapon_laser") || g_lms)
+		for(i = WEP_FIRST; i <= WEP_LAST; ++i)
 		{
-			start_items = start_items | IT_LASER;
-			start_switchweapon = WEP_LASER;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_shotgun") || g_lms)
-		{
-			start_items = start_items | IT_SHOTGUN;
-			start_switchweapon = WEP_SHOTGUN;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_uzi") || g_lms || g_tourney)
-		{
-			start_items = start_items | IT_UZI;
-			start_switchweapon = WEP_UZI;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_grenadelauncher") || g_lms || g_tourney)
-		{
-			start_items = start_items | IT_GRENADE_LAUNCHER;
-			start_switchweapon = WEP_GRENADE_LAUNCHER;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_electro") || g_lms || g_tourney)
-		{
-			start_items = start_items | IT_ELECTRO;
-			start_switchweapon = WEP_ELECTRO;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_crylink") || g_lms || g_tourney)
-		{
-			start_items = start_items | IT_CRYLINK;
-			start_switchweapon = WEP_CRYLINK;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_nex") || g_lms || g_tourney)
-		{
-			start_items = start_items | IT_NEX;
-			start_switchweapon = WEP_NEX;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_hagar") || g_lms || g_tourney)
-		{
-			start_items = start_items | IT_HAGAR;
-			start_switchweapon = WEP_HAGAR;
-			weapon_action(start_switchweapon, WR_PRECACHE);
-		}
-		if (cvar("g_start_weapon_rocketlauncher") || g_lms || g_tourney)
-		{
-			start_items = start_items | IT_ROCKET_LAUNCHER;
-			start_switchweapon = WEP_ROCKET_LAUNCHER;
-			weapon_action(start_switchweapon, WR_PRECACHE);
+			e = get_weaponinfo(i);
+			if(!(e.weapon))
+				continue;
+			if(((e.spawnflags & 1) && (g_lms || g_tourney)) || cvar(strcat("g_start_weapon_", e.netname)))
+			{
+				start_weapons |= e.weapons;
+				start_switchweapon = e.weapon;
+				weapon_action(e.weapon, WR_PRECACHE);
+			}
 		}
 	}
 }
@@ -1238,3 +1228,176 @@ void InitializeEntitiesRun()
 
 .float nottargeted;
 #define IFTARGETED if(!self.nottargeted && self.targetname != "")
+
+float power2of(float e)
+{
+	return pow(2, e);
+}
+float log2of(float x)
+{
+	// NOTE: generated code
+	if(x > 2048)
+		if(x > 131072)
+			if(x > 1048576)
+				if(x > 4194304)
+					return 23;
+				else
+					if(x > 2097152)
+						return 22;
+					else
+						return 21;
+			else
+				if(x > 524288)
+					return 20;
+				else
+					if(x > 262144)
+						return 19;
+					else
+						return 18;
+		else
+			if(x > 16384)
+				if(x > 65536)
+					return 17;
+				else
+					if(x > 32768)
+						return 16;
+					else
+						return 15;
+			else
+				if(x > 8192)
+					return 14;
+				else
+					if(x > 4096)
+						return 13;
+					else
+						return 12;
+	else
+		if(x > 32)
+			if(x > 256)
+				if(x > 1024)
+					return 11;
+				else
+					if(x > 512)
+						return 10;
+					else
+						return 9;
+			else
+				if(x > 128)
+					return 8;
+				else
+					if(x > 64)
+						return 7;
+					else
+						return 6;
+		else
+			if(x > 4)
+				if(x > 16)
+					return 5;
+				else
+					if(x > 8)
+						return 4;
+					else
+						return 3;
+			else
+				if(x > 2)
+					return 2;
+				else
+					if(x > 1)
+						return 1;
+					else
+						return 0;
+}
+
+//
+// func_breakable 
+// - basically func_assault_destructible for general gameplay use
+//
+float () crandom;
+void () SUB_UseTargets, assault_destructible_use, SUB_Remove, SUB_Null;
+void LaunchDebris (string debrisname) =
+{
+	local	entity dbr;
+	
+	if (debrisname == "" || !debrisname)
+		return;
+	
+	dbr = spawn();
+	dbr.origin = self.origin;
+	setmodel (dbr, debrisname );
+	setsize (dbr, '0 0 0', '0 0 0');
+	dbr.velocity_x = 70 * crandom();
+	dbr.velocity_y = 70 * crandom();
+	dbr.velocity_z = 140 + 70 * random();
+	dbr.movetype = MOVETYPE_BOUNCE;
+	dbr.solid = SOLID_BBOX;
+	dbr.avelocity_x = random()*600;
+	dbr.avelocity_y = random()*600;
+	dbr.avelocity_z = random()*600;
+	dbr.think = SUB_Remove;
+	dbr.nextthink = time + 13 + random()*10;
+};
+
+.string debris1, debris2, debris3;
+.string mdl_dead;
+void func_breakable_destroy() {
+	if (self.mdl_dead)
+		setmodel(self, self.mdl_dead);
+	else {
+		self.model = "";
+		self.solid = SOLID_NOT;
+	}
+	self.takedamage = DAMAGE_NO;
+	
+	// now throw around the debris
+	LaunchDebris(self.debris1);
+	LaunchDebris(self.debris2);
+	LaunchDebris(self.debris3);
+	
+	SUB_UseTargets();
+	
+	self.event_damage = SUB_Null;
+}
+
+void func_breakable_damage(entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force) {
+
+	if(self.cnt > 0) {
+		self.health = self.health - damage;
+		// add pain effects?
+	}
+
+	if(self.health < 0) {
+		activator = attacker;
+		func_breakable_destroy();
+	}
+}
+
+// destructible walls that can be used to trigger target_objective_decrease
+void spawnfunc_func_breakable() {
+	if(!self.health)
+		self.health = 100;
+
+	self.max_health = self.health;
+
+	//self.cnt = 0; // not yet activated
+
+
+
+	self.classname = "func_breakable";	
+	self.mdl = self.model;
+	setmodel(self, self.mdl);
+	
+	self.solid = SOLID_BSP;
+	
+	// precache all the models
+	if (self.mdl_dead)
+		precache_model(self.mdl_dead);
+	if (self.debris1)
+		precache_model(self.debris1);
+	if (self.debris2)
+		precache_model(self.debris2);
+	if (self.debris3)
+		precache_model(self.debris3);
+	
+	self.use = assault_destructible_use;	// shared use function, b/c they woudl do the same thing anyways
+	self.event_damage = func_breakable_damage;
+}
