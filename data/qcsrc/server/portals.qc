@@ -18,9 +18,8 @@ vector Portal_Transform_Multiply(vector t1, vector t2)
 {
 	vector m_forward, m_up;
 	fixedmakevectors(t2); m_forward = v_forward; m_up = v_up;
-	m_forward = Portal_Transform_Apply(t1, m_forward);
-	m_up = Portal_Transform_Apply(t1, m_up);
-	return vectoangles2(m_forward, m_up);
+	m_forward = Portal_Transform_Apply(t1, m_forward); m_up = Portal_Transform_Apply(t1, m_up);
+	return fixedvectoangles2(m_forward, m_up);
 }
 
 vector Portal_Transform_Invert(vector transform)
@@ -29,7 +28,7 @@ vector Portal_Transform_Invert(vector transform)
 	fixedmakevectors(transform);
 	// we want angles that turn v_forward into '1 0 0', v_right into '0 1 0' and v_up into '0 0 1'
 	// but these are orthogonal unit vectors!
-	// so to invert, we can simply vectoangles the TRANSPOSED matrix
+	// so to invert, we can simply fixedvectoangles the TRANSPOSED matrix
 	// TODO is this always -transform?
 	i_forward_x = v_forward_x;
 	i_forward_y = -v_right_x;
@@ -39,7 +38,7 @@ vector Portal_Transform_Invert(vector transform)
 	i_up_z = v_up_z;
 #ifdef DEBUG
 	vector v;
-	v = vectoangles2(i_forward, i_up);
+	v = fixedvectoangles2(i_forward, i_up);
 	print("Transform: ", vtos(transform), "\n");
 	print("Inverted: ", vtos(v), "\n");
 	print("Verify: ", vtos(Portal_Transform_Multiply(v, transform)), "\n");
@@ -48,7 +47,7 @@ vector Portal_Transform_Invert(vector transform)
 	print("Verify: ", vtos(v_right), "\n");
 	print("Verify: ", vtos(v_up), "\n");
 #endif
-	return vectoangles2(i_forward, i_up);
+	return fixedvectoangles2(i_forward, i_up);
 }
 
 vector Portal_Transform_TurnDirection(vector transform)
@@ -56,7 +55,7 @@ vector Portal_Transform_TurnDirection(vector transform)
 	// turn 180 degrees around v_up
 	// changes in-direction to out-direction
 	fixedmakevectors(transform);
-	return vectoangles2(-1 * v_forward, 1 * v_up);
+	return fixedvectoangles2(-1 * v_forward, 1 * v_up);
 }
 
 vector Portal_Transform_Divide(vector to_transform, vector from_transform)
@@ -79,6 +78,10 @@ float PlayerEdgeDistance(entity p, vector v)
 float Portal_TeleportPlayer(entity teleporter, entity player)
 {
 	vector from, to, safe, step, transform, ang, newvel;
+	vector new_forward, new_up;
+	vector old_forward, old_up;
+	vector new_yawforward;
+	vector old_yawforward;
 	float planeshift, s, t;
 	from = teleporter.origin;
 	transform = teleporter.portal_transform;
@@ -127,8 +130,51 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 	if(player.classname == "player")
 	{
 		ang = player.v_angle;
-		ang_x = -ang_x;
+		/*
+		ang_x = bound(-89, mod(-ang_x + 180, 360) - 180, 89);
 		ang = Portal_Transform_Multiply(transform, ang);
+		*/
+
+		// PLAYERS use different math
+		ang_x = -ang_x;
+
+		//print("reference: ", vtos(Portal_Transform_Multiply(transform, ang)), "\n");
+
+		fixedmakevectors(ang);
+		old_forward = v_forward;
+		old_up = v_up;
+		fixedmakevectors(ang_y * '0 1 0');
+		old_yawforward = v_forward;
+
+		// their aiming directions are portalled...
+		new_forward = Portal_Transform_Apply(transform, old_forward);
+		new_up = Portal_Transform_Apply(transform, old_up);
+		new_yawforward = Portal_Transform_Apply(transform, old_yawforward);
+
+		// but now find a new sense of direction
+		// this is NOT easy!
+		// assume new_forward points straight up.
+		// What is our yaw?
+		//
+		// new_up could now point forward OR backward... which direction to choose?
+
+		if(new_forward_z > 0.7 || new_forward_z < -0.7) // far up; in this case, the "up" vector points backwards
+		{
+			// new_yawforward and new_yawup define the new aiming half-circle
+			// we "just" need to find out whether new_up or -new_up is in that half circle
+			ang = fixedvectoangles(new_forward); // this still gets us a nice pitch value...
+			if(new_up * new_yawforward < 0)
+				new_up = -1 * new_up;
+			ang_y = vectoyaw(new_up); // this vector is the yaw we want
+			//print("UP/DOWN path: ", vtos(ang), "\n");
+		}
+		else
+		{
+			// good angles; here, "forward" suffices
+			ang = fixedvectoangles(new_forward);
+			//print("GOOD path: ", vtos(ang), "\n");
+		}
+
 		ang_z = player.angles_z;
 	}
 	else
@@ -219,10 +265,12 @@ void Portal_Touch()
 				other.effects += EF_BLUE - EF_RED;
 }
 
+void Portal_Think();
 void Portal_MakeBrokenPortal(entity portal)
 {
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
+	portal.think = SUB_Null;
 	portal.effects = 0;
 	//portal.colormod = '1 1 1';
 	portal.nextthink = 0;
@@ -233,6 +281,7 @@ void Portal_MakeWaitingPortal(entity portal)
 {
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
+	portal.think = SUB_Null;
 	portal.effects = EF_ADDITIVE;
 	portal.colormod = '1 1 1';
 	portal.nextthink = 0;
@@ -243,6 +292,7 @@ void Portal_MakeInPortal(entity portal)
 {
 	portal.solid = SOLID_TRIGGER;
 	portal.touch = Portal_Touch;
+	portal.think = Portal_Think;
 	portal.effects = EF_RED;
 	portal.colormod = '1 0 0';
 	portal.nextthink = time;
@@ -253,6 +303,7 @@ void Portal_MakeOutPortal(entity portal)
 {
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
+	portal.think = SUB_Null;
 	portal.effects = EF_STARDUST | EF_BLUE;
 	portal.colormod = '0 0 1';
 	portal.nextthink = 0;
@@ -392,11 +443,17 @@ float Portal_Customize()
 	if(other.classname == "spectator")
 		other = other.enemy;
 	if(other == self.owner)
-		return TRUE;
-	if(IS_INDEPENDENT_PLAYER(other))
-		return FALSE;
-	if(IS_INDEPENDENT_PLAYER(self.owner))
-		return FALSE;
+	{
+		self.modelindex = self.modelindex_lod0;
+	}
+	else if(IS_INDEPENDENT_PLAYER(other) || IS_INDEPENDENT_PLAYER(self.owner))
+	{
+		self.modelindex = 0;
+	}
+	else
+	{
+		self.modelindex = self.modelindex_lod0;
+	}
 	return TRUE;
 }
 
@@ -494,6 +551,7 @@ entity Portal_Spawn(entity own, vector org, vector ang)
 	portal.event_damage = Portal_Damage;
 	portal.health = 300;
 	setmodel(portal, "models/portal.md3");
+	portal.modelindex_lod0 = portal.modelindex;
 	portal.customizeentityforclient = Portal_Customize;
 
 	if(!Portal_FindSafeOrigin(portal))
@@ -522,7 +580,7 @@ float Portal_SpawnInPortalAtTrace(entity own, vector dir, float portal_id_val)
 	}
 
 	org = trace_endpos;
-	ang = vectoangles2(trace_plane_normal, dir);
+	ang = fixedvectoangles2(trace_plane_normal, dir);
 	fixedmakevectors(ang);
 
 	portal = Portal_Spawn(own, org, ang);
@@ -535,7 +593,6 @@ float Portal_SpawnInPortalAtTrace(entity own, vector dir, float portal_id_val)
 
 	portal.portal_id = portal_id_val;
 	Portal_SetInPortal(own, portal);
-	sound(portal, CHAN_PROJECTILE, "misc/invshot.wav", VOL_BASE, ATTN_NORM);
 
 	return 1;
 }
@@ -554,7 +611,7 @@ float Portal_SpawnOutPortalAtTrace(entity own, vector dir, float portal_id_val)
 	}
 
 	org = trace_endpos;
-	ang = vectoangles2(trace_plane_normal, dir);
+	ang = fixedvectoangles2(trace_plane_normal, dir);
 	fixedmakevectors(ang);
 
 	portal = Portal_Spawn(own, org, ang);
@@ -567,7 +624,6 @@ float Portal_SpawnOutPortalAtTrace(entity own, vector dir, float portal_id_val)
 
 	portal.portal_id = portal_id_val;
 	Portal_SetOutPortal(own, portal);
-	sound(portal, CHAN_PROJECTILE, "misc/invshot.wav", VOL_BASE, ATTN_NORM);
 
 	return 1;
 }
