@@ -1,3 +1,5 @@
+float portals_must_not_break; // debug code
+
 .vector portal_transform;
 .vector portal_safe_origin;
 .float portal_wants_to_vanish;
@@ -83,6 +85,11 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 	vector new_yawforward;
 	vector old_yawforward;
 	float planeshift, s, t;
+
+	if(!portals_must_not_break)
+		error("Portal_TeleportPlayer called for unprotected portals");
+	print("Portalling using ", etos(teleporter), " to ", etos(teleporter.enemy), "\n");
+
 	from = teleporter.origin;
 	transform = teleporter.portal_transform;
 
@@ -113,15 +120,15 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 
 	safe = teleporter.enemy.portal_safe_origin; // a valid player origin
 	step = to + ((safe - to) * v_forward) * v_forward;
-	tracebox(safe, PL_MIN, PL_MAX, step, MOVE_NOMONSTERS, player);
+	tracebox(safe, player.mins - '1 1 1', player.maxs + '1 1 1', step, MOVE_NOMONSTERS, player);
 	if(trace_startsolid)
 	{
-		bprint("'safe' teleport location is not safe!\n");
+		print("'safe' teleport location is not safe!\n");
 		// FAIL TODO why does this happen?
 		return 0;
 	}
 	safe = trace_endpos;
-	tracebox(safe, PL_MIN, PL_MAX, to, MOVE_NOMONSTERS, player);
+	tracebox(safe, player.mins - '1 1 1', player.maxs + '1 1 1', to, MOVE_NOMONSTERS, player);
 	if(trace_startsolid)
 		error("trace_endpos in solid!");
 	to = trace_endpos;
@@ -175,15 +182,14 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 			//print("GOOD path: ", vtos(ang), "\n");
 		}
 
+		ang_x = -ang_x;
 		ang_z = player.angles_z;
 	}
 	else
 	{
 		ang = player.angles;
-		ang_x = -ang_x;
 		ang = Portal_Transform_Multiply(transform, player.angles);
 	}
-	ang_x = -ang_x;
 
 	// factor -1 allows chaining portals, but may be weird
 	player.right_vector = -1 * Portal_Transform_Apply(transform, player.right_vector);
@@ -193,6 +199,9 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 	TeleportPlayer(teleporter, player, to, ang, newvel, teleporter.enemy.absmin, teleporter.enemy.absmax);
 
 	// reset fade counter
+	if(!portals_must_not_break)
+		error("Portal_TeleportPlayer ended with unprotected portals");
+	print("Portalled using ", etos(teleporter), " to ", etos(teleporter.enemy), "\n");
 	teleporter.portal_wants_to_vanish = 0;
 	teleporter.fade_time = time + 15;
 	teleporter.enemy.health = 300;
@@ -222,14 +231,17 @@ float Portal_FindSafeOrigin(entity portal)
 
 void Portal_Touch()
 {
+	// portal is being removed?
+	if(self.solid != SOLID_TRIGGER)
+		return; // possibly engine bug
+	
+	if(!self.enemy)
+		error("Portal_Touch called for a broken portal\n");
+
 	if(trace_fraction < 1)
 		return; // only handle TouchAreaGrid ones (only these can teleport)
 		// for some unknown reason, this also gets collisions from SV_Impact sometimes
-	if(!self.enemy)
-	{
-		objerror("Portal_Touch called for [unconnected] portal\n");
-		return;
-	}
+
 	if(other.classname == "porto")
 	{
 		if(other.portal_id == self.portal_id)
@@ -259,15 +271,23 @@ void Portal_Touch()
 		return;
 	}
 
+	print("Portal ID ", etos(self), " verified working.\n");
+	portals_must_not_break = 1;
+
 	if(Portal_TeleportPlayer(self, other))
 		if(other.classname == "porto")
 			if(other.effects & EF_RED)
 				other.effects += EF_BLUE - EF_RED;
+
+	portals_must_not_break = 0;
 }
 
 void Portal_Think();
 void Portal_MakeBrokenPortal(entity portal)
 {
+	if(portals_must_not_break)
+		error("Trying to remove a portal during teleporting");
+
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
 	portal.think = SUB_Null;
@@ -365,6 +385,9 @@ void Portal_Remove(entity portal, float killed)
 	entity e;
 	e = portal.enemy;
 
+	if(portals_must_not_break)
+		error("Trying to remove a portal during teleporting");
+
 	if(e)
 	{
 		Portal_Disconnect(portal, e);
@@ -375,7 +398,7 @@ void Portal_Remove(entity portal, float killed)
 		portal.owner.portal_in = world;
 	if(portal == portal.owner.portal_out)
 		portal.owner.portal_out = world;
-	portal.owner = world;
+	//portal.owner = world;
 
 	// makes the portal vanish
 	if(killed)
@@ -400,17 +423,22 @@ void Portal_Damage(entity inflictor, entity attacker, float damage, float deatht
 			return;
 	self.health -= damage;
 	if(self.health < 0)
-	{
 		Portal_Remove(self, 1);
-	}
 }
 
 void Portal_Think()
 {
 	entity e, o;
 
+	// portal is being removed?
 	if(self.solid != SOLID_TRIGGER)
-		error("Portal_Think called for a portal that should not be thinking");
+		return; // possibly engine bug
+
+	if(!self.enemy)
+		error("Portal_Think called for a broken portal\n");
+
+	print("Portal ID ", etos(self), " verified working.\n");
+	portals_must_not_break = 1;
 
 	o = self.owner;
 	self.solid = SOLID_BBOX;
@@ -431,6 +459,8 @@ void Portal_Think()
 	}
 	self.solid = SOLID_TRIGGER;
 	self.owner = o;
+
+	portals_must_not_break = 0;
 
 	self.nextthink = time;
 

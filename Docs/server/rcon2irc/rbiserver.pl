@@ -9,19 +9,6 @@ sub markmap($$$$;$)
 	close $fh;
 }
 
-# call the log analyzer at the end of a match
-[ dp => q{:end} => sub {
-	system(q{
-		for X in ~/Nexuiz/home/.nexuiz/extramaps/data/*.log; do
-			if [ x"`tail -n 1 "$X"`" = x":gameover" ]; then
-				ssh hector 'l=$HOME/.nexuiz/server-remote-$RANDOM.log; cat >"$l"; ~/.nexuiz/logspam/addlogs-processonly.sh "$l"' < "$X"
-				rm -f "$X"
-			fi
-		done
-	});
-	return 0;
-} ],
-
 # the AOL calendar
 [ dp => q{\001(.*?)\^7: d} => sub {
 	my $aoltime = time() - 746748000;
@@ -85,5 +72,53 @@ sub markmap($$$$;$)
 	}
 	$store{rbi_winvotes} = $winvotes;
 	$store{rbi_totalvotes} = $totalvotes;
+	return 0;
+} ],
+[ dp => q{pure: -(\S+) (.*)} => sub {
+	my ($status, $nick) = @_;
+	$nick = color_dp2irc $nick;
+	out irc => 0, "PRIVMSG $config{irc_channel} :\001ACTION thinks $nick is $status\001";
+	return 0;
+} ],
+[ dp => q{:recordset:(\d+):.*} => sub {
+	my ($id) = @_;
+	my $ip = $store{"playerip_$id"};
+	my $slot = $store{"playerslot_$id"};
+	my $name = $config{irc_nick};
+	$name =~ s/Nex//; # haggerNexCTF -> haggerCTF
+	my $map = $store{map};
+	$map =~ s/^[a-z]*_//;
+	$ip =~ s/\./-/g;
+	my $pattern = "/nexuiz/data/home/.nexuiz/extramaps-$name/sv_autodemos/????-??-??_??-??_${map}_${slot}_${ip}-*.dem";
+	if(my @result = glob $pattern)
+	{
+		for(@result)
+		{
+			my @l = stat $_;
+			next if $l[9] < time() - 60; # too old
+			print "Cleaning up demos: protecting $_\n";
+			chmod 0444, $_;
+		}
+	}
+	else
+	{
+		print "Record set but could not find the demo using $pattern\n";
+	}
+	return 0;
+} ],
+# delete demos at the end of the match
+[ dp => q{:end} => sub {
+	my $name = $config{irc_nick};
+	$name =~ s/Nex//; # haggerNexCTF -> haggerCTF
+	my $pattern = "/nexuiz/data/home/.nexuiz/extramaps-$name/sv_autodemos/*.dem";
+	print "Checking $pattern...\n";
+	for(glob $pattern)
+	{
+		next if not -w $_;   # protected demo (by record, or other markers)
+		my @l = stat $_;
+		next if $l[9] >= time() - 60; # too new
+		print "Cleaning up demos: deleting $_\n";
+		unlink $_;
+	}
 	return 0;
 } ],

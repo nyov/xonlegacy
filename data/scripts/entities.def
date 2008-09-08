@@ -721,7 +721,7 @@ strength: "wind field", "gravity field": amount of force per second to apply. "d
 falloff: "gravity field": 0 means no falloff, 1 means linear falloff (zero at the outside), 2 means inverted linear falloff (zero at the inside)
 */
 
-/*QUAKED trigger_multiple (.5 .5 .5) ? NOTOUCH
+/*QUAKED trigger_multiple (.5 .5 .5) ? NOTOUCH ALLENTS
 Variable sized repeatable trigger.  Must be targeted at one or more entities.  If "health" is set, the trigger must be killed to activate each time.
 -------- KEYS --------
 health: amount of damage that has to be dealt to the trigger to activate (it then won't respond to merely touching it)
@@ -735,6 +735,7 @@ message: print this message to the player who activated the trigger
 killtarget: remove all entities with this targetname when triggered
 -------- SPAWNFLAGS --------
 NOTOUCH: the trigger can only be triggered by other entities, not by touching or firing (you should probably use trigger_relay or trigger_delay instead)
+ALLENTS: the trigger responds to all entities, not just players (useful for targetting trigger_items)
 */
 
 /*QUAKED trigger_once (.5 .5 .5) ? NOTOUCH
@@ -1020,10 +1021,12 @@ FLOATING: the item will float in air, instead of aligning to the floor by fallin
 model="models/weapons/g_porto.md3"
 */
 
-/*QUAKED trigger_items (0 0 1) (-8 -8 -8) (8 8 8) AND OR ANDNOT
+/*QUAKED target_items (0 0 1) ? AND OR ANDNOT
 Sets the items of any player who triggers this.
 For the number fields, not specifying a value means not changing it. To clear armor, you need to explicitly set "armor" to "-1".
+You may want to target this by a race checkpoint, a teleporter, or a trigger_multiple with ALLENTS set (so it removes weapons thrown through the field to avoid getting a weapon through it).
 -------- KEYS --------
+targetname: used to trigger this
 netname: space separated list of items (either weapon short names (like in g_start_weapon_* cvars), or item short names "unlimited_ammo", "invincible" and "strength"
 message: message to print
 ammo_shells: amount of shells
