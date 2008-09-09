@@ -81,44 +81,30 @@ void W_NextWeaponOnImpulse(float imp)
 }
 
 // next weapon
-void W_NextWeapon()
+void W_NextWeapon(float list)
 {
-	W_CycleWeapon(self.cvar_cl_weaponpriority, -1);
+	if(list == 0)
+		W_CycleWeapon(weaponpriority_hudselector_0, -1);
+	else if(list == 1)
+		W_CycleWeapon(weaponpriority_hudselector_1, -1);
+	else if(list == 2)
+		W_CycleWeapon(self.cvar_cl_weaponpriority, -1);
 }
 
 // prev weapon
-void W_PreviousWeapon()
+void W_PreviousWeapon(float list)
 {
-	W_CycleWeapon(self.cvar_cl_weaponpriority, +1);
+	if(list == 0)
+		W_CycleWeapon(weaponpriority_hudselector_0, +1);
+	else if(list == 1)
+		W_CycleWeapon(weaponpriority_hudselector_1, +1);
+	else if(list == 2)
+		W_CycleWeapon(self.cvar_cl_weaponpriority, +1);
 }
 
 string W_FixWeaponOrder(string order, float complete)
 {
-	string neworder;
-	float i, n, w;
-
-	n = tokenize(order);
-	for(i = 0; i < n; ++i)
-	{
-		w = stof(argv(i));
-		if(w >= WEP_FIRST && w <= WEP_LAST && w == floor(w))
-			neworder = strcat(neworder, ftos(w), " ");
-	}
-
-	if(complete)
-	{
-		n = tokenize(neworder);
-		for(w = WEP_LAST; w >= WEP_FIRST; --w)
-		{
-			for(i = 0; i < n; ++i)
-				if(stof(argv(i)) == w)
-					break;
-			if(i == n) // not found
-				neworder = strcat(neworder, ftos(w), " ");
-		}
-	}
-	
-	return substring(neworder, 0, strlen(neworder) - 1);
+	return fixPriorityList(order, WEP_FIRST, WEP_LAST, complete);
 }
 
 string W_FixWeaponOrder_AllowIncomplete(string order)
@@ -452,7 +438,6 @@ void Nixnex_GiveCurrentWeapon()
 
 void RegisterWeapons()
 {
-	register_dummy_weapon();
 	// %weaponaddpoint
 	register_weapon(WEP_LASER,            w_laser,     0,              1, 1,     0, "laser",     "laser",           "Laser");
 	register_weapon(WEP_SHOTGUN,          w_shotgun,   IT_SHELLS,      2, 1,  2500, "shotgun",   "shotgun",         "Shotgun");
@@ -465,4 +450,5 @@ void RegisterWeapons()
 	register_weapon(WEP_ROCKET_LAUNCHER,  w_rlauncher, IT_ROCKETS,     9, 1, 10000, "rl",        "rocketlauncher",  "Rocket Launcher");
 	register_weapon(WEP_PORTO,            w_porto,     IT_SUPERWEAPON, 0, 0,     0, "porto" ,    "porto",           "Port-O-Launch");
 	register_weapon(WEP_MINSTANEX,        w_minstanex, IT_CELLS,       7, 0, 10000, "minstanex", "minstanex",       "MinstaNex");
+	register_weapons_done();
 }
