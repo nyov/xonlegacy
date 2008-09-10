@@ -543,6 +543,24 @@ void Portal_ClearAll(entity own)
 	if(own.portal_out)
 		Portal_Remove(own.portal_out, 0);
 }
+void Portal_RemoveLater_Think()
+{
+	Portal_Remove(self, self.cnt);
+}
+void Portal_RemoveLater(entity portal, float kill)
+{
+	Portal_MakeBrokenPortal(portal);
+	portal.cnt = kill;
+	portal.think = Portal_RemoveLater_Think;
+	portal.nextthink = time;
+}
+void Portal_ClearAllLater(entity own)
+{
+	if(own.portal_in)
+		Portal_RemoveLater(own.portal_in, 0);
+	if(own.portal_out)
+		Portal_RemoveLater(own.portal_out, 0);
+}
 void Portal_ClearWithID(entity own, float id)
 {
 	if(own.portal_in)
@@ -602,13 +620,6 @@ float Portal_SpawnInPortalAtTrace(entity own, vector dir, float portal_id_val)
 	vector ang;
 	vector org;
 
-	if(trace_ent.movetype == MOVETYPE_WALK)
-	{
-		trace_endpos = trace_ent.origin + '0 0 1' * PL_MIN_z;
-		trace_plane_normal = '0 0 1';
-		dir = -1 * dir; // create telefrag portals the other way round
-	}
-
 	org = trace_endpos;
 	ang = fixedvectoangles2(trace_plane_normal, dir);
 	fixedmakevectors(ang);
@@ -632,13 +643,6 @@ float Portal_SpawnOutPortalAtTrace(entity own, vector dir, float portal_id_val)
 	entity portal;
 	vector ang;
 	vector org;
-
-	if(trace_ent.movetype == MOVETYPE_WALK)
-	{
-		trace_endpos = trace_ent.origin + '0 0 1' * PL_MIN_z;
-		trace_plane_normal = '0 0 1';
-		dir = -1 * dir; // create telefrag portals the other way round
-	}
 
 	org = trace_endpos;
 	ang = fixedvectoangles2(trace_plane_normal, dir);
