@@ -8,8 +8,6 @@ void GotoNextMap();
 void ShuffleMaplist()
 float() DoNextMapOverride;
 
-.string fog;
-
 void SetDefaultAlpha()
 {
 	if(cvar("g_running_guns"))
@@ -156,8 +154,49 @@ float GotoFirstMap()
 	return 0;
 }
 
+void cvar_changes_init()
+{
+	float fh;
+	string s, k, v, d;
+	float n;
+
+	if(cvar_changes)
+		strunzone(cvar_changes);
+	cvar_changes = string_null;
+	fh = fopen("cvars.txt", FILE_READ);
+	if(fh < 0)
+		return;
+	while((s = fgets(fh)))
+	{
+		n = tokenize(s);
+		if(n < 1)
+			continue;
+		if(argv(0) == "//")
+			continue;
+		k = argv(0);
+		v = cvar_string(k);
+		d = cvar_defstring(k);
+		if(v != d)
+		{
+			cvar_changes = strcat(cvar_changes, k, " \"", v, "\" // \"", d, "\"\n");
+			if(strlen(cvar_changes) > 16384)
+			{
+				cvar_changes = "// too many settings have been changed to show them here\n";
+				break;
+			}
+		}
+	}
+	fclose(fh);
+	if(cvar_changes == "")
+		cvar_changes = "// this server runs at default settings\n";
+	else
+		cvar_changes = strcat("// this server runs at modified settings:\n", cvar_changes);
+	cvar_changes = strzone(cvar_changes);
+}
+
 float world_already_spawned;
 void RegisterWeapons();
+void Nagger_Init();
 void spawnfunc_worldspawn (void)
 {
 	float fd, l;
@@ -359,9 +398,12 @@ void spawnfunc_worldspawn (void)
 	addstat(STAT_SYS_TICRATE, AS_FLOAT, stat_sys_ticrate);
 	addstat(STAT_WEAPONS, AS_INT, weapons);
 	addstat(STAT_SWITCHWEAPON, AS_INT, switchweapon);
+	Nagger_Init();
 
 	next_pingtime = time + 5;
 	world_initialized = 1;
+
+	InitializeEntity(self, cvar_changes_init, INITPRIO_CVARS);
 }
 
 void spawnfunc_light (void)
@@ -905,6 +947,7 @@ void DumpStats(float final)
 	}
 
 	s = strcat(":labels:player:", GetPlayerScoreString(world, 0));
+	if(to_console)
 		print(s, "\n");
 	if(to_eventlog)
 		GameLogEcho(s);
@@ -1078,7 +1121,6 @@ CheckRules_Player
 Exit deathmatch games upon conditions
 ============
 */
-.float fogtime;
 void CheckRules_Player()
 {
 	if (gameover)	// someone else quit the game already
@@ -1086,14 +1128,6 @@ void CheckRules_Player()
 
 	if(self.deadflag == DEAD_NO)
 		self.play_time += frametime;
-
-	if(sv_foginterval)
-	if(world.fog)
-	if(time > self.fogtime)
-	{
-		stuffcmd(self, strcat("\nfog ", world.fog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
-		self.fogtime = time + sv_foginterval;
-	}
 
 	// fixme: don't check players; instead check spawnfunc_dom_team and spawnfunc_ctf_team entities
 	//   (div0: and that in CheckRules_World please)
@@ -1404,9 +1438,6 @@ float WinningCondition_Scores(float limit)
 	if(WinningConditionHelper_winnerteam >= 0)
 		SetWinners(team, WinningConditionHelper_winnerteam);
 
-	if(WinningConditionHelper_topscore == 0)
-		WinningConditionHelper_equality = 0;
-	
 	if(WinningConditionHelper_lowerisbetter)
 	{
 		WinningConditionHelper_topscore = -WinningConditionHelper_topscore;
@@ -1446,19 +1477,21 @@ float WinningCondition_QualifyingThenRace(float limit)
 	{
 		float totalplayers;
 		float playerswithlaps;
+		float readyplayers;
 		entity head;
-		totalplayers = playerswithlaps = 0;
+		totalplayers = playerswithlaps = readyplayers = 0;
 		FOR_EACH_PLAYER(head)
 		{
 			++totalplayers;
 			if(PlayerScore_Add(head, SP_RACE_FASTEST, 0))
 				++playerswithlaps;
+			if(head.ready)
+				++readyplayers;
 		}
 
 		// at least 2/3 of the players have completed a lap: start the RACE
 		// otherwise, the players should end the qualifying on their own
-		if(totalplayers >= 3)
-		if(playerswithlaps >= totalplayers * 2 / 3)
+		if(readyplayers || ((totalplayers >= 3) && (playerswithlaps * 3 >= totalplayers * 2)))
 		{
 			checkrules_overtimeend = 0;
 			ReadyRestart();

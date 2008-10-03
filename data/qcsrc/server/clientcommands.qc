@@ -1,5 +1,61 @@
+entity nagger;
+float readycount;
+float Nagger_SendEntity(entity to, float sendflags)
+{
+	float nags;
+	WriteByte(MSG_ENTITY, ENT_CLIENT_NAGGER);
+
+	nags = 0;
+	if(readycount)
+	{
+		nags |= 1;
+		if(to.ready == 0)
+			nags |= 2;
+	}
+	if(votecalled)
+	{
+		nags |= 4;
+		if(to.vote_vote == 0)
+			nags |= 8;
+	}
+
+	if(sendflags & 128)
+	{
+		WriteByte(MSG_ENTITY, nags | 128);
+		if(votecalled)
+			WriteString(MSG_ENTITY, votecalledvote_display);
+		else
+			WriteString(MSG_ENTITY, "");
+	}
+	else
+		WriteByte(MSG_ENTITY, nags);
+
+	return TRUE;
+}
+void Nagger_Init()
+{
+	nagger = spawn();
+	Net_LinkEntity(nagger);
+	nagger.SendFlags = 128;
+	nagger.SendEntity = Nagger_SendEntity;
+}
+void Nagger_VoteChanged()
+{
+	if(nagger)
+		nagger.SendFlags = 128;
+}
+void Nagger_VoteCountChanged()
+{
+	if(nagger)
+		nagger.SendFlags = 1;
+}
+void Nagger_ReadyCounted()
+{
+	if(nagger)
+		nagger.SendFlags = 1;
+}
+
 void ReadyCount();
-void(entity e) DropFlag;
 string MapVote_Suggest(string m);
 
 .float floodcontrol_chat;
@@ -9,6 +65,9 @@ void Say(entity source, float teamsay, string msgin)
 	string msgstr, colorstr, cmsgstr, namestr;
 	float flood;
 	entity head;
+
+	if(Ban_MaybeEnforceBan(source))
+		return;
 
 	if(!teamsay)
 		if(substring(msgin, 0, 1) == " ")
@@ -122,6 +181,7 @@ void Say(entity source, float teamsay, string msgin)
 	}
 	else
 	{
+		// TODO invent a cvar name for allowing global chat by spectators during warmup anyway
 		if(cvar("g_chat_nospectators") && source.classname != "player") {
 			FOR_EACH_REALCLIENT(head) if(head.classname != "player") {
 				sprint(head, msgstr);
@@ -213,7 +273,7 @@ void SV_ParseClientCommand(string s) {
 			return; // don't allow spectating in lms, unless player runs out of lives
 		if(self.classname == "player" && cvar("sv_spectate") == 1) {
 			if(self.flagcarried)
-				DropFlag(self.flagcarried);
+				DropFlag(self.flagcarried, world, world);
 			kh_Key_DropAll(self, TRUE);
 			WaypointSprite_PlayerDead();
 			self.classname = "observer";
@@ -345,6 +405,8 @@ void SV_ParseClientCommand(string s) {
 		}
 	} else if(argv(0) == "teamstatus") {
 		Score_NicePrint(self);
+	} else if(argv(0) == "cvar_changes") {
+		sprint(self, cvar_changes);
 	} else {
 		//if(ctf_clientcommand())
 		//	return;
@@ -391,11 +453,6 @@ void ReadyRestart()
 	// clear overtime
 	if(checkrules_overtimeend)
 		checkrules_overtimeend = 0;
-
-	if(readyNagActive) { //if every player is ready, remove the ready-nagger again
-		readyNagActive = 0;
-		remove(readyNagger);
-	}
 
 	restart_countdown = time + RESTART_COUNTDOWN;
 	restart_mapalreadyrestarted = 0; //reset this var, needed when cvar sv_ready_restart_repeatable is in use
@@ -477,57 +534,13 @@ void ReadyCount()
 			r += 1;
 	}
 
-	if(!r)
-		return; // NOTE: this also excludes !p, as r <= p
+	readycount = r;
 
-	if(cvar("sv_ready_restart_nag")) {
-		if(!readyNagActive) {
-			readyNagger = spawn();
-			readyNagger.think = readyNagger_Think;
-			readyNagger.cnt = cvar("sv_ready_restart_nag_duration");
-			readyNagger.nextthink = time;
-			readyNagActive = 1;
-		}
-	}
+	if(r) // at least one is ready
+	if(r == p) // and, everyone is ready
+		ReadyRestart();
 
-	if(r < p)
-		return;
-	
-	ReadyRestart();
-}
-
-/**
- * Centerprints the information to all players who didn't ready up yet to do so.
- */
-void readyNagger_Think() {
-	local entity plr;
-	if(self.cnt <= 0) { //have a break showing the ready nag
-		//make sure that the old ready-nag-centerprint isn't shown too long:
-		FOR_EACH_REALCLIENT(plr) {
-			if(plr.classname == "player") {
-				if (!plr.ready)
-					centerprint_atprio(plr, CENTERPRIO_SPAM, "");
-			}
-		}
-		self.cnt = cvar("sv_ready_restart_nag_duration");
-		self.nextthink = time + cvar("sv_ready_restart_nag_interval");
-	}
-	else {
-		//show the ready nagging to all players who aren't ready yet
-		FOR_EACH_REALCLIENT(plr) {
-			if(plr.classname == "player") {
-				if (!plr.ready) {
-					centerprint_atprio(plr, CENTERPRIO_SPAM, "^2Please ready up (F4 by default)!");
-					//play reminder sound once the centerprint appears for the first time after the pause:
-					if (self.cnt == cvar("sv_ready_restart_nag_duration"))
-						play2(plr, "misc/talk2.wav");
-				}
-			}
-		}
-
-		self.nextthink = time + 1;
-		self.cnt -= 1;
-	}
+	Nagger_ReadyCounted();
 }
 
 /**

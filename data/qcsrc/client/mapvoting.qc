@@ -34,7 +34,7 @@ vector MapVote_RGB(float id)
 
 void MapVote_DrawMapItem(vector pos, float isize, float tsize, string map, string pic, float count, float id)
 {
-	vector img_size, a, b;
+	vector img_size;
 	vector rgb;
 	string label;
 	float text_size;
@@ -61,8 +61,6 @@ void MapVote_DrawMapItem(vector pos, float isize, float tsize, string map, strin
 
 	if(pic == "")
 	{
-		a_x = img_size_x; // for the lines
-		b_y = img_size_y;
 		drawfill(pos, img_size, '.5 .5 .5', .7, DRAWFLAG_NORMAL);
 	}
 	else
@@ -130,11 +128,7 @@ void MapVote_Draw()
 		ymax = vid_conheight - ymin;
 
 	drawfont = sbar_bigfont;
-	sbar_fontsize = stov(cvar_string("sbar_fontsize"));
-	if(sbar_fontsize_x == 0)
-		sbar_fontsize = '8 8 0';
-	if(sbar_fontsize_y == 0)
-		sbar_fontsize_y = sbar_fontsize_x;
+	sbar_fontsize = Sbar_GetFontsize();
 
 	pos_y = ymin;
 	pos_z = 0;
@@ -242,7 +236,14 @@ void MapVote_CheckPK3(string pic, string pk3, float id)
 	pak.chain = mv_pk3list;
 	mv_pk3list = pak;
 	
-	localcmd(strcat("\ncurl --pak ", pk3, "; wait; cl_cmd mv_download ", ftos(id), "\n"));
+	if(pk3 != "" && pk3 != "don't care") // TODO make this less stupid, but I am lazy now
+	{
+		localcmd(strcat("\ncurl --pak ", pk3, "; wait; cl_cmd mv_download ", ftos(id), "\n"));
+	}
+	else
+	{
+		Cmd_MapVote_MapDownload(tokenize(strcat("mv_download ", ftos(id))));
+	}
 }
 
 void MapVote_CheckPic(string pic, string pk3, float id)

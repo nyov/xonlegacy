@@ -346,7 +346,7 @@ void Cmd_Sbar_Help(float argc)
 
 string Sbar_DefaultColumnLayout()
 {
-	return "ping pl name | -ctf,kh/kills -ctf,kh/deaths +lms/lives +lms/rank +kh,ctf/caps +kh/pushes +kh/destroyed -lms/score";
+	return "ping pl name | -ctf,kh/kills -ctf,kh/deaths +kh/caps +kh/pushes +kh/destroyed +ctf/caps +ctf/pickups +ctf/fckills +ctf/returns -lms/score";
 }
 
 void Cmd_Sbar_SetFields(float argc)
@@ -636,7 +636,7 @@ string textShortenToWidth(string theText, float maxWidth, float handleColors)
 		return strcat(substring(theText, 0, textLengthUpToWidth(theText, maxWidth - stringwidth("...", handleColors), handleColors)), "...");
 }
 
-float xmin, xmax, ymin, ymax, sbwidth, sbheight;
+float xmin, xmax, ymin, ymax, sbwidth;
 
 void Sbar_PrintScoreboardItem(vector pos, entity pl, float is_self)
 {
@@ -749,14 +749,13 @@ void Sbar_DrawScoreboard()
 		lastpingstime = time;
 	}
 
-	xmin = vid_conwidth / 5;
+	sbwidth = Sbar_GetWidth(6.5 * sbar_fontsize_y);
+
+	xmin = 0.5 * (vid_conwidth - sbwidth);
 	ymin = 20;
 
 	xmax = vid_conwidth - xmin;
-	ymax = vid_conheight - 0.2*vid_conheight;
-
-	sbwidth = xmax - xmin;
-	sbheight = ymax - ymin;
+    ymax = vid_conheight - 0.2*vid_conheight;
 
 	center_x = xmin + 0.5*sbwidth;
 
@@ -1323,6 +1322,19 @@ float Sbar_WouldDrawScoreboard ()
 	return 0;
 }
 
+vector Sbar_DrawNoteLine(vector offset, string s)
+{
+	dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+	drawcolorcodedstring(
+		offset - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
+		s,
+		sbar_fontsize,
+		sbar_alpha_fg,
+		0
+	);
+	return offset + sbar_fontsize_y * '0 1 0';
+}
+
 void Sbar_Draw (void)
 {
 	float i;
@@ -1333,63 +1345,25 @@ void Sbar_Draw (void)
 
 	sbar_fontsize = Sbar_GetFontsize();
 	
-	if(warmup_stage) 
-	{
-		s = "^7Currently just ^1warmup^7 phase";
-		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
-		drawcolorcodedstring(
-			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
-			s,
-			sbar_fontsize,
-			sbar_alpha_fg,
-			0
-		);
-		o += sbar_fontsize_y * '0 1 0';
-	}
-
 	if(spectatee_status)
 	{
 		if(spectatee_status == -1)
 			s = "^1Observing";
 		else
 			s = strcat("^1Spectating ^7", getplayerkey(spectatee_status - 1, "name"));
-		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
-		drawcolorcodedstring(
-			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
-			s,
-			sbar_fontsize,
-			sbar_alpha_fg,
-			0
-		);
-		o += sbar_fontsize_y * '0 1 0';
+		o = Sbar_DrawNoteLine(o, s);
 
 		if(spectatee_status == -1)
-			s = "^1Press ^3primary fire^1 to spectate";
+			s = strcat("^1Press ^3", getcommandkey("primary fire", "+attack"), "^1 to spectate");
 		else
-			s = "^1Press ^3primary fire^1 for another player";
-		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
-		drawcolorcodedstring(
-			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
-			s,
-			sbar_fontsize,
-			sbar_alpha_fg,
-			0
-		);
-		o += sbar_fontsize_y * '0 1 0';
+			s = strcat("^1Press ^3", getcommandkey("primary fire", "+attack"), "^1 for another player");
+		o = Sbar_DrawNoteLine(o, s);
 
 		if(spectatee_status == -1)
-			s = "^1Use ^3weapon switching^1 to change the speed";
+			s = strcat("^1Use ^3", getcommandkey("next weapon", "weapnext"), "^1 or ^3", getcommandkey("previous weapon", "weapprev"), "^1 to change the speed");
 		else
-			s = "^1Press ^3secondary fire^1 to observe";
-		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
-		drawcolorcodedstring(
-			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
-			s,
-			sbar_fontsize,
-			sbar_alpha_fg,
-			0
-		);
-		o += sbar_fontsize_y * '0 1 0';
+			s = strcat("^1Press ^3", getcommandkey("secondary fire", "+altattack"), getcommandkey("", "weapprev"), "^1 to observe");
+		o = Sbar_DrawNoteLine(o, s);
 
 		if(gametype == GAME_ARENA)
 			s = "^1Wait for your turn to join";
@@ -1402,21 +1376,54 @@ void Sbar_Draw (void)
 			else if(sk.(scores[ps_primary]) > 0)
 				s = "^1You have no more lives left";
 			else
-				s = "^1Press ^7jump^1 to join";
+				s = strcat("^1Press ^3", getcommandkey("jump", "+jump"), "^1 to join");
 		}
 		else
-			s = "^1Press ^7jump^1 to join";
-		dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
-		drawcolorcodedstring(
-			o - sbar_fontsize_x * '1 0 0' * stringwidth(s, TRUE),
-			s,
-			sbar_fontsize,
-			sbar_alpha_fg,
-			0
-		);
-		o += sbar_fontsize_y * '0 1 0';
+			s = strcat("^1Press ^3", getcommandkey("jump", "+jump"), "^1 to join");
+		o = Sbar_DrawNoteLine(o, s);
 	}
 		
+	if(ready_waiting)
+	{
+		if(ready_waiting_for_me)
+		{
+			if(warmup_stage) 
+				s = strcat("^2Press ^3", getcommandkey("ready", "ready"), "^2 to end warmup");
+			else
+				s = strcat("^2Press ^3", getcommandkey("ready", "ready"), "^2 once you are ready");
+		}
+		else
+		{
+			if(warmup_stage) 
+				s = strcat("^2Waiting for others to ready up to end warmup...");
+			else
+				s = strcat("^2Waiting for others to ready up...");
+		}
+		o = Sbar_DrawNoteLine(o, s);
+	}
+	if(vote_waiting)
+	{
+		s = strcat("^2A vote has been called for ^1", vote_called_vote);
+		o = Sbar_DrawNoteLine(o, s);
+
+		if(vote_waiting_for_me)
+		{
+			s = strcat("^2Press ^3", getcommandkey("vote yes", "vyes"), "^2 to accept");
+			o = Sbar_DrawNoteLine(o, s);
+
+			s = strcat("^2Press ^3", getcommandkey("vote no", "vno"), "^2 to reject");
+			o = Sbar_DrawNoteLine(o, s);
+
+			s = strcat("^2Press ^3", getcommandkey("vote abstain", "vabstain"), "^2 to abstain");
+			o = Sbar_DrawNoteLine(o, s);
+		}
+		else
+		{
+			s = strcat("^2Waiting for others to vote...");
+			o = Sbar_DrawNoteLine(o, s);
+		}
+	}
+
 	//Sbar_SortFrags();
 	Sbar_UpdatePlayerTeams();
 

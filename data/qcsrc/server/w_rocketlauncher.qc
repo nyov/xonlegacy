@@ -233,7 +233,7 @@ void W_Rocket_Attack (void)
 
 	missile.takedamage = DAMAGE_YES;
 	missile.damageforcescale = 4;
-	missile.health = 30;
+	missile.health = cvar("g_balance_rocketlauncher_health");
 	missile.event_damage = W_Rocket_Damage;
 
 	missile.movetype = MOVETYPE_FLY;
@@ -394,7 +394,8 @@ float w_rlauncher(float req)
 		if(time > self.rl_sound)
 		{
 			self.rl_sound = time + 1;
-			sound (self, CHAN_WEAPON, "weapons/rocket_det.wav", 0.5 * VOL_BASE, ATTN_NORM);
+			// UGLY WORKAROUND: play this on CHAN_WEAPON2 so it can't cut off fire sounds
+			sound (self, CHAN_WEAPON2, "weapons/rocket_det.wav", 0.5 * VOL_BASE, ATTN_NORM);
 		}
 		if (self.BUTTON_ATCK2)
 		if(g_laserguided_missile)
@@ -402,7 +403,8 @@ float w_rlauncher(float req)
 		{
 			self.exteriorweaponentity.attack_finished_single = time + 0.4;
 			self.laser_on = !self.laser_on;
-			sound (self, CHAN_WEAPON, "weapons/tink1.wav", VOL_BASE, ATTN_NORM);
+			// UGLY WORKAROUND: play this on CHAN_WEAPON2 so it can't cut off fire sounds
+			sound (self, CHAN_WEAPON2, "weapons/tink1.wav", VOL_BASE, ATTN_NORM);
 		}
 	}
 	else if (req == WR_PRECACHE)

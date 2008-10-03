@@ -322,7 +322,7 @@ float db_load(string pFilename)
 		{
 			n = tokenizebyseparator(l, "\\");
 			for(j = 2; j < n; j += 2)
-				db_put(db, uri_unescape(argv(j-1)), uri_unescape(argv(j)));
+				db_put(db, argv(j-1), uri_unescape(argv(j)));
 		}
 	}
 	fclose(fh);
@@ -440,18 +440,18 @@ string mmsss(float tenths)
 	return strcat(ftos(minutes), ":", substring(s, 1, 2), ".", substring(s, 3, 1));
 }
 
-string ScoreString(float vflags, float value)
+string ScoreString(float pFlags, float pValue)
 {
 	string valstr;
 	float l;
 
-	value = floor(value + 0.5); // round
+	pValue = floor(pValue + 0.5); // round
 
-	if((value == 0) && (vflags & (SFL_HIDE_ZERO | SFL_RANK | SFL_TIME)))
+	if((pValue == 0) && (pFlags & (SFL_HIDE_ZERO | SFL_RANK | SFL_TIME)))
 		valstr = "";
-	else if(vflags & SFL_RANK)
+	else if(pFlags & SFL_RANK)
 	{
-		valstr = ftos(value);
+		valstr = ftos(pValue);
 		l = strlen(valstr);
 		if((l >= 2) && (substring(valstr, l - 2, 1) == "1"))
 			valstr = strcat(valstr, "th");
@@ -464,10 +464,10 @@ string ScoreString(float vflags, float value)
 		else
 			valstr = strcat(valstr, "th");
 	}
-	else if(vflags & SFL_TIME)
-		valstr = mmsss(value);
+	else if(pFlags & SFL_TIME)
+		valstr = mmsss(pValue);
 	else
-		valstr = ftos(value);
+		valstr = ftos(pValue);
 	
 	return valstr;
 }
@@ -694,3 +694,114 @@ string swapInPriorityList(string order, float i, float j)
 	
 	return order;
 }
+
+float cvar_value_issafe(string s)
+{
+	if(strstrofs(s, "\"", 0) >= 0)
+		return 0;
+	if(strstrofs(s, "\\", 0) >= 0)
+		return 0;
+	if(strstrofs(s, ";", 0) >= 0)
+		return 0;
+	if(strstrofs(s, "$", 0) >= 0)
+		return 0;
+	if(strstrofs(s, "\r", 0) >= 0)
+		return 0;
+	if(strstrofs(s, "\n", 0) >= 0)
+		return 0;
+	return 1;
+}
+
+#ifndef MENUQC
+void get_mi_min_max()
+{
+	vector extend;
+
+	if(mi_shortname)
+		strunzone(mi_shortname);
+	mi_shortname = mapname;
+	if(!strcasecmp(substring(mi_shortname, 0, 5), "maps/"))
+		mi_shortname = substring(mi_shortname, 5, strlen(mi_shortname) - 5);
+	if(!strcasecmp(substring(mi_shortname, strlen(mi_shortname) - 4, 4), ".bsp"))
+		mi_shortname = substring(mi_shortname, 0, strlen(mi_shortname) - 4);
+	mi_shortname = strzone(mi_shortname);
+
+	mi_min = world.mins;
+	mi_max = world.maxs;
+	MapInfo_Get_ByName(mi_shortname, 0, 0);
+	if(MapInfo_Map_mins_x < MapInfo_Map_maxs_x)
+	{
+		mi_min = MapInfo_Map_mins;
+		mi_max = MapInfo_Map_maxs;
+	}
+
+	mi_picmin = mi_min;
+	mi_picmax = mi_max;
+
+	// extend mi_picmax to get a square aspect ratio
+	// center the map in that area
+	extend = mi_picmax - mi_picmin;
+	if(extend_y > extend_x)
+	{
+		mi_picmin_x -= (extend_y - extend_x) * 0.5;
+		mi_picmax_x += (extend_y - extend_x) * 0.5;
+	}
+	else
+	{
+		mi_picmin_y -= (extend_x - extend_y) * 0.5;
+		mi_picmax_y += (extend_x - extend_y) * 0.5;
+	}
+
+	// add another some percent
+	extend = (mi_picmax - mi_picmin) * (1 / 64.0);
+	mi_picmin -= extend;
+	mi_picmax += extend;
+
+	// calculate the texcoords
+	mi_pictexcoord0 = mi_pictexcoord1 = mi_pictexcoord2 = mi_pictexcoord3 = '0 0 0';
+	// first the two corners of the origin
+	mi_pictexcoord0_x = (mi_min_x - mi_picmin_x) / (mi_picmax_x - mi_picmin_x);
+	mi_pictexcoord0_y = (mi_min_y - mi_picmin_y) / (mi_picmax_y - mi_picmin_y);
+	mi_pictexcoord2_x = (mi_max_x - mi_picmin_x) / (mi_picmax_x - mi_picmin_x);
+	mi_pictexcoord2_y = (mi_max_y - mi_picmin_y) / (mi_picmax_y - mi_picmin_y);
+	// then the other corners
+	mi_pictexcoord1_x = mi_pictexcoord0_x;
+	mi_pictexcoord1_y = mi_pictexcoord2_y;
+	mi_pictexcoord3_x = mi_pictexcoord2_x;
+	mi_pictexcoord3_y = mi_pictexcoord0_y;
+}
+#endif
+
+#ifdef CSQC
+void cvar_settemp(string pKey, string pValue)
+{
+	error("cvar_settemp called from CSQC - use cvar_clientsettemp instead!");
+}
+void cvar_settemp_restore()
+{
+	error("cvar_settemp_restore called from CSQC - use cvar_clientsettemp instead!");
+}
+#else
+void cvar_settemp(string pKey, string pValue)
+{
+	cvar_set("settemp_list", strcat("1 ", pKey, " ", cvar_string("settemp_var"), " ", cvar_string("settemp_list")));
+#ifdef MENUQC
+	registercvar(cvar_string("settemp_var"), "", 0);
+#else
+	registercvar(cvar_string("settemp_var"), "");
+#endif
+	cvar_set(cvar_string("settemp_var"), cvar_string(pKey));
+	cvar_set("settemp_var", strcat(cvar_string("settemp_var"), "x"));
+	cvar_set(pKey, pValue);
+}
+
+void cvar_settemp_restore()
+{
+	// undo what cvar_settemp did
+	float n, i;
+	n = tokenize(cvar_string("settemp_list"));
+	for(i = 0; i < n - 3; i += 3)
+		cvar_set(argv(i + 1), cvar_string(argv(i + 2)));
+	cvar_set("settemp_list", "0");
+}
+#endif

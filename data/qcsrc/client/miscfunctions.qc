@@ -154,6 +154,23 @@ vector Sbar_GetFontsize()
 	return '8 8 0' ;
 }
 
+float Sbar_GetWidth(float teamcolumnwidth)
+{
+	if(csqc_flags & CSQC_FLAG_READPICTURE)
+	{
+		float f;
+		f = stof(cvar_string("sbar_width"));
+		if(f == 0)
+			f = 640;
+		if(f < 320)
+			f = 320;
+		if(f > vid_conwidth - 2 * teamcolumnwidth)
+			f = vid_conwidth - 2 * teamcolumnwidth;
+		return f;
+	}
+	return 640;
+}
+
 float PreviewExists(string name)
 {
 	float f;
@@ -191,4 +208,15 @@ float PreviewExists(string name)
 		return true;
 	}
 	return false;
+}
+
+float PI      = 3.14159265359;
+float DEG2RAD = 0.01745329252;
+vector rotate(vector v, float a)
+{
+	vector w;
+	// FTEQCC SUCKS AGAIN
+	w_x =      v_x * cos(a) + v_y * sin(a);
+	w_y = -1 * v_x * sin(a) + v_y * cos(a);
+	return w;
 }

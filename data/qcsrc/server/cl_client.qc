@@ -63,14 +63,25 @@ float Spawn_Score(entity spot, entity playerlist, float teamcheck)
 			{
 				if(self.classname == "player") // spectators may spawn everywhere
 				{
-					if(ent.race_checkpoint != race_PreviousCheckpoint(self.race_checkpoint))
-						return -1;
-					float pl;
-					pl = self.race_place;
-					if(pl > race_highest_place_spawn)
-						pl = 0;
-					if(spot.race_place != pl)
-						return -1;
+					if(g_race_qualifying)
+					{
+						// spawn at first
+						if(ent.race_checkpoint != 0)
+							return -1;
+						if(spot.race_place != race_lowest_place_spawn)
+							return -1;
+					}
+					else
+					{
+						if(ent.race_checkpoint != race_PreviousCheckpoint(self.race_checkpoint))
+							return -1;
+						float pl;
+						pl = self.race_place;
+						if(pl > race_highest_place_spawn)
+							pl = 0;
+						if(spot.race_place != pl)
+							return -1;
+					}
 				}
 				good = 1;
 			}
@@ -280,6 +291,8 @@ string CheckPlayerModel(string plyermodel) {
 		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".md3")
 		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".psk")
 			return FallbackPlayerModel;
+		if(plyermodel != strtolower(plyermodel))
+			return FallbackPlayerModel;
 		if(!fexists(plyermodel))
 			return FallbackPlayerModel;
 	}
@@ -404,7 +417,7 @@ void PutObserverInServer (void)
 	Portal_ClearAll(self);
 
 	if(self.flagcarried)
-		DropFlag(self.flagcarried);
+		DropFlag(self.flagcarried, world, world);
 
 	WaypointSprite_PlayerDead();
 	
@@ -1034,6 +1047,31 @@ void FixClientCvars(entity e)
 	 */
 }
 
+.float fog_set;
+void SendFog()
+{
+	if(clienttype(self) == CLIENTTYPE_REAL)
+	if(world.fog) // NOT string_null!
+	{
+		if(!self.fog_set)
+		{
+			if(sv_foginterval)
+			{
+				msg_entity = self;
+				WriteByte(MSG_ONE, SVC_TEMPENTITY);
+				WriteByte(MSG_ONE, TE_CSQC_FOG);
+				WriteCoord(MSG_ONE, sv_foginterval);
+				WriteString(MSG_ONE, world.fog);
+			}
+			else
+				// set it once
+				stuffcmd(self, strcat("\nfog ", world.fog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
+
+			self.fog_set = 1;
+		}
+	}
+}
+
 /*
 =============
 ClientConnect
@@ -1055,13 +1093,8 @@ void ClientConnect (void)
 		return;
 	}
 
-	if(Ban_IsClientBanned(self))
-	{
-		s = strcat("^1NOTE:^7 banned client ", self.netaddress, " just tried to enter\n");
-		dropclient(self);
-		bprint(s);
+	if(Ban_MaybeEnforceBan(self))
 		return;
-	}
 
 	DecodeLevelParms();
 
@@ -1219,6 +1252,8 @@ void ClientConnect (void)
 			self.frags = -666; // FIXME do we still need this?
 		}
 	}
+
+	SendFog();
 }
 
 /*
@@ -1228,7 +1263,6 @@ ClientDisconnect
 Called when a client disconnects from the server
 =============
 */
-void(entity e) DropFlag;
 .entity chatbubbleentity;
 .entity teambubbleentity;
 void ReadyCount();
@@ -1271,15 +1305,15 @@ void ClientDisconnect (void)
 		self.killindicator = world;
 	}
 
-	WaypointSprite_PlayerGone();
-
 	DropAllRunes(self);
 	kh_Key_DropAll(self, TRUE);
 
 	Portal_ClearAll(self);
 
 	if(self.flagcarried)
-		DropFlag(self.flagcarried);
+		DropFlag(self.flagcarried, world, world);
+
+	WaypointSprite_PlayerGone();
 
 	save = self.flags;
 	self.flags = self.flags - (self.flags & FL_CLIENT);
@@ -1903,8 +1937,10 @@ void ObserverThink()
 			self.flags = self.flags | FL_JUMPRELEASED;
 		}
 	}
+	/*
 	if(self.BUTTON_ZOOM)
 		self.wantswelcomemessage = 0;
+	*/
 	if(self.wantswelcomemessage)
 		PrintWelcomeMessage(self);
 }
@@ -1940,8 +1976,10 @@ void SpectatorThink()
 			self.flags = self.flags | FL_JUMPRELEASED;
 		}
 	}
+	/*
 	if(self.BUTTON_ZOOM)
 		self.wantswelcomemessage = 0;
+	*/
 	if(self.wantswelcomemessage)
 		PrintWelcomeMessage(self);
 	self.flags = self.flags | FL_CLIENT | FL_NOTARGET;
@@ -1955,7 +1993,6 @@ Called every frame for each client before the physics are run
 =============
 */
 void() ctf_setstatus;
-.float vote_nagtime;
 .float spectatee_status;
 void PlayerPreThink (void)
 {
@@ -2005,14 +2042,6 @@ void PlayerPreThink (void)
 				self.version_nagtime = 0;
 			}
 
-	// vote nagging
-	if(self.cvar_scr_centertime)
-		if(time > self.vote_nagtime)
-		{
-			VoteNag();
-			self.vote_nagtime = time + self.cvar_scr_centertime * 0.6;
-		}
-
 	// GOD MODE info
 	if(!(self.flags & FL_GODMODE)) if(self.max_armorvalue)
 	{
@@ -2021,7 +2050,11 @@ void PlayerPreThink (void)
 	}
 
 	if(frametime)
+	{
 		antilag_record(self);
+
+		SendFog();
+	}
 
 	if(self.classname == "player") {
 //		if(self.netname == "Wazat")

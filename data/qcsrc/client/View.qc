@@ -17,7 +17,9 @@ void Net_ReadHoldAngles()
 
 entity porto;
 vector polyline[16];
+float trace_dphitcontents;
 float Q3SURFACEFLAG_SLICK = 2; // low friction surface
+float DPCONTENTS_PLAYERCLIP = 256; // blocks player movement
 void Porto_Draw()
 {
 	vector p, dir, ang, q, nextdir;
@@ -53,10 +55,10 @@ void Porto_Draw()
 		++idx;
 		if(idx >= 16)
 			return;
-		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_SLICK)
+		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_SLICK || trace_dphitcontents & DPCONTENTS_PLAYERCLIP)
 			continue;
 		++portal_number;
-		ang = vectoangles(trace_plane_normal, dir);
+		ang = vectoangles2(trace_plane_normal, dir);
 		ang_x = -ang_x;
 		makevectors(ang);
 		if(!CheckWireframeBox(porto, p - 48 * v_right - 48 * v_up + 16 * v_forward, 96 * v_right, 96 * v_up, 96 * v_forward))
@@ -87,7 +89,6 @@ void Porto_Draw()
 
 float DPCONTENTS_SOLID = 1; // hit a bmodel, not a bounding box
 float DPCONTENTS_BODY = 32; // hit a bounding box, not a bmodel
-float DPCONTENTS_PLAYERCLIP = 256; // blocks player movement
 void Porto_Init()
 {
 	porto = spawn();
@@ -124,7 +125,7 @@ vector GetCurrentFov(float fov)
 			zoomspeed = 3.5;
 
 	zoomdir = button_zoom;
-	if(activeweapon == WEP_NEX)
+	if(getstati(STAT_ACTIVEWEAPON) == WEP_NEX) // do NOT use switchweapon here
 		zoomdir += button_attack2;
 	if(spectatee_status > 0 || isdemo())
 	{
@@ -160,6 +161,8 @@ vector GetCurrentFov(float fov)
 		}
 	}
 
+	current_zoomfraction = (current_viewzoom - 1) / (1/zoomfactor - 1);
+
 	if(zoomsensitivity < 1)
 		setsensitivityscale(pow(current_viewzoom, 1 - zoomsensitivity));
 	else
@@ -167,7 +170,7 @@ vector GetCurrentFov(float fov)
 
 	float frustumx, frustumy, fovx, fovy;
 	frustumy = tan(fov * 0.00872664625997164788) * 0.75 * current_viewzoom;
-	frustumx = frustumy * cvar("vid_width") / cvar("vid_height") / cvar("vid_pixelheight");
+	frustumx = frustumy * vid_width / vid_height / cvar("vid_pixelheight");
 	fovx = atan2(frustumx, 1) / 0.00872664625997164788;
 	fovy = atan2(frustumy, 1) / 0.00872664625997164788;
 
@@ -185,6 +188,35 @@ void CSQC_UpdateView(void)
 {
 	entity e;
 	float fov;
+	dprint_load();
+
+	// Render the Scene
+	view_origin = pmove_org + '0 0 1' * getstati(STAT_VIEWHEIGHT);
+	view_angles = input_angles;
+	makevectors(view_angles);
+	view_forward = v_forward;
+	view_right = v_right;
+	view_up = v_up;
+
+#if 0
+	if(cs_project_is_b0rked)
+	{
+#endif
+		vid_width = cvar("vid_width");
+		vid_height = cvar("vid_height");
+#if 0
+	}
+	else
+	{
+		// THIS IS BROKEN if you had just shot (kicktime)
+		vector v;
+		v = cs_project(view_origin + 1024 * view_forward);
+		vid_width = floor(v_x * 2 + 0.5);
+		vid_height = floor(v_y * 2 + 0.5);
+	}
+#endif
+
+	Fog_Force();
 
 	drawframetime = max(0.000001, time - drawtime);
 	drawtime = time;
@@ -235,7 +267,9 @@ void CSQC_UpdateView(void)
 	R_SetView(VF_FOV, GetCurrentFov(fov));
 	
 	// Draw the Crosshair
-	R_SetView(VF_DRAWCROSSHAIR, !Sbar_WouldDrawScoreboard());
+	float scoreboard_active;
+	scoreboard_active = Sbar_WouldDrawScoreboard();
+	R_SetView(VF_DRAWCROSSHAIR, !scoreboard_active);
 	
 	// Draw the Engine Status Bar (the default Quake HUD)
 	draw_enginesbar = !cvar("sbar_usecsqc");
@@ -244,6 +278,10 @@ void CSQC_UpdateView(void)
 	// Set the console size vars
 	vid_conwidth = cvar("vid_conwidth");
 	vid_conheight = cvar("vid_conheight");
+
+	// fetch this one only once per frame
+	sbar_showbinds = cvar("sbar_showbinds");
+	sbar_showbinds_limit = cvar("sbar_showbinds_limit");
 
 	// Update the mouse position
 	/*
@@ -254,15 +292,6 @@ void CSQC_UpdateView(void)
 
 	R_AddEntities(MASK_NORMAL | MASK_ENGINE | MASK_ENGINEVIEWMODELS);
 
-	// Render the Scene
-	
-	view_origin = pmove_org + '0 0 1' * getstati(STAT_VIEWHEIGHT);
-	view_angles = input_angles;
-	makevectors(view_angles);
-	view_forward = v_forward;
-	view_right = v_right;
-	view_up = v_up;
-	
 	e = self;
 	for(self = world; (self = nextent(self)); )
 		if(self.draw)
@@ -287,15 +316,36 @@ void CSQC_UpdateView(void)
 	} else */
 	if(!draw_enginesbar)
 	{
-		CSQC_common_hud();
+		if(cvar("r_letterbox") == 0)
+		if(cvar("viewsize") < 120)
+			CSQC_common_hud();
 	}
+
+	e = self;
+	for(self = world; (self = nextent(self)); )
+		if(self.draw2d)
+			self.draw2d();
+	self = e;
 	
 	if(gametype == GAME_ONSLAUGHT)
 	{
+		if(cvar("cl_teamradar") >= 2)
+		{
+			if(!scoreboard_active)
+				teamradar_view();
+		}
+		else
+			ons_view();
 		//drawstring('0 0', minimapname, '8 8 0', '1 1 1', 1, 0);
 		//drawsetcliparea(0,0,800,600);
-		ons_view();
 		//drawresetcliparea();
+	}
+	else if(teamplay)
+	{
+		//if(cvar("cl_teamradar") >= 1) // TODO change it back to this
+		if(cvar_string("cl_teamradar") != "0") // (so it is on by default)
+			if(!scoreboard_active)
+				teamradar_view();
 	}
 }
 

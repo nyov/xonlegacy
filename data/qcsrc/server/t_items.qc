@@ -270,6 +270,7 @@ void Item_FindTeam()
 		for(head = world; (head = findfloat(head, team, self.team)); ) if(head.flags & FL_ITEM)
 			RandomSelection_Add(head, 0, 1, 0);
 		e = RandomSelection_chosen_ent;
+		e.cnt = 0;
 
 		for(head = world; (head = findfloat(head, team, self.team)); ) if(head.flags & FL_ITEM)
 		{
@@ -278,6 +279,7 @@ void Item_FindTeam()
 				// make it a non-spawned item
 				head.solid = SOLID_NOT;
 				head.model = string_null;
+				head.cnt = 1; // cnt 1 = initially hidden item
 			}
 			head.effects = head.effects - (head.effects & EF_NODRAW);
 		}
@@ -596,6 +598,16 @@ void weapon_defaultspawnfunc(float wpn)
 	entity oldself;
 	float i;
 
+	// set the respawntime in advance (so replaced weapons can copy it)
+	if(!self.respawntime)
+	{
+		e = get_weaponinfo(wpn);
+		if(e.items == IT_SUPERWEAPON)
+			self.respawntime = g_pickup_respawntime_powerup;
+		else
+			self.respawntime = g_pickup_respawntime_short;
+	}
+
 	if(self.classname != "droppedweapon" && self.classname != "replacedweapon")
 	{
 		s = cvar_string(strcat("g_weaponreplace_", ftos(wpn)));
@@ -611,11 +623,15 @@ void weapon_defaultspawnfunc(float wpn)
 				self.classname = "replacedweapon";
 				weapon_defaultspawnfunc(stof(argv(i)));
 				self = oldself;
-				print("replaced by ", argv(i), "\n");
 			}
 		}
 		if(t >= 1)
 			wpn = stof(argv(0));
+		if(wpn == 0)
+		{
+			remove(self);
+			return;
+		}
 	}
 
 	e = get_weaponinfo(wpn);
@@ -627,11 +643,7 @@ void weapon_defaultspawnfunc(float wpn)
 			self.ammofield = cvar(strcat("g_pickup_", Item_CounterFieldName(e.items)));
 	}
 
-	t = g_pickup_respawntime_short;
-	if(e.items == IT_SUPERWEAPON)
-		t = g_pickup_respawntime_powerup;
-
-	StartItem(e.model, "weapons/weaponpickup.wav", t, e.message, 0, e.weapons, FL_WEAPON, weapon_pickupevalfunc, e.bot_pickupbasevalue);
+	StartItem(e.model, "weapons/weaponpickup.wav", self.respawntime, e.message, 0, e.weapons, FL_WEAPON, weapon_pickupevalfunc, e.bot_pickupbasevalue);
 	if (self.modelindex) // don't precache if self was removed
 		weapon_action(e.weapon, WR_PRECACHE);
 }
@@ -857,8 +869,20 @@ void spawnfunc_item_minst_cells (void) {
 // compatibility:
 void spawnfunc_item_quad (void) {self.classname = "item_strength";spawnfunc_item_strength();}
 
+void spawnfunc_misc_gamemodel (void)
+{
+	SetBrushEntityModel();
+}
+
 void spawnfunc_misc_models (void)
 {
+	// exists as alias name for 2.4.2 compat
+	SetBrushEntityModel();
+}
+
+void spawnfunc_func_static (void)
+{
+	// exists as alias name for having it with brushes
 	SetBrushEntityModel();
 }
 

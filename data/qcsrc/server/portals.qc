@@ -1,4 +1,5 @@
-float portals_must_not_break; // debug code
+#define SAFENUDGE '1 1 1'
+#define SAFERNUDGE '8 8 8'
 
 .vector portal_transform;
 .vector portal_safe_origin;
@@ -86,10 +87,6 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 	vector old_yawforward;
 	float planeshift, s, t;
 
-	if(!portals_must_not_break)
-		error("Portal_TeleportPlayer called for unprotected portals");
-	print("Portalling using ", etos(teleporter), " to ", etos(teleporter.enemy), "\n");
-
 	from = teleporter.origin;
 	transform = teleporter.portal_transform;
 
@@ -120,18 +117,19 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 
 	safe = teleporter.enemy.portal_safe_origin; // a valid player origin
 	step = to + ((safe - to) * v_forward) * v_forward;
-	tracebox(safe, player.mins - '1 1 1', player.maxs + '1 1 1', step, MOVE_NOMONSTERS, player);
+	tracebox(safe, player.mins - SAFENUDGE, player.maxs + SAFENUDGE, step, MOVE_NOMONSTERS, player);
 	if(trace_startsolid)
 	{
 		print("'safe' teleport location is not safe!\n");
 		// FAIL TODO why does this happen?
 		return 0;
 	}
-	safe = trace_endpos;
-	tracebox(safe, player.mins - '1 1 1', player.maxs + '1 1 1', to, MOVE_NOMONSTERS, player);
+	safe = trace_endpos + normalize(safe - trace_endpos) * 0;
+	tracebox(safe, player.mins - SAFENUDGE, player.maxs + SAFENUDGE, to, MOVE_NOMONSTERS, player);
 	if(trace_startsolid)
 		error("trace_endpos in solid!");
-	to = trace_endpos;
+	to = trace_endpos + normalize(safe - trace_endpos) * 0;
+	//print(vtos(to), "\n");
 
 	// ang_x stuff works around weird quake angles
 	if(player.classname == "player")
@@ -195,13 +193,10 @@ float Portal_TeleportPlayer(entity teleporter, entity player)
 	player.right_vector = -1 * Portal_Transform_Apply(transform, player.right_vector);
 
 	if(player.flagcarried)
-		DropFlag(player.flagcarried);
+		DropFlag(player.flagcarried, player, world);
 	TeleportPlayer(teleporter, player, to, ang, newvel, teleporter.enemy.absmin, teleporter.enemy.absmax);
 
 	// reset fade counter
-	if(!portals_must_not_break)
-		error("Portal_TeleportPlayer ended with unprotected portals");
-	print("Portalled using ", etos(teleporter), " to ", etos(teleporter.enemy), "\n");
 	teleporter.portal_wants_to_vanish = 0;
 	teleporter.fade_time = time + 15;
 	teleporter.enemy.health = 300;
@@ -213,8 +208,8 @@ float Portal_FindSafeOrigin(entity portal)
 {
 	vector o;
 	o = portal.origin;
-	portal.mins = PL_MIN - '8 8 8';
-	portal.maxs = PL_MAX + '8 8 8';
+	portal.mins = PL_MIN - SAFERNUDGE;
+	portal.maxs = PL_MAX + SAFERNUDGE;
 	fixedmakevectors(portal.angles);
 	portal.origin += 16 * v_forward;
 	if(!move_out_of_solid(portal))
@@ -271,23 +266,15 @@ void Portal_Touch()
 		return;
 	}
 
-	print("Portal ID ", etos(self), " verified working.\n");
-	portals_must_not_break = 1;
-
 	if(Portal_TeleportPlayer(self, other))
 		if(other.classname == "porto")
 			if(other.effects & EF_RED)
 				other.effects += EF_BLUE - EF_RED;
-
-	portals_must_not_break = 0;
 }
 
 void Portal_Think();
 void Portal_MakeBrokenPortal(entity portal)
 {
-	if(portals_must_not_break)
-		error("Trying to remove a portal during teleporting");
-
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
 	portal.think = SUB_Null;
@@ -385,9 +372,6 @@ void Portal_Remove(entity portal, float killed)
 	entity e;
 	e = portal.enemy;
 
-	if(portals_must_not_break)
-		error("Trying to remove a portal during teleporting");
-
 	if(e)
 	{
 		Portal_Disconnect(portal, e);
@@ -404,12 +388,14 @@ void Portal_Remove(entity portal, float killed)
 	if(killed)
 	{
 		fixedmakevectors(portal.angles);
+		sound(portal, CHAN_PROJECTILE, "porto/explode.ogg", VOL_BASE, ATTN_NORM);
 		pointparticles(particleeffectnum("rocket_explode"), portal.origin + v_forward * 16, v_forward * 1024, 4);
 		remove(portal);
 	}
 	else
 	{
 		Portal_MakeBrokenPortal(portal);
+		sound(portal, CHAN_PROJECTILE, "porto/expire.ogg", VOL_BASE, ATTN_NORM);
 		SUB_SetFade(portal, time, 0.5);
 	}
 }
@@ -437,12 +423,12 @@ void Portal_Think()
 	if(!self.enemy)
 		error("Portal_Think called for a broken portal\n");
 
-	//print("Portal ID ", etos(self), " verified working.\n");
-	portals_must_not_break = 1;
-
 	o = self.owner;
 	self.solid = SOLID_BBOX;
 	self.owner = world;
+
+	fixedmakevectors(self.angles);
+
 	FOR_EACH_PLAYER(e)
 	{
 		if(time < self.portal_activatetime)
@@ -451,6 +437,9 @@ void Portal_Think()
 		if(e != o)
 			if(IS_INDEPENDENT_PLAYER(e) || IS_INDEPENDENT_PLAYER(o))
 				continue; // cannot go through someone else's portal
+		if((e.origin - self.origin) * v_forward < 0) // wrong side of the plane? no teleport
+			continue;
+
 		// if e would hit the portal in a frame...
 		// already teleport him
 		tracebox(e.origin, e.mins, e.maxs, e.origin + e.velocity * 2 * frametime, MOVE_NORMAL, e);
@@ -459,8 +448,6 @@ void Portal_Think()
 	}
 	self.solid = SOLID_TRIGGER;
 	self.owner = o;
-
-	portals_must_not_break = 0;
 
 	self.nextthink = time;
 

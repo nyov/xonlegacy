@@ -470,7 +470,7 @@ Called with:
   0:  sends the request
   >0: receives a cvar from name=argv(f) value=argv(f+1)
 */
-void GetCvars_handleString(float f, .string field, string name)
+void GetCvars_handleString(string thisname, float f, .string field, string name)
 {
 	if(f < 0)
 	{
@@ -479,7 +479,7 @@ void GetCvars_handleString(float f, .string field, string name)
 	}
 	else if(f > 0)
 	{
-		if(argv(f) == name)
+		if(thisname == name)
 		{
 			if(self.field)
 				strunzone(self.field);
@@ -489,11 +489,11 @@ void GetCvars_handleString(float f, .string field, string name)
 	else
 		stuffcmd(self, strcat("sendcvar ", name, "\n"));
 }
-void GetCvars_handleString_Fixup(float f, .string field, string name, string(string) func)
+void GetCvars_handleString_Fixup(string thisname, float f, .string field, string name, string(string) func)
 {
-	GetCvars_handleString(f, field, name);
+	GetCvars_handleString(thisname, f, field, name);
 	if(f >= 0) // also initialize to the fitting value for "" when sending cvars out
-	if(argv(f) == name)
+	if(thisname == name)
 	{
 		string s;
 		s = func(strcat1(self.field));
@@ -504,14 +504,14 @@ void GetCvars_handleString_Fixup(float f, .string field, string name, string(str
 		}
 	}
 }
-void GetCvars_handleFloat(float f, .float field, string name)
+void GetCvars_handleFloat(string thisname, float f, .float field, string name)
 {
 	if(f < 0)
 	{
 	}
 	else if(f > 0)
 	{
-		if(argv(f) == name)
+		if(thisname == name)
 			self.field = stof(argv(f + 1));
 	}
 	else
@@ -519,27 +519,38 @@ void GetCvars_handleFloat(float f, .float field, string name)
 }
 string W_FixWeaponOrder_ForceComplete(string s);
 string W_FixWeaponOrder_AllowIncomplete(string s);
+float w_getbestweapon(entity e);
 void GetCvars(float f)
 {
-	GetCvars_handleFloat(f, autoswitch, "cl_autoswitch");
-	GetCvars_handleFloat(f, cvar_cl_hidewaypoints, "cl_hidewaypoints");
-	GetCvars_handleFloat(f, cvar_cl_playerdetailreduction, "cl_playerdetailreduction");
-	GetCvars_handleFloat(f, cvar_cl_nogibs, "cl_nogibs");
-	GetCvars_handleFloat(f, cvar_scr_centertime, "scr_centertime");
-	GetCvars_handleFloat(f, cvar_cl_shownames, "cl_shownames");
-	GetCvars_handleString(f, cvar_g_nexuizversion, "g_nexuizversion");
-	GetCvars_handleFloat(f, cvar_cl_handicap, "cl_handicap");
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriority, "cl_weaponpriority", W_FixWeaponOrder_ForceComplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[0], "cl_weaponpriority0", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[1], "cl_weaponpriority1", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[2], "cl_weaponpriority2", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[3], "cl_weaponpriority3", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[4], "cl_weaponpriority4", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[5], "cl_weaponpriority5", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[6], "cl_weaponpriority6", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[7], "cl_weaponpriority7", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[8], "cl_weaponpriority8", W_FixWeaponOrder_AllowIncomplete);
-	GetCvars_handleString_Fixup(f, cvar_cl_weaponpriorities[9], "cl_weaponpriority9", W_FixWeaponOrder_AllowIncomplete);
+	string s;
+	if(f > 0)
+		s = strcat1(argv(f));
+	GetCvars_handleFloat(s, f, autoswitch, "cl_autoswitch");
+	GetCvars_handleFloat(s, f, cvar_cl_hidewaypoints, "cl_hidewaypoints");
+	GetCvars_handleFloat(s, f, cvar_cl_playerdetailreduction, "cl_playerdetailreduction");
+	GetCvars_handleFloat(s, f, cvar_cl_nogibs, "cl_nogibs");
+	GetCvars_handleFloat(s, f, cvar_scr_centertime, "scr_centertime");
+	GetCvars_handleFloat(s, f, cvar_cl_shownames, "cl_shownames");
+	GetCvars_handleString(s, f, cvar_g_nexuizversion, "g_nexuizversion");
+	GetCvars_handleFloat(s, f, cvar_cl_handicap, "cl_handicap");
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriority, "cl_weaponpriority", W_FixWeaponOrder_ForceComplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[0], "cl_weaponpriority0", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[1], "cl_weaponpriority1", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[2], "cl_weaponpriority2", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[3], "cl_weaponpriority3", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[4], "cl_weaponpriority4", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[5], "cl_weaponpriority5", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[6], "cl_weaponpriority6", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[7], "cl_weaponpriority7", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[8], "cl_weaponpriority8", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[9], "cl_weaponpriority9", W_FixWeaponOrder_AllowIncomplete);
+
+	// fixup of switchweapon (needed for LMS or when spectating is disabled, as PutClientInServer comes too early)
+	if(f > 0)
+	{
+		if(s == "cl_weaponpriority")
+			self.switchweapon = w_getbestweapon(self);
+	}
 }
 
 float fexists(string f)
@@ -645,8 +656,6 @@ void centerprint(entity e, string s)
 {
 	centerprint_atprio(e, CENTERPRIO_NORMAL, s);
 }
-
-void VoteNag();
 
 // decolorizes and team colors the player name when needed
 string playername(entity p)
@@ -1200,6 +1209,7 @@ float ExactTriggerHit()
 #define INITPRIO_FIRST              0
 #define INITPRIO_GAMETYPE           0
 #define INITPRIO_GAMETYPE_FALLBACK  1
+#define INITPRIO_CVARS              5
 #define INITPRIO_FINDTARGET        10
 #define INITPRIO_SETLOCATION       90
 #define INITPRIO_LINKDOORS         91
@@ -1266,6 +1276,24 @@ void InitializeEntitiesRun()
 		self = e;
 	}
 	initialize_entity_first = world;
+}
+
+.float uncustomizeentityforclient_set;
+.void(void) uncustomizeentityforclient;
+void(void) SUB_Nullpointer = #0;
+void UncustomizeEntitiesRun()
+{
+	entity oldself;
+	oldself = self;
+	for(self = world; (self = findfloat(self, uncustomizeentityforclient_set, 1)); )
+		self.uncustomizeentityforclient();
+	self = oldself;
+}
+void SetCustomizer(entity e, float(void) customizer, void(void) uncustomizer)
+{
+	e.customizeentityforclient = customizer;
+	e.uncustomizeentityforclient = uncustomizer;
+	e.uncustomizeentityforclient_set = (uncustomizer != SUB_Nullpointer);
 }
 
 .float nottargeted;
@@ -1443,3 +1471,11 @@ void spawnfunc_func_breakable() {
 	self.use = assault_destructible_use;	// shared use function, b/c they woudl do the same thing anyways
 	self.event_damage = func_breakable_damage;
 }
+
+void Net_LinkEntity(entity e)
+{
+	e.model = "net_entity";
+	e.modelindex = 1;
+	e.effects = EF_NODEPTHTEST | EF_LOWPRECISION;
+}
+

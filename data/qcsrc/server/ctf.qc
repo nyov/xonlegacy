@@ -8,7 +8,6 @@ entity ctf_worldflaglist; // CTF flags in the map
 //float FLAGSCORE_RETURN        =  5; // returned by owner team
 //float FLAGSCORE_RETURNROGUE   = 10; // returned by rogue team
 //float FLAGSCORE_CAPTURE       =  5;
-//float FLAGSCORE_CAPTURE_TEAM  = 20;
 
 #define FLAG_CARRY_POS '-15 0 7'
 
@@ -107,7 +106,7 @@ void ReturnFlag(entity e)
 	RegenFlag(e);
 };
 
-void DropFlag(entity e)
+void DropFlag(entity e, entity penalty_receiver, entity attacker)
 {
 	local entity p;
 
@@ -130,13 +129,16 @@ void DropFlag(entity e)
 	}
 	bprint(p.netname, "^7 lost the ", e.netname, "\n");
 
-	if(cvar("g_ctf_flagpenalty_drop"))
+	if(penalty_receiver)
+		UpdateFrags(penalty_receiver, -cvar("g_ctf_flagpenalty_suicidedrop"));
+	else
 		UpdateFrags(p, -cvar("g_ctf_flagpenalty_drop"));
+	PlayerScore_Add(p, SP_CTF_DROPS, +1);
+	e.playerid = attacker.playerid;
 	
-	//if(e.enemy && e.enemy != e)
-	//UpdateFrags(e.enemy, cvar("g_ctf_flagscore_kill"));
+	WaypointSprite_Ping(p.waypointsprite_attachedforcarrier);
 	WaypointSprite_DetachCarrier(p);
-	LogCTF("dropped", p.team, p.flagcarried);
+	LogCTF("dropped", p.team, p);
 
 	setattachment(e, world, "");
 
@@ -225,7 +227,7 @@ void FlagThink()
 	if (e.classname != "player" || (e.deadflag) || (e.flagcarried != self))
 	{
 		dprint("CANNOT HAPPEN - player dead and STILL had a flag!\n");
-		DropFlag(self);
+		DropFlag(self, world, world);
 		return;
 	}
 };
@@ -235,7 +237,6 @@ void FlagTouch()
 	if(gameover) return;
 
 	local float t;
-	local entity head;
 	local entity player;
 	local string s, s0, h0, h1;
 	if (other.classname != "player")
@@ -290,12 +291,6 @@ void FlagTouch()
 		// give credit to the individual player
 		UpdateFrags(other, cvar("g_ctf_flagscore_capture"));
 
-		// give credit to all players of the team (rewards large teams)
-		// NOTE: this defaults to 0
-		FOR_EACH_PLAYER(head)
-			if (head.team == self.team)
-				UpdateFrags(head, cvar("g_ctf_flagscore_capture_team"));
-
 		sound (other, CHAN_AUTO, self.noise2, VOL_BASE, ATTN_NONE);
 		WaypointSprite_DetachCarrier(other);
 		if(self.speedrunning)
@@ -324,7 +319,7 @@ void FlagTouch()
 		self.cnt = FLAG_CARRY;
 		self.angles = '0 0 0';
 		bprint(other.netname, "^7 got the ", self.netname, "\n");
-		UpdateFrags(other, cvar("g_ctf_flagscore_pickup"));
+		UpdateFrags(other, cvar("g_ctf_flagscore_pickup_base"));
 		PlayerScore_Add(other, SP_CTF_PICKUPS, 1);
 		LogCTF("steal", self.team, other);
 		sound (other, CHAN_AUTO, self.noise, VOL_BASE, ATTN_NONE);
@@ -337,6 +332,8 @@ void FlagTouch()
 		setorigin(self, FLAG_CARRY_POS);
 		setattachment(self, other, "");
 		WaypointSprite_AttachCarrier("flagcarrier", other);
+		WaypointSprite_UpdateTeamRadar(other.waypointsprite_attachedforcarrier, RADARICON_FLAGCARRIER, '1 1 0');
+		WaypointSprite_Ping(self.sprite);
 
 		return;
 	}
@@ -348,10 +345,33 @@ void FlagTouch()
 		{
 			// return flag
 			bprint(other.netname, "^7 returned the ", self.netname, "\n");
-			if (other.team == COLOR_TEAM1 || other.team == COLOR_TEAM2)
-				UpdateFrags(other, cvar("g_ctf_flagscore_return"));
+
+			// punish the player who last had it
+			FOR_EACH_PLAYER(player)
+				if(player.playerid == self.playerid)
+					PlayerScore_Add(player, SP_SCORE, -cvar("g_ctf_flagpenalty_returned"));
+
+			// punish the team who was last carrying it
+			if(self.team == COLOR_TEAM1)
+				TeamScore_AddToTeam(COLOR_TEAM2, ST_SCORE, -cvar("g_ctf_flagpenalty_returned"));
 			else
-				UpdateFrags(other, cvar("g_ctf_flagscore_return_rogue"));
+				TeamScore_AddToTeam(COLOR_TEAM1, ST_SCORE, -cvar("g_ctf_flagpenalty_returned"));
+
+			// reward the player who returned it
+			if(other.playerid == self.playerid) // is this the guy who killed the FC last?
+			{
+				if (other.team == COLOR_TEAM1 || other.team == COLOR_TEAM2)
+					UpdateFrags(other, cvar("g_ctf_flagscore_return_by_killer"));
+				else
+					UpdateFrags(other, cvar("g_ctf_flagscore_return_rogue_by_killer"));
+			}
+			else
+			{
+				if (other.team == COLOR_TEAM1 || other.team == COLOR_TEAM2)
+					UpdateFrags(other, cvar("g_ctf_flagscore_return"));
+				else
+					UpdateFrags(other, cvar("g_ctf_flagscore_return_rogue"));
+			}
 			PlayerScore_Add(other, SP_CTF_RETURNS, 1);
 			LogCTF("return", self.team, other);
 			sound (other, CHAN_AUTO, self.noise1, VOL_BASE, ATTN_NONE);
@@ -366,7 +386,17 @@ void FlagTouch()
 			other.flagcarried = self;
 			self.cnt = FLAG_CARRY;
 			bprint(other.netname, "^7 picked up the ", self.netname, "\n");
-			UpdateFrags(other, cvar("g_ctf_flagscore_pickup"));
+
+			float f;
+			f = bound(0, (self.pain_finished - time) / cvar("g_ctf_flag_returntime"), 1);
+			//print("factor is ", ftos(f), "\n");
+			f = cvar("g_ctf_flagscore_pickup_dropped_late") * (1-f)
+			  + cvar("g_ctf_flagscore_pickup_dropped_early") * f;
+			f = floor(f + 0.5);
+			//print("score is ", ftos(f), "\n");
+
+			UpdateFrags(other, f);
+			PlayerScore_Add(other, SP_CTF_PICKUPS, 1);
 			LogCTF("pickup", self.team, other);
 			sound (other, CHAN_AUTO, self.noise, VOL_BASE, ATTN_NONE);
 
@@ -378,6 +408,7 @@ void FlagTouch()
 			setorigin(self, FLAG_CARRY_POS);
 			setattachment(self, other, "");
 			WaypointSprite_AttachCarrier("flagcarrier", other);
+			WaypointSprite_UpdateTeamRadar(other.waypointsprite_attachedforcarrier, RADARICON_FLAGCARRIER, '1 1 0');
 		}
 	}
 };
@@ -525,6 +556,7 @@ void spawnfunc_item_flag_team1()
 	waypoint_spawnforitem(self);
 
 	WaypointSprite_SpawnFixed("redbase", self.origin + '0 0 37', self, sprite);
+	WaypointSprite_UpdateTeamRadar(self.sprite, RADARICON_FLAG, '1 0 0');
 };
 
 /*QUAKED spawnfunc_item_flag_team2 (0 0.5 0.8) (-48 -48 -24) (48 48 64)
@@ -607,6 +639,7 @@ void spawnfunc_item_flag_team2()
 	waypoint_spawnforitem(self);
 
 	WaypointSprite_SpawnFixed("bluebase", self.origin + '0 0 37', self, sprite);
+	WaypointSprite_UpdateTeamRadar(self.sprite, RADARICON_FLAG, '0 0 1');
 };
 
 

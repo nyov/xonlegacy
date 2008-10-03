@@ -60,7 +60,7 @@ vector turret_stdproc_aim_generic()
         if (self.aim_flags & TFL_AIM_SHOTTIMECOMPENSATE)       // Need to conpensate for shot traveltime
             pre_pos += self.enemy.velocity * (self.tur_dist_enemy / self.shot_speed);
         else if (self.turrcaps_flags & TFL_TURRCAPS_HITSCAN)   // Hitscan gun, conpensate for frametime and posibly refire offset.
-            pre_pos += self.enemy.velocity * (frametime + min(max(self.attack_finished - time,0),self.ticrate*2));
+            pre_pos += self.enemy.velocity * (frametime + min(max(self.attack_finished_single - time,0),self.ticrate*2));
         else                                                   // No lead
             pre_pos += self.enemy.velocity;
 
@@ -81,7 +81,8 @@ vector turret_stdproc_aim_generic()
 
 
     // This turret should hit the ground neer a target rather the do a direct hit
-    if (self.aim_flags & TFL_AIM_GROUND)
+    if ( (self.aim_flags & TFL_AIM_GROUND) ||
+         ((self.aim_flags & TFL_AIM_GROUND2) && (self.enemy.flags & FL_ONGROUND)) )
     {
         traceline(pre_pos + '0 0 512',pre_pos - '0 0 2048',1,self.enemy);
         pre_pos = trace_endpos;

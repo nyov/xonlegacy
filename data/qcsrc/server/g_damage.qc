@@ -35,6 +35,7 @@ void UpdateFrags(entity player, float f)
 	PlayerTeamScore_AddScore(player, f);
 }
 
+// NOTE: f=0 means still count as a (positive) kill, but count no frags for it
 void GiveFrags (entity attacker, entity targ, float f)
 {
 	// TODO route through PlayerScores instead
@@ -89,6 +90,11 @@ void GiveFrags (entity attacker, entity targ, float f)
 			--lms_next_place;
 		}
 		f = 0;
+	}
+	else if(g_ctf)
+	{
+		if(g_ctf_win_mode == 3)
+			f = 0;
 	}
 
 	attacker.totalfrags += f;
@@ -316,8 +322,10 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				}
 				if(g_ctf && targ.flagcarried)
 				{
-					GiveFrags(attacker, targ, cvar("g_ctf_flagscore_kill"));
+					//GiveFrags(attacker, targ, cvar("g_ctf_flagscore_kill"));
+					UpdateFrags(attacker, cvar("g_ctf_flagscore_kill"));
 					PlayerScore_Add(attacker, SP_CTF_FCKILLS, 1);
+					GiveFrags(attacker, targ, 0);
 				}
 				else
 					GiveFrags(attacker, targ, 1);
@@ -495,6 +503,10 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		targ.flags -= targ.flags & FL_GODMODE;
 		damage = 100000;
 	}
+	else if(deathtype == DEATH_MIRRORDAMAGE)
+	{
+		// no processing
+	}
 	else
 	{
 		if (targ.classname == "player")
@@ -605,13 +617,33 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		// apply strength multiplier
 		if (attacker.items & IT_STRENGTH && !g_minstagib)
 		{
-			damage = damage * cvar("g_balance_powerup_strength_damage");
-			force = force * cvar("g_balance_powerup_strength_force");
+			if(targ == attacker)
+			{
+				damage = damage * cvar("g_balance_powerup_strength_selfdamage");
+				force = force * cvar("g_balance_powerup_strength_selfforce");
+			}
+			else
+			{
+				damage = damage * cvar("g_balance_powerup_strength_damage");
+				force = force * cvar("g_balance_powerup_strength_force");
+			}
 		}
+
 		// apply invincibility multiplier
 		if (targ.items & IT_INVINCIBLE && !g_minstagib)
 			damage = damage * cvar("g_balance_powerup_invincible_takedamage");
 
+		if (targ == attacker)
+			damage = damage * cvar("g_balance_selfdamagepercent");	// Partial damage if the attacker hits himself
+
+		// CTF: reduce damage/force
+		if(g_ctf)
+		if(targ == attacker)
+		if(targ.flagcarried)
+		{
+			damage = damage * cvar("g_ctf_flagcarrier_selfdamage");
+			force = force * cvar("g_ctf_flagcarrier_selfforce");
+		}
 
 		if(g_runematch)
 		{
@@ -782,8 +814,6 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 						if (targ.classname == "player")
 							center = targ.origin + targ.view_ofs;
 						force = normalize(center - blastorigin) * (finaldmg / coredamage) * forceintensity;
-						if (targ == attacker)
-							finaldmg = finaldmg * cvar("g_balance_selfdamagepercent");	// Partial damage if the attacker hits himself
 						// test line of sight to multiple positions on box,
 						// and do damage if any of them hit
 						local float c;

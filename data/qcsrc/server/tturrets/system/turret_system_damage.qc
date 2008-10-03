@@ -60,7 +60,7 @@ void turret_gib_boom()
     float i;
     string s;
 
-    for(i=1;i<5;i++)
+    for (i=1;i<5;i++)
     {
         gib = spawn();
         gib.classname = "turret_gib";
@@ -142,7 +142,7 @@ void turret_stdproc_die()
     self.deadflag = DEAD_DEAD;
     self.tur_head.deadflag = self.deadflag;
 
-    sound (self, CHAN_BODY, "weapons/rocket_impact.wav", 1, ATTN_NORM);
+    sound (self, CHAN_PLAYER, "weapons/rocket_impact.wav", 1, ATTN_NORM);
     org2 = self.origin + '0 0 40';
 
 // Explotion grafix
@@ -172,14 +172,16 @@ void turret_stdproc_die()
 
     // base
     makevectors(self.angles);
-    if(random() > 0.5)
+    if (random() > 0.5)
     {
         turret_trowgib(self.origin, '0 0 0','1 1 1',"models/turrets/base-gib2.md3",min(self.respawntime,20),1,1);
         t_dir = (v_up * 700) + (randomvec() * 300);
         turret_trowgib(self.origin, t_dir,'1 1 1',"models/turrets/base-gib3.md3",min(self.respawntime,10),1,1);
         t_dir = (v_up * 700) + (randomvec() * 300);
         turret_trowgib(self.origin, t_dir,'1 1 1',"models/turrets/base-gib4.md3",min(self.respawntime,10),1,1);
-    } else {
+    }
+    else
+    {
         turret_trowgib(self.origin, '0 0 0','1 1 1',"models/turrets/base-gib1.md3",min(self.respawntime,20),1,1);
     }
 
@@ -191,15 +193,15 @@ void turret_stdproc_die()
 
 
 // Go boom
-    RadiusDamage (self,self, min(self.ammo,50),min(self.ammo,50) * 0.25,250,world,min(self.ammo,50)*5,IT_ROCKET_LAUNCHER);
+    RadiusDamage (self,self, min(self.ammo,50),min(self.ammo,50) * 0.25,250,world,min(self.ammo,50)*5,0);
 
 // Setup respawn
     self.nextthink      = time + self.respawntime;
-    self.think          = self.turret_spawnfunc;
+    //self.think          = self.turret_spawnfunc;
+    self.think          = turret_stdproc_respawn;
 
-    if(self.call_diehook)
+    if (self.turret_diehook)
         self.turret_diehook();
-
 }
 
 void turret_stdproc_respawn()
@@ -238,7 +240,7 @@ void turret_stdproc_respawn()
     self.nextthink  = time + self.ticrate;
     self.think      = turret_think;
 
-    if(self.call_respwnhook)
+    if (self.turret_respawnhook)
         self.turret_respawnhook();
 
 }
@@ -248,14 +250,14 @@ void turret_stdproc_respawn()
 */
 void turret_stdproc_damage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector vforce)
 {
-    entity baseent;
+    entity baseent,oldself;
     // entity player;
 
     if (self.health <= 0) return;
 
     // Damage func is shared on all parts as standard, we need to know what the master entity of this turret is.
     // if ((self.classname == "turret_head")||(self.classname == "turret_gun")||(self.classname == "turret_badge"))
-    if(self.owner)
+    if (self.owner)
         baseent = self.owner;
     else
         baseent = self;
@@ -265,12 +267,15 @@ void turret_stdproc_damage (entity inflictor, entity attacker, float damage, flo
         if (self.team == attacker.team)
         {
             sprint(attacker,"Turret: Im on your team!\n");
-        } else {
-			/*
+            return;
+        }
+        else
+        {
+            /*
             // This will get enoying fast...
-			FOR_EACH_PLAYER(player)
-				if(player.team == self.team)
-					sprint(player, "The enemy is attacking your base!");
+            FOR_EACH_PLAYER(player)
+            	if(player.team == self.team)
+            		sprint(player, "The enemy is attacking your base!");
 
             */
         }
@@ -280,14 +285,14 @@ void turret_stdproc_damage (entity inflictor, entity attacker, float damage, flo
     baseent.health = baseent.health - damage;
 
     // thorw head slightly off aim when hit?
-    if((self.classname == "turret_head") || (self.classname == "turret_gun"))
-    if(self.damage_flags & TFL_DMG_HEADSHAKE)
-    {
-        // makevectors(baseent.tur_head.v_angle);
-         baseent.tur_head.angles = baseent.tur_head.angles + randomvec() * damage;
-    }
+    if ((self.classname == "turret_head") || (self.classname == "turret_gun"))
+        if (self.damage_flags & TFL_DMG_HEADSHAKE)
+        {
+            // makevectors(baseent.tur_head.v_angle);
+            baseent.tur_head.angles = baseent.tur_head.angles + randomvec() * damage;
+        }
 
-    if(self.turrcaps_flags & TFL_TURRCAPS_MOVE)
+    if (self.turrcaps_flags & TFL_TURRCAPS_MOVE)
     {
         self.velocity = self.velocity + vforce;
     }
@@ -299,8 +304,12 @@ void turret_stdproc_damage (entity inflictor, entity attacker, float damage, flo
 
     if (self.health <= 0)
     {
+        oldself = self;
         self = baseent;
-        baseent.turret_diefunc();
+        turret_stdproc_die();
+        self = oldself;
+
+        //baseent.turret_diefunc();
     }
 }
 

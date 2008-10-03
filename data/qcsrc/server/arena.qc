@@ -12,7 +12,6 @@ float warmup;
 
 void PutObserverInServer();
 void PutClientInServer();
-void(entity e) DropFlag;
 void(entity e) ReturnFlag;
 void(entity e) removedecor;
 void dom_controlpoint_setup();
@@ -55,7 +54,7 @@ void reset_map()
 		}
 		else if(self.items & (IT_KEY1 | IT_KEY2))
 		{
-			DropFlag(self);
+			DropFlag(self, world, world);
 			ReturnFlag(self);
 		}
 		else if(self.classname == "rune")
@@ -76,8 +75,16 @@ void reset_map()
 		}
 		else if(self.flags & FL_ITEM)			// reset items
 		{
-			self.model = self.mdl;
-			self.solid = SOLID_TRIGGER;
+			if(self.cnt == 1)
+			{
+				self.model = string_null;
+				self.solid = SOLID_NOT;
+			}
+			else
+			{
+				self.model = self.mdl;
+				self.solid = SOLID_TRIGGER;
+			}
 			setorigin (self, self.origin);
 			self.think = SUB_Null;
 			self.nextthink = 0;

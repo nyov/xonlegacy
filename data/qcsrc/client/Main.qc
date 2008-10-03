@@ -4,21 +4,21 @@
 
 #define DP_CSQC_ENTITY_REMOVE_IS_B0RKED
 
-void cvar_settemp(string cvar, string val)
+void cvar_clientsettemp(string cv, string val)
 {
 	entity e;
 	for(e = world; (e = find(e, classname, "saved_cvar_value")); )
-		if(e.netname == cvar)
+		if(e.netname == cv)
 			goto saved;
 	e = spawn();
 	e.classname = "saved_cvar_value";
-	e.netname = strzone(cvar);
-	e.message = strzone(cvar_string(cvar));
+	e.netname = strzone(cv);
+	e.message = strzone(cvar_string(cv));
 :saved
-	cvar_set(cvar, val);
+	cvar_set(cv, val);
 }
 
-void cvar_settemp_restore()
+void cvar_clientsettemp_restore()
 {
 	entity e;
 	for(e = world; (e = find(e, classname, "saved_cvar_value")); )
@@ -54,6 +54,8 @@ string config_get(string key, string defaultvalue)
 		return db_get(configdb, strcat("/v/", key));
 }
 
+string forcefog;
+void WaypointSprite_Init();
 void CSQC_Init(void)
 {
 #ifdef USE_FTE
@@ -70,8 +72,10 @@ void CSQC_Init(void)
 	
 	float i;
 	CSQC_CheckEngine();
+	dprint_load();
 
 	configdb = db_create();
+	binddb = db_create();
 	compressShortVector_init();
 
 	drawfont = 0;
@@ -111,7 +115,27 @@ void CSQC_Init(void)
 	
 	GetTeam(COLOR_SPECTATOR, true); // add specs first
 
-	cvar_settemp("_supports_weaponpriority", "1");
+	cvar_clientsettemp("_supports_weaponpriority", "1");
+
+
+
+
+	cs_project_is_b0rked = TRUE;
+	R_SetView(VF_VIEWPORT, '0 0 0', '640 480 0');
+	R_SetView(VF_FOV, '90 90 0');
+	R_SetView(VF_ORIGIN, '0 0 0');
+	R_SetView(VF_ANGLES, '0 0 0');
+	R_SetView(VF_PERSPECTIVE, 1);
+	makevectors('0 0 0');
+	vector v;
+	v = cs_project(v_forward);
+	if(v_x - 320 < +1)
+	if(v_x - 320 > -1)
+	if(v_y - 240 < +1)
+	if(v_y - 240 > -1)
+		cs_project_is_b0rked = FALSE;
+
+	WaypointSprite_Init();
 }
 
 // CSQC_Shutdown : Called every time the CSQC code is shutdown (changing maps, quitting, etc)
@@ -127,8 +151,9 @@ void CSQC_Shutdown(void)
 	remove(teams);
 	remove(players);
 	db_close(configdb);
+	db_close(binddb);
 
-	cvar_settemp_restore();
+	cvar_clientsettemp_restore();
 }
 
 .float has_team;
@@ -294,7 +319,7 @@ float GameCommand(string msg)
 		return true;
 	}
 	else if(cmd == "settemp") {
-		cvar_settemp(argv(1), argv(2));
+		cvar_clientsettemp(argv(1), argv(2));
 	}
 	
 	return false;
@@ -322,15 +347,20 @@ float CSQC_InputEvent(float bInputType, float nPrimary, float nSecondary)
 
 // --------------------------------------------------------------------------
 // BEGIN OPTIONAL CSQC FUNCTIONS
-void Ent_ReadONS()
+void Ent_ReadEntCS()
 {
 	entity gps;
 	using_gps = true;
 
-	self.origin_x = ReadCoord();
-	self.origin_y = ReadCoord();
-	self.angles_y = ReadCoord();
+	InterpolateOrigin_Undo();
+
+	self.origin_x = ReadShort();
+	self.origin_y = ReadShort();
+	self.origin_z = ReadShort();
+	self.angles_y = ReadByte() * 360.0 / 256;
 	self.origin_z = self.angles_x = self.angles_z = 0;
+
+	InterpolateOrigin_Note();
 
 	for(gps = gps_start; gps; gps = gps.chain)
 	{
@@ -441,6 +471,25 @@ void Ent_ReadTeamScore()
 	Sbar_UpdateTeamPos(o);
 }
 
+void Ent_Nagger()
+{
+	float nags;
+
+	nags = ReadByte();
+
+	if(nags & 128)
+	{
+		if(vote_called_vote)
+			strunzone(vote_called_vote);
+		vote_called_vote = strzone(ReadString());
+	}
+
+	ready_waiting = (nags & 1);
+	ready_waiting_for_me = (nags & 2);
+	vote_waiting = (nags & 4);
+	vote_waiting_for_me = (nags & 8);
+}
+
 // CSQC_Ent_Update : Called every frame that the server has indicated an update to the SSQC / CSQC entity has occured.
 // The only parameter reflects if the entity is "new" to the client, meaning it just came into the client's PVS.
 void(float bIsNewEntity) CSQC_Ent_Update =
@@ -464,7 +513,7 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		{
 			switch(msg)
 			{
-			case ENTCS_MSG_ONS_GPS: Ent_ReadONS(); break;
+			case ENTCS_MSG_ONS_GPS: Ent_ReadEntCS(); break;
 			case ENTCS_MSG_ONS_REMOVE: Ent_RemoveONS(); break;
 			default:
 				error("unknown ENTCS_MSG type\n");
@@ -481,8 +530,12 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		Ent_RainOrSnow();
 	else if(self.enttype == ENT_CLIENT_LASER)
 		Ent_Laser();
+	else if(self.enttype == ENT_CLIENT_NAGGER)
+		Ent_Nagger();
+	else if(self.enttype == ENT_CLIENT_WAYPOINT)
+		Ent_WaypointSprite();
 	else
-		error("unknown entity type in CSQC_Ent_Update\n");
+		error(strcat("unknown entity type in CSQC_Ent_Update: ", ftos(self.enttype), "\n"));
 	
 };
 // Destructor, but does NOT deallocate the entity by calling remove(). Also
@@ -528,6 +581,8 @@ void Ent_Remove()
 	{
 		Ent_PointParticles_Remove();
 	}
+	else if(self.enttype == ENT_CLIENT_WAYPOINT)
+		Ent_RemoveWaypointSprite();
 
 	self.enttype = 0;
 	self.classname = "";
@@ -544,49 +599,13 @@ void CSQC_Ent_Remove()
 
 void Gamemode_Init()
 {
-	local string mapinfo, infoline;
-	local float len;
-	local float file;
-	local vector mi_min, mi_max;
-
-	if(!strcasecmp(substring(mapname, 0, 5), "maps/"))
-		shortmapname = substring(mapname, 5, 999);
-	else
-		shortmapname = mapname;
-	len = strlen(shortmapname);
-	if(!strcasecmp(substring(shortmapname, len-4, 4), ".bsp"))
-		shortmapname = substring(shortmapname, 0, len-4);
-	shortmapname = strzone(shortmapname);
+	get_mi_min_max();
+	mi_center = (mi_min + mi_max) * 0.5;
+	mi_scale = mi_max - mi_min;
+	minimapname = strzone(strcat("gfx/", mi_shortname, "_mini.tga"));
+	shortmapname = mi_shortname;
 
 	if(gametype == GAME_ONSLAUGHT) {
-		mapinfo = strcat("maps/", minimapname, ".info");
-		minimapname = strzone(strcat("gfx/", shortmapname, "_mini.tga"));
-
-		mi_min = world.mins;
-		mi_max = world.maxs;
-		
-		file = fopen(mapinfo, FILE_READ);
-		if(file >= 0) {
-			while((infoline = fgets(file))) {
-				if(!strncasecmp(infoline, "mins", 4)) {
-					mi_min = stov(substring(infoline, 5, 999));
-				} else if(!strncasecmp(infoline, "maxs", 4)) {
-					mi_max = stov(substring(infoline, 5, 999));
-				} else if(strncasecmp(infoline, "//", 2)) { // don't print comment-style lines
-					print(strcat("mapinfo: ", infoline, "\n"));
-				}
-			}
-		} else {
-			print(strcat("Map has no .info file (", mapinfo, ").\n"));
-		}
-		fclose(file);
-
-		print(strcat("Mins: ", vtos(mi_min), "    Maxs: ", vtos(mi_max), "\n"));
-		
-		mi_center = (mi_min + mi_max) * 0.5;
-		mi_scale = mi_max - mi_min;
-		
-		
 		print(strcat("Using ", minimapname, " as minimap.\n"));
 		precache_pic(minimapname);
 		precache_pic("gfx/ons-cp-neutral.tga");
@@ -616,6 +635,22 @@ void CSQC_Parse_CenterPrint(string strMessage)
 }
 
 void CSQC_CheckRevision();
+
+void Fog_Force()
+{
+	// TODO somehow thwart prvm_globalset client ...
+
+	if(forcefog != "")
+		localcmd(strcat("\nfog ", forcefog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
+}
+
+void Net_ReadFog()
+{
+	if(forcefog)
+		strunzone(forcefog);
+	ReadCoord(); // ignore fog interval
+	forcefog = strzone(ReadString());
+}
 
 void Gamemode_Init();
 void Net_ReadScoresInfo()
@@ -847,6 +882,10 @@ float CSQC_Parse_TempEntity()
 			Net_ReadWarmupStage();
 			bHandled = true;
 			break;
+		case TE_CSQC_FOG:
+			Net_ReadFog();
+			bHandled = true;
+			break;
 		default:
 			// No special logic for this temporary entity; return 0 so the engine can handle it
 			bHandled = false;
@@ -871,4 +910,49 @@ void CSQC_CheckRevision()
 		print("^1Your csprogs.dat (CSQC) is too old for this server.\n");
 		print("^1Please update to a newer version.\n");
 	}
+}
+
+string getcommandkey(string text, string command)
+{
+	string keys;
+	float n, j, k, l;
+
+	if (!sbar_showbinds)
+		return text;
+
+	keys = db_get(binddb, command);
+	if(csqc_flags & CSQC_FLAG_READPICTURE)
+	{
+		if (!keys) 
+		{
+			n = tokenize(findkeysforcommand(command));
+			for(j = 0; j < n; ++j)
+			{
+				k = stof(argv(j));
+				if(k != -1) 
+				{
+					if ("" == keys)
+						keys = keynumtostring(k);
+					else
+						keys = strcat(keys, ", ", keynumtostring(k));
+
+					++l;
+					if (sbar_showbinds_limit > 0 && sbar_showbinds_limit >= l) break;
+				}
+			
+			}
+			db_put(binddb, command, keys);
+		}
+	}
+	
+	if ("" == keys) {
+		if (sbar_showbinds > 1)
+			return strcat(text, " (not bound)");
+		else
+			return text;
+	}
+	else if (sbar_showbinds > 1)
+		return strcat(text, " (", keys, ")");
+	else
+		return keys;
 }

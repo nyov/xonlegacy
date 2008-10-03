@@ -12,7 +12,6 @@ float race_checkpoint_lastlaps[MAX_CHECKPOINTS];
 entity race_checkpoint_lastplayers[MAX_CHECKPOINTS];
 
 float race_highest_checkpoint;
-float race_highest_place_spawn;
 
 float race_NextCheckpoint(float f)
 {
@@ -79,6 +78,8 @@ void race_InitSpectator()
 void race_SendTime(entity e, float cp, float t, float tvalid)
 {
 	float snew, l;
+	entity p;
+
 	t = floor(0.5 + 10 * t); // make integer
 
 	if(tvalid)
@@ -101,7 +102,12 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 
 			if(cvar("fraglimit"))
 				if(l >= cvar("fraglimit"))
+				{
 					race_completing = 1;
+					FOR_EACH_PLAYER(p)
+						if(p.deadflag != DEAD_NO)
+							race_AbandonRaceCheck(p);
+				}
 
 			if(race_completing)
 			{
@@ -175,7 +181,6 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 
 				if(g_race_qualifying)
 				{
-					entity p;
 					FOR_EACH_REALPLAYER(p)
 						if(p.race_checkpoint == cp)
 							race_SendNextCheckpoint(p, 0);
@@ -193,7 +198,7 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 		msg_entity = e;
 		if(g_race_qualifying)
 		{
-			WRITESPECTATABLE_MSG_ONE({
+			WRITESPECTATABLE_MSG_ONE_VARNAME(dummy1, {
 				WriteByte(MSG_ONE, SVC_TEMPENTITY);
 				WriteByte(MSG_ONE, TE_CSQC_RACE);
 				WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_HIT_QUALIFYING);
@@ -219,7 +224,7 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 			lself = lother = othtime = 0;
 
 		msg_entity = e;
-		WRITESPECTATABLE_MSG_ONE({
+		WRITESPECTATABLE_MSG_ONE_VARNAME(dummy2, {
 			WriteByte(MSG_ONE, SVC_TEMPENTITY);
 			WriteByte(MSG_ONE, TE_CSQC_RACE);
 			WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_HIT_RACE);
@@ -243,7 +248,7 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 		race_checkpoint_lastlaps[cp] = lself;
 
 		msg_entity = oth;
-		WRITESPECTATABLE_MSG_ONE({
+		WRITESPECTATABLE_MSG_ONE_VARNAME(dummy3, {
 			WriteByte(MSG_ONE, SVC_TEMPENTITY);
 			WriteByte(MSG_ONE, TE_CSQC_RACE);
 			WriteByte(MSG_ONE, RACE_NET_CHECKPOINT_HIT_RACE_BY_OPPONENT);
@@ -301,12 +306,10 @@ void dumpsurface(entity e)
 	}
 }
 
-void checkpoint_touch()
+void checkpoint_passed()
 {
 	string oldmsg;
 	entity oldself;
-
-	EXACTTRIGGER_TOUCH;
 
 	if(other.classname == "porto")
 	{
@@ -381,18 +384,24 @@ void checkpoint_touch()
 	}
 }
 
+void checkpoint_touch()
+{
+	EXACTTRIGGER_TOUCH;
+	checkpoint_passed();
+}
+
 void checkpoint_use()
 {
 	other = activator;
-	checkpoint_touch();
+	checkpoint_passed();
 }
 
-float race_waypointsprite_for_player(entity e)
+float race_waypointsprite_visible_for_player(entity e)
 {
 	if(e.race_checkpoint == -1)
-		return self.modelindex;
+		return TRUE;
 	else if(e.race_checkpoint == self.owner.race_checkpoint)
-		return self.modelindex;
+		return TRUE;
 	else
 		return FALSE;
 }
@@ -427,15 +436,32 @@ void spawnfunc_trigger_race_checkpoint()
 
 	if(self.race_checkpoint)
 	{
-		precache_model("models/sprites/race-checkpoint.sp2");
 		WaypointSprite_SpawnFixed("race-checkpoint", o, self, sprite);
 	}
 	else
 	{
-		precache_model("models/sprites/race-finish.sp2");
 		WaypointSprite_SpawnFixed("race-finish", o, self, sprite);
 	}
-	self.sprite.waypointsprite_for_player = race_waypointsprite_for_player;
+	self.sprite.waypointsprite_visible_for_player = race_waypointsprite_visible_for_player;
+}
+
+void race_AbandonRaceCheck(entity p)
+{
+	if(race_completing && !p.race_completed)
+	{
+		p.race_completed = 1;
+		MAKE_INDEPENDENT_PLAYER(p);
+		bprint(p.netname, "^7 has abandoned the race.\n");
+		// TODO support spectators with this (e.g. set a flag for forced sbar)
+		if(clienttype(p) == CLIENTTYPE_REAL)
+		{
+			msg_entity = p;
+			WriteByte(MSG_ONE, SVC_TEMPENTITY);
+			WriteByte(MSG_ONE, TE_CSQC_FORCESCOREBOARD);
+			WriteByte(MSG_ONE, 1);
+			// he can still move, but will see the scoreboard now
+		}
+	}
 }
 
 void race_PreparePlayer()
@@ -456,6 +482,14 @@ void race_RetractPlayer()
 	}
 }
 
+void race_PreDie()
+{
+	if(!g_race)
+		return;
+
+	race_AbandonRaceCheck(self);
+}
+
 void race_PreSpawn()
 {
 	if(!g_race)
@@ -463,21 +497,7 @@ void race_PreSpawn()
 	if(self.killcount == -666 || g_race_qualifying)
 		race_PreparePlayer();
 
-	if(race_completing)
-	{
-		self.race_completed = 1;
-		MAKE_INDEPENDENT_PLAYER(self);
-		bprint(self.netname, "^7 has abandoned the race.\n");
-		// TODO support spectators with this (e.g. set a flag for forced sbar)
-		if(clienttype(self) == CLIENTTYPE_REAL)
-		{
-			msg_entity = self;
-			WriteByte(MSG_ONE, SVC_TEMPENTITY);
-			WriteByte(MSG_ONE, TE_CSQC_FORCESCOREBOARD);
-			WriteByte(MSG_ONE, 1);
-			// he can still move, but will see the scoreboard now
-		}
-	}
+	race_AbandonRaceCheck(self);
 }
 
 void race_PostSpawn(entity spot)
@@ -518,6 +538,8 @@ void spawnfunc_info_player_race (void)
 
 	if(self.race_place > race_highest_place_spawn)
 		race_highest_place_spawn = self.race_place;
+	if(self.race_place < race_lowest_place_spawn)
+		race_lowest_place_spawn = self.race_place;
 }
 
 void race_ClearRecords()

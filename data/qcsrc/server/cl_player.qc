@@ -497,6 +497,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		SpawnThrownWeapon (self.origin + (self.mins + self.maxs) * 0.5, self.switchweapon);
 		// print an obituary message
 		Obituary (attacker, self, deathtype);
+		race_PreDie();
 		DropAllRunes(self);
 		if(self == attacker)
 			kh_Key_DropAll(self, TRUE);
@@ -505,7 +506,14 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		else
 			kh_Key_DropAll(self, TRUE);
 		if(self.flagcarried)
-			DropFlag(self.flagcarried);
+		{
+			if(attacker.classname != "player" && attacker.classname != "gib")
+				DropFlag(self.flagcarried, self, attacker); // penalty for flag loss by suicide
+			else if(attacker.team == self.team)
+				DropFlag(self.flagcarried, attacker, attacker); // penalty for flag loss by suicide/teamkill
+			else
+				DropFlag(self.flagcarried, world, attacker);
+		}
 		Portal_ClearAllLater(self);
 		// clear waypoints
 		WaypointSprite_PlayerDead();

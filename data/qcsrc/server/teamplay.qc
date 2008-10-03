@@ -173,6 +173,16 @@ void InitGameplayMode()
 	WriteGameCvars();
 
 	MapInfo_LoadMapSettings(mapname);
+	if not(cvar_value_issafe(world.fog))
+	{
+		print("The current map contains a potentially harmful fog setting, ignored\n");
+		world.fog = string_null;
+	}
+	if(MapInfo_Map_fog != "")
+		if(MapInfo_Map_fog == "none")
+			world.fog = string_null;
+		else
+			world.fog = strzone(MapInfo_Map_fog);
 	clientstuff = strzone(MapInfo_Map_clientstuff);
 	MapInfo_ClearTemps();
 
@@ -212,7 +222,7 @@ void InitGameplayMode()
 		gamemode_name = "Capture the Flag";
 		ActivateTeamplay();
 		g_ctf_win_mode = cvar("g_ctf_win_mode");
-		if(g_ctf_win_mode == 2)
+		if(g_ctf_win_mode >= 2)
 			fraglimit_override = cvar("g_ctf_capture_limit");
 		else
 			fraglimit_override = cvar("capturelimit_override");
@@ -273,7 +283,6 @@ void InitGameplayMode()
 		game = GAME_ONSLAUGHT;
 		gamemode_name = "Onslaught";
 		ActivateTeamplay();
-		entcs_init();
 	}
 
 	if(g_race)
@@ -305,6 +314,9 @@ void InitGameplayMode()
 
 		ScoreRules_race();
 	}
+
+	if(teams_matter)
+		entcs_init();
 
 	// save it (for the next startup)
 	cvar_set("gamecfg", ftos(game));
@@ -377,10 +389,15 @@ void PrintWelcomeMessage(entity pl)
 		else if (timeoutStatus != 0)
 			specString = strcat(specString, "\n\n", getTimeoutText(1));
 		else
-			return;
+		{
+			if(!self.BUTTON_INFO && self.classname == "player")
+				return;
+			goto normal;
+		}
 		return centerprint_atprio(self, CENTERPRIO_SPAM, specString);
 	}
 
+:normal
 	if(g_minstagib)
 		mutator = "^2Minstagib ^1";
 	else if(g_rocketarena)
@@ -388,12 +405,24 @@ void PrintWelcomeMessage(entity pl)
 	else if(g_nixnex)
 		mutator = "^2No Items Nexuiz ^1";
 
-	if(g_midair) {
+	if(g_cloaked) {
 		// to protect against unheedingly made changes
 		if (modifications) {
 			modifications = strcat(modifications, ", ");
 		}
-		modifications = "midair";
+		modifications = "cloaked";
+	}
+	if(g_footsteps) {
+		if (modifications) {
+			modifications = strcat(modifications, ", ");
+		}
+		modifications = strcat(modifications, "footsteps");
+	}
+	if(g_midair) {
+		if (modifications) {
+			modifications = strcat(modifications, ", ");
+		}
+		modifications = strcat(modifications, "midair");
 	}
 	if(g_vampire) {
 		if (modifications) {
@@ -405,7 +434,13 @@ void PrintWelcomeMessage(entity pl)
 		if (modifications) {
 			modifications = strcat(modifications, ", ");
 		}
-		modifications = strcat(modifications, "laser-guided-missiles");
+		modifications = strcat(modifications, "laser guided missiles");
+	}
+	if(cvar("sv_gravity") < 800) {
+		if (modifications) {
+			modifications = strcat(modifications, ", ");
+		}
+		modifications = strcat(modifications, "low gravity");
 	}
 
 	local string versionmessage;
@@ -424,7 +459,7 @@ void PrintWelcomeMessage(entity pl)
 		s = strcat(s, "\n\n", getTimeoutText(1));
 
 	if (g_grappling_hook)
-		s = strcat(s, "\n\n^8grappling hook is enabled, press 'e' to use it\n");
+		s = strcat(s, "\n\n^3grappling hook^8 is enabled, press 'e' to use it\n");
 
 	if(cache_lastmutatormsg != cvar_string("g_mutatormsg"))
 	{

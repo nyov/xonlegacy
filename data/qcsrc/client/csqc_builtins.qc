@@ -39,7 +39,8 @@ float (string s)							cvar = #45;
 void (string s, ...)							localcmd = #46;
 entity (entity e)							nextent = #47;
 
-vector (vector v, ...)							vectoangles = #51;
+vector (vector v)							vectoangles = #51;
+vector (vector v, vector w)							vectoangles2 = #51;
 
 void (string var, string val)						cvar_set = #72;
 
@@ -146,7 +147,7 @@ entity (.string fld, string match)					findchain = #402;
 entity (.float fld, float match)					findchainflags = #450;
 entity (.entity fld, entity match)					findchainentity = #403;
 entity (.float fld, float match)					findchainfloat = #403;
-entity (entity start, .entity fld, float match)				findflags = #449;
+entity (entity start, .float fld, float match)				findflags = #449;
 
 float (string pattern, float caseinsensitive, float quiet)		search_begin = #444;
 void (float handle)							search_end = #445;
@@ -268,3 +269,6 @@ float(float caseinsensitive, string s, ...) crc16 = #494;
 string(string info, string key) infoget = #227;
 string(string info, string key, string value, ...) infoadd = #226;
 string(string in) uri_escape = #510;
+
+string	keynumtostring(float keynum) = #520;
+string	findkeysforcommand(string command) = #521;
