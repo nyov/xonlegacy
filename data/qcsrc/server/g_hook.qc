@@ -68,6 +68,11 @@ void UnsetMovetypeFollow(entity ent)
 }
 float LostMovetypeFollow(entity ent)
 {
+/*
+	if(ent.movetype != MOVETYPE_FOLLOW)
+		if(ent.aiment)
+			error("???");
+*/
 	if(ent.aiment)
 	{
 		if(ent.aiment.classname != ent.aiment_classname)
@@ -274,11 +279,12 @@ void GrapplingHookTouch (void)
 		}
 	}
 
+	GrapplingHook_Stop();
+
 	if(other)
 		if(other.movetype != MOVETYPE_NONE)
 			SetMovetypeFollow(self, other);
 
-	GrapplingHook_Stop();
 	//self.owner.disableclientprediction = TRUE;
 }
 
@@ -304,7 +310,7 @@ void FireGrapplingHook (void)
 	local entity missile;
 	local vector org;
 
-	if((arena_roundbased && time < warmup) || (time < restart_countdown))
+	if((arena_roundbased && time < warmup) || (time < game_starttime))
 		return;
 
 	makevectors(self.v_angle);

@@ -17,6 +17,7 @@ float waypointsprite_minscale;
 float waypointsprite_minalpha;
 float waypointsprite_distancealphaexponent;
 float waypointsprite_timealphaexponent;
+float waypointsprite_scale;
 
 .float rule;
 .string netname; // primary picture
@@ -44,6 +45,7 @@ void drawrotpic(vector org, float rot, string pic, vector sz, vector hotspot, ve
 	v4 = hotspot                  + '0 1 0' * sz_y;
 
 	// rotate them, and make them absolute
+	rot = -rot; // rotate by the opposite angle, as our coordinate system is reversed
 	v1 = rotate(v1, rot) + org;
 	v2 = rotate(v2, rot) + org;
 	v3 = rotate(v3, rot) + org;
@@ -88,7 +90,15 @@ void Draw_WaypointSprite()
 	switch(self.rule)
 	{
 		case SPRITERULE_DEFAULT:
-			spriteimage = self.netname;
+			if(self.team)
+			{
+				if(self.team == t)
+					spriteimage = self.netname;
+				else
+					spriteimage = "";
+			}
+			else
+				spriteimage = self.netname;
 			break;
 		case SPRITERULE_TEAMPLAY:
 			if(self.team == t)
@@ -140,13 +150,13 @@ void Draw_WaypointSprite()
 			{
 				// RIGHT edge
 				d = d * (0.5 / f1);
-				rot = 1;
+				rot = 3;
 			}
 			else
 			{
 				// LEFT edge
 				d = d * (-0.5 / f1);
-				rot = 3;
+				rot = 1;
 			}
 		}
 		else
@@ -169,7 +179,9 @@ void Draw_WaypointSprite()
 	}
 	o_z = 0;
 
-	drawrotpic(o, rot * 90 * DEG2RAD, strcat("models/sprites/", spriteimage), SPRITE_SIZE, SPRITE_HOTSPOT, '1 1 1', a, 0);
+	float vidscale;
+	vidscale = max(vid_conwidth / vid_width, vid_conheight / vid_height);
+	drawrotpic(o, rot * 90 * DEG2RAD, strcat("models/sprites/", spriteimage), SPRITE_SIZE * waypointsprite_scale * vidscale, SPRITE_HOTSPOT * waypointsprite_scale * vidscale, '1 1 1', a, 0);
 }
 
 void Ent_WaypointSprite()
@@ -245,7 +257,7 @@ void Ent_RemoveWaypointSprite()
 		strunzone(self.netname3);
 }
 
-void WaypointSprite_Init()
+void WaypointSprite_Load()
 {
 	waypointsprite_fadedistance = vlen(world.maxs - world.mins);
 	waypointsprite_normdistance = cvar("g_waypointsprite_normdistance");
@@ -253,4 +265,7 @@ void WaypointSprite_Init()
 	waypointsprite_minalpha = cvar("g_waypointsprite_minalpha");
 	waypointsprite_distancealphaexponent = cvar("g_waypointsprite_distancealphaexponent");
 	waypointsprite_timealphaexponent = cvar("g_waypointsprite_timealphaexponent");
+	waypointsprite_scale = cvar("g_waypointsprite_scale");
+	if(!waypointsprite_scale)
+		waypointsprite_scale = 1.0;
 }

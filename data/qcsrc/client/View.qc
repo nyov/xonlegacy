@@ -189,6 +189,7 @@ void CSQC_UpdateView(void)
 	entity e;
 	float fov;
 	dprint_load();
+	WaypointSprite_Load();
 
 	// Render the Scene
 	view_origin = pmove_org + '0 0 1' * getstati(STAT_VIEWHEIGHT);
@@ -272,8 +273,7 @@ void CSQC_UpdateView(void)
 	R_SetView(VF_DRAWCROSSHAIR, !scoreboard_active);
 	
 	// Draw the Engine Status Bar (the default Quake HUD)
-	draw_enginesbar = !cvar("sbar_usecsqc");
-	R_SetView(VF_DRAWENGINESBAR, draw_enginesbar);
+	R_SetView(VF_DRAWENGINESBAR, 0);
 
 	// Set the console size vars
 	vid_conwidth = cvar("vid_conwidth");
@@ -299,6 +299,11 @@ void CSQC_UpdateView(void)
 	self = e;
 	R_RenderScene();
 
+	// now switch to 2D drawing mode by calling a 2D drawing function
+	// then polygon drawing will draw as 2D stuff, and NOT get queued until the
+	// next R_RenderScene call
+	drawstring('0 0 0', "", '1 1 0', '1 1 1', 0, 0);
+
 	// Draw the mouse cursor
 	// NOTE: drawpic must happen after R_RenderScene for some reason
 	//drawpic(getmousepos(), "gfx/cursor.tga", '11 14 0', '1 1 1', 1, 0);
@@ -314,19 +319,15 @@ void CSQC_UpdateView(void)
 	{
 		ctf_view();
 	} else */
-	if(!draw_enginesbar)
-	{
-		if(cvar("r_letterbox") == 0)
-		if(cvar("viewsize") < 120)
-			CSQC_common_hud();
-	}
 
+	// draw 2D entities
 	e = self;
 	for(self = world; (self = nextent(self)); )
 		if(self.draw2d)
 			self.draw2d();
 	self = e;
 	
+	// draw radar
 	if(gametype == GAME_ONSLAUGHT)
 	{
 		if(cvar("cl_teamradar") >= 2)
@@ -347,6 +348,11 @@ void CSQC_UpdateView(void)
 			if(!scoreboard_active)
 				teamradar_view();
 	}
+
+	// draw sbar
+	if(cvar("r_letterbox") == 0)
+	if(cvar("viewsize") < 120)
+		CSQC_common_hud();
 }
 
 void Sbar_Draw();

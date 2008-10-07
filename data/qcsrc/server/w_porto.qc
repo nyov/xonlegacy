@@ -1,4 +1,3 @@
-.float portal_id;
 .entity porto_current;
 .vector porto_v_angle; // holds "held" view angles
 .float porto_v_angle_held;
@@ -29,7 +28,7 @@ void W_Porto_Fail (float failhard)
 	Portal_ClearWithID(self.owner, self.portal_id);
 	self.owner.porto_current = world;
 
-	if(!failhard && !(self.owner.weapons & WEPBIT_PORTO))
+	if(!failhard && self.owner.playerid == self.playerid && self.owner.deadflag == DEAD_NO && !(self.owner.weapons & WEPBIT_PORTO))
 	{
 		setsize (self, '-16 -16 0', '16 16 32');
 		setorigin(self, self.origin + trace_plane_normal);
@@ -46,6 +45,18 @@ void W_Porto_Fail (float failhard)
 		}
 	}
 	remove(self);
+}
+
+void W_Porto_Remove (entity p)
+{
+	if(p.porto_current)
+	{
+		entity oldself;
+		oldself = self;
+		self = p.porto_current;
+		W_Porto_Fail(1);
+		self = oldself;
+	}
 }
 
 void W_Porto_Think (void)
@@ -113,12 +124,20 @@ void W_Porto_Touch (void)
 	}
 	else
 	{
-		if(Portal_SpawnOutPortalAtTrace(self.owner, self.right_vector, self.portal_id))
+		if(self.owner.portal_in.portal_id == self.portal_id)
 		{
-			sound(self, CHAN_PROJECTILE, "porto/create.ogg", VOL_BASE, ATTN_NORM);
-			trace_plane_normal = norm;
-			centerprint(self.owner, "^4Out^7-portal created.\n");
-			W_Porto_Success();
+			if(Portal_SpawnOutPortalAtTrace(self.owner, self.right_vector, self.portal_id))
+			{
+				sound(self, CHAN_PROJECTILE, "porto/create.ogg", VOL_BASE, ATTN_NORM);
+				trace_plane_normal = norm;
+				centerprint(self.owner, "^4Out^7-portal created.\n");
+				W_Porto_Success();
+			}
+			else
+			{
+				sound(self, CHAN_PROJECTILE, "porto/unsupported.ogg", VOL_BASE, ATTN_NORM);
+				W_Porto_Fail(0);
+			}
 		}
 		else
 		{
@@ -141,6 +160,7 @@ void W_Porto_Attack (void)
 
 	gren = spawn ();
 	gren.owner = self;
+	gren.playerid = self.playerid;
 	gren.classname = "porto";
 	gren.bot_dodge = TRUE;
 	gren.bot_dodgerating = 200;

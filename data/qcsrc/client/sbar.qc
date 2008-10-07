@@ -1078,11 +1078,12 @@ void Sbar_Score(float margin)
 		}
 	}
 	timelimit = getstatf(STAT_TIMELIMIT);
-	if(timelimit)
+	if(timelimit > 0)
 	{
-		timeleft = max(0, timelimit * 60 - time);
+		timeleft = max(0, timelimit * 60 + getstatf(STAT_GAMESTARTTIME) - time);
+		timeleft = ceil(timeleft);
 		minutes = floor(timeleft / 60);
-		seconds = floor(timeleft - minutes*60);
+		seconds = timeleft - minutes*60;
 		if(minutes >= 5)
 		{
 			Sbar_DrawXNum('-72 32 0', minutes, 3, 12, '1 1 1', 1, DRAWFLAG_NORMAL);
@@ -1362,7 +1363,7 @@ void Sbar_Draw (void)
 		if(spectatee_status == -1)
 			s = strcat("^1Use ^3", getcommandkey("next weapon", "weapnext"), "^1 or ^3", getcommandkey("previous weapon", "weapprev"), "^1 to change the speed");
 		else
-			s = strcat("^1Press ^3", getcommandkey("secondary fire", "+altattack"), getcommandkey("", "weapprev"), "^1 to observe");
+			s = strcat("^1Press ^3", getcommandkey("secondary fire", "+attack2"), "^1 to observe");
 		o = Sbar_DrawNoteLine(o, s);
 
 		if(gametype == GAME_ARENA)
