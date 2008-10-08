@@ -150,7 +150,6 @@ void teleport_findtarget (void)
 	if (!self.enemy)
 	{
 		objerror ("Teleporter with nonexistant target");
-		remove(self);
 		return;
 	}
 
@@ -168,5 +167,8 @@ void spawnfunc_trigger_teleport (void)
 	InitializeEntity(self, teleport_findtarget, INITPRIO_FINDTARGET);
 
 	if (!self.target)
+	{
 		objerror ("Teleporter with no target");
+		return;
+	}
 }
