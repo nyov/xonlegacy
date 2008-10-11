@@ -13,7 +13,7 @@ void	objerror_builtin (string e)								= #11; // do not call, use objerror wrap
 float	vlen (vector v)									= #12;
 float	vectoyaw (vector v)								= #13;
 entity	spawn (void)									= #14;
-void	remove (entity e)								= #15;
+void	remove_builtin (entity e)								= #15;
 void	traceline (vector v1, vector v2, float nomonst, entity forent)			= #16;
 entity	checkclient (void)								= #17;
 entity	find (entity start, .string fld, string match)					= #18;
@@ -32,7 +32,7 @@ void	traceoff (void)									= #30;
 void	eprint (entity e)								= #31;
 float	walkmove (float yaw, float dist)						= #32;
 
-float	droptofloor ()						= #34;
+float	droptofloor_builtin ()						= #34;
 void	lightstyle (float style, string value)						= #35;
 float	rint (float v)									= #36;
 float	floor (float v)									= #37;

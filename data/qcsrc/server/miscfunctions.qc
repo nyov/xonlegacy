@@ -1,4 +1,7 @@
+var void remove(entity e);
 void objerror(string s);
+void droptofloor();
+.vector dropped_origin;
 
 void() spawnfunc_info_player_deathmatch; // needed for the other spawnpoints
 void() spawnpoint_use;
@@ -960,14 +963,16 @@ void play2(entity e, string filename)
 }
 
 .float announcetime;
-void announce(entity player, string msg)
+float announce(entity player, string msg)
 {
 	if(time > player.announcetime)
 	if(clienttype(player) == CLIENTTYPE_REAL)
 	{
 		player.announcetime = time + 0.3;
 		play2(player, msg);
+		return TRUE;
 	}
+	return FALSE;
 }
 
 void play2team(float t, string filename)
@@ -1092,7 +1097,9 @@ void precache()
 	precache_sound ("announcer/male/25kills.wav");
 	precache_sound ("announcer/male/30kills.wav");
 	precache_sound ("announcer/male/botlike.wav");
-	precache_sound ("announcer/male/yoda.wav");
+	precache_sound ("announcer/male/yoda.ogg");
+	precache_sound ("announcer/male/headshot.ogg");
+	precache_sound ("announcer/male/impressive.ogg");
 
 	// announcer sounds - robotic
 	precache_sound ("announcer/robotic/prepareforbattle.wav");
@@ -1212,6 +1219,7 @@ float ExactTriggerHit()
 #define INITPRIO_GAMETYPE_FALLBACK  1
 #define INITPRIO_CVARS              5
 #define INITPRIO_FINDTARGET        10
+#define INITPRIO_DROPTOFLOOR       20
 #define INITPRIO_SETLOCATION       90
 #define INITPRIO_LINKDOORS         91
 #define INITPRIO_LAST              99
@@ -1256,6 +1264,12 @@ void objerror(string s)
 {
 	make_safe_for_remove(self);
 	objerror_builtin(s);
+}
+
+void remove_safely(entity e)
+{
+	make_safe_for_remove(e);
+	remove_builtin(e);
 }
 
 void InitializeEntity(entity e, void(void) func, float order)
@@ -1307,7 +1321,7 @@ void InitializeEntitiesRun()
 		{
 			entity e_old;
 			e_old = self.enemy;
-			remove(self);
+			remove_builtin(self);
 			self = e_old;
 		}
 		dprint("Delayed initialization: ", self.classname, "\n");
@@ -1518,3 +1532,86 @@ void Net_LinkEntity(entity e)
 	e.effects = EF_NODEPTHTEST | EF_LOWPRECISION;
 }
 
+void adaptor_think2touch()
+{
+	entity o;
+	o = other;
+	other = world;
+	self.touch();
+	other = o;
+}
+
+void adaptor_think2use()
+{
+	entity o, a;
+	o = other;
+	a = activator;
+	activator = world;
+	other = world;
+	self.use();
+	other = o;
+	activator = a;
+}
+
+// deferred dropping
+void DropToFloor_Handler()
+{
+	droptofloor_builtin();
+	self.dropped_origin = self.origin;
+}
+
+void droptofloor()
+{
+	InitializeEntity(self, DropToFloor_Handler, INITPRIO_DROPTOFLOOR);
+}
+
+
+
+float trace_hits_box_a0, trace_hits_box_a1;
+
+float trace_hits_box_1d(float end, float thmi, float thma)
+{
+	if(end == 0)
+	{
+		// just check if x is in range
+		if(0 < thmi)
+			return FALSE;
+		if(0 > thma)
+			return FALSE;
+	}
+	else
+	{
+		// do the trace with respect to x
+		// 0 -> end has to stay in thmi -> thma
+		trace_hits_box_a0 = max(trace_hits_box_a0, min(thmi / end, thma / end));
+		trace_hits_box_a1 = min(trace_hits_box_a1, max(thmi / end, thma / end));
+		if(trace_hits_box_a0 > trace_hits_box_a1)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+float trace_hits_box(vector start, vector end, vector thmi, vector thma)
+{
+	end -= start;
+	thmi -= start;
+	thma -= start;
+	// now it is a trace from 0 to end
+
+	trace_hits_box_a0 = 0;
+	trace_hits_box_a1 = 1;
+
+	if(!trace_hits_box_1d(end_x, thmi_x, thma_x))
+		return FALSE;
+	if(!trace_hits_box_1d(end_y, thmi_y, thma_y))
+		return FALSE;
+	if(!trace_hits_box_1d(end_z, thmi_z, thma_z))
+		return FALSE;
+
+	return TRUE;
+}
+
+float tracebox_hits_box(vector start, vector mi, vector ma, vector end, vector thmi, vector thma)
+{
+	return trace_hits_box(start, end, thmi - ma, thma - mi);
+}

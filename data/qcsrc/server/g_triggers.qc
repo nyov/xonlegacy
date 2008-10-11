@@ -402,7 +402,9 @@ void spawnfunc_trigger_hurt()
 	if (!self.dmg)
 		self.dmg = 1000;
 	if (!self.message)
-		self.message = "was in the wrong place.";
+		self.message = "was in the wrong place";
+	if (!self.message2)
+		self.message2 = "was thrown into a world of hurt by";
 
 	if(!trigger_hurt_first)
 		trigger_hurt_first = self;
@@ -410,55 +412,6 @@ void spawnfunc_trigger_hurt()
 		trigger_hurt_last.trigger_hurt_next = self;
 	trigger_hurt_last = self;
 };
-
-float trace_hits_box_a0, trace_hits_box_a1;
-
-float trace_hits_box_1d(float end, float thmi, float thma)
-{
-	if(end == 0)
-	{
-		// just check if x is in range
-		if(0 < thmi)
-			return FALSE;
-		if(0 > thma)
-			return FALSE;
-	}
-	else
-	{
-		// do the trace with respect to x
-		// 0 -> end has to stay in thmi -> thma
-		trace_hits_box_a0 = max(trace_hits_box_a0, min(thmi / end, thma / end));
-		trace_hits_box_a1 = min(trace_hits_box_a1, max(thmi / end, thma / end));
-		if(trace_hits_box_a0 > trace_hits_box_a1)
-			return FALSE;
-	}
-	return TRUE;
-}
-
-float trace_hits_box(vector start, vector end, vector thmi, vector thma)
-{
-	end -= start;
-	thmi -= start;
-	thma -= start;
-	// now it is a trace from 0 to end
-
-	trace_hits_box_a0 = 0;
-	trace_hits_box_a1 = 1;
-
-	if(!trace_hits_box_1d(end_x, thmi_x, thma_x))
-		return FALSE;
-	if(!trace_hits_box_1d(end_y, thmi_y, thma_y))
-		return FALSE;
-	if(!trace_hits_box_1d(end_z, thmi_z, thma_z))
-		return FALSE;
-
-	return TRUE;
-}
-
-float tracebox_hits_box(vector start, vector mi, vector ma, vector end, vector thmi, vector thma)
-{
-	return trace_hits_box(start, end, thmi - ma, thma - mi);
-}
 
 float tracebox_hits_trigger_hurt(vector start, vector mi, vector ma, vector end)
 {
@@ -923,6 +876,8 @@ void spawnfunc_misc_laser()
 			self.colormod = '1 0 0';
 	if(!self.message)
 		self.message = "saw the light";
+	if (!self.message2)
+		self.message2 = "was pushed into a laser by";
 	self.think = misc_laser_think;
 	self.nextthink = time;
 	InitializeEntity(self, misc_laser_init, INITPRIO_FINDTARGET);

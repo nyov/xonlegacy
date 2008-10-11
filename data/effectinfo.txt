@@ -1241,9 +1241,53 @@ airfriction 12
 
 
 
-// grenade/hagar trail
+// hagar trail
 // smoke
 effect TR_GRENADE
+trailspacing 6
+type alphastatic
+color 0x303030 0x000000
+tex 0 8
+size 1 2
+bounce 1
+sizeincrease 2
+alpha 100 200 280
+originjitter 1 1 1
+velocityjitter 1 1 1
+velocitymultiplier -0.02
+//gravity -0.11
+// fire
+effect TR_GRENADE
+notunderwater
+trailspacing 2
+type static
+color 0xffdf72 0x811200
+tex 48 55
+size 1 2
+sizeincrease -15
+alpha 100 144 988
+airfriction 8
+velocityjitter 32 32 32
+velocitymultiplier -1.0
+// bubbles
+effect TR_GRENADE
+underwater
+trailspacing 8
+type bubble
+tex 62 62
+color 0x404040 0x808080
+size 1 1
+alpha 256 256 256
+gravity -0.125
+bounce 1.5
+liquidfriction 4
+velocityjitter 16 16 16
+
+
+
+// mortar trail
+// smoke
+effect TR_KNIGHTSPIKE // used for MF_TRACER2
 notunderwater
 trailspacing 5
 type alphastatic
@@ -1258,7 +1302,7 @@ velocityjitter 3 3 3
 velocitymultiplier -0.02
 gravity -0.11
 //marker
-effect TR_GRENADE
+effect TR_KNIGHTSPIKE // used for MF_TRACER2
 type alphastatic
 color 0xFF0000 0xFF0000
 tex 62 62
@@ -1267,7 +1311,7 @@ sizeincrease -0.1
 trailspacing 1
 alpha 256 256 720
 // bubbles
-effect TR_GRENADE
+effect TR_KNIGHTSPIKE // used for MF_TRACER2
 underwater
 trailspacing 16
 type bubble
@@ -2045,15 +2089,15 @@ notunderwater
 count 28
 type smoke
 tex 48 55
-color 0x8f0d00 0xfffde4
+color 0xea691b 0xeed05a
 size 33 44
-sizeincrease 45
+sizeincrease 55
 alpha 200 256 612
-bounce 1.5
+bounce 2.5
 airfriction 19
 liquidfriction 19
 originjitter 8 8 8
-velocityjitter 812 812 812
+velocityjitter 912 912 912
 // smoke
 effect rocket_explode
 type alphastatic
@@ -2087,9 +2131,9 @@ notunderwater
 count 64
 type spark
 tex 40 40
-color 0x903010 0xFFD030
-size 2 2
-sizeincrease 5
+color 0xffa800 0xffedaf
+size 1 1
+sizeincrease 2
 alpha 44 256 384
 gravity 1
 airfriction -1
@@ -2097,7 +2141,7 @@ bounce 1.5
 liquidfriction 0.8
 velocityoffset 0 0 80
 originjitter 16 16 16
-velocityjitter 284 284 384
+velocityjitter 224 224 324
 
 
 

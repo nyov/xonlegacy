@@ -74,7 +74,7 @@ vector animparseline(float animfile)
 	if (animfile < 0)
 		return '0 1 2';
 	line = fgets(animfile);
-	c = tokenize(line);
+	c = tokenize_sane(line);
 	if (c != 3)
 	{
 		animparseerror = TRUE;
@@ -413,7 +413,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 					else
 						player_setanim(self.anim_pain2, FALSE, TRUE, TRUE);
 
-					if(deathtype != WEP_LASER || attacker != self || self.health < 2 * cvar("g_balance_laser_primary_damage") * cvar("g_balance_selfdamagepercent") + 1)
+					if(deathtype >= DEATH_SPECIAL_START || deathtype & DEATH_WEAPONMASK != WEP_LASER || attacker != self || self.health < 2 * cvar("g_balance_laser_primary_damage") * cvar("g_balance_selfdamagepercent") + 1)
 					// exclude pain sounds for laserjumps as long as you aren't REALLY low on health and would die of the next two
 					{
 						if(self.health > 75) // TODO make a "gentle" version?
@@ -496,7 +496,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		// throw a weapon
 		SpawnThrownWeapon (self.origin + (self.mins + self.maxs) * 0.5, self.switchweapon);
 		// print an obituary message
-		Obituary (attacker, self, deathtype);
+		Obituary (attacker, inflictor, self, deathtype);
 		race_PreDie();
 		DropAllRunes(self);
 		if(self == attacker)
@@ -802,7 +802,7 @@ float GetPlayerSoundSampleField_fixed;
 void PrecacheGlobalSound(string samplestring)
 {
 	float n, i;
-	tokenize(samplestring);
+	tokenize_sane(samplestring);
 	n = stof(argv(1));
 	if(n > 0)
 	{
@@ -824,7 +824,7 @@ void PrecachePlayerSounds(string f)
 		return;
 	while((s = fgets(fh)))
 	{
-		if(tokenize(s) != 3)
+		if(tokenize_sane(s) != 3)
 		{
 			dprint("Invalid sound info line: ", s, "\n");
 			continue;
@@ -868,7 +868,7 @@ void LoadPlayerSounds(string f, float first)
 		return;
 	while((s = fgets(fh)))
 	{
-		if(tokenize(s) != 3)
+		if(tokenize_sane(s) != 3)
 			continue;
 		field = GetPlayerSoundSampleField(argv(0));
 		if(GetPlayerSoundSampleField_notFound)
@@ -903,7 +903,7 @@ void GlobalSound(string sample, float chan, float teamsay)
 	if(sample == "")
 		return;
 
-	tokenize(sample);
+	tokenize_sane(sample);
 	n = stof(argv(1));
 	if(n > 0)
 		sample = strcat(argv(0), ftos(ceil(random() * n)), ".wav"); // randomization

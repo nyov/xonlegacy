@@ -168,7 +168,7 @@ void cvar_changes_init()
 		return;
 	while((s = fgets(fh)))
 	{
-		n = tokenize(s);
+		n = tokenize_sane(s);
 		if(n < 1)
 			continue;
 		if(argv(0) == "//")
@@ -207,6 +207,8 @@ void spawnfunc_worldspawn (void)
 	if(world_already_spawned)
 		error("world already spawned - you may have EXACTLY ONE worldspawn!");
 	world_already_spawned = TRUE;
+
+	remove = remove_safely; // during spawning, watch what you remove!
 
 	compressShortVector_init();
 
@@ -361,7 +363,7 @@ void spawnfunc_worldspawn (void)
 		{
 			while((s = fgets(fd)))
 			{
-				l = tokenize(s);
+				l = tokenize_sane(s);
 				if(l < 2)
 					continue;
 				if(argv(0) == "cd")
@@ -1620,7 +1622,7 @@ void CheckRules_World()
 		{
 			checkrules_overtimewarning = TRUE;
 			//announceall("announcer/robotic/1minuteremains.wav");
-			if(!g_race_qualifying)
+			if(g_race && !g_race_qualifying)
 				bcenterprint("^3Everyone, finish your lap! The race is over!");
 			else
 				bcenterprint("^3Now playing ^1OVERTIME^3!\n\n^3Keep fragging until we have a ^1winner^3!");

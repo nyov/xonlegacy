@@ -1,17 +1,36 @@
+.float minstanex_lasthit;
+
 void W_MinstaNex_Attack (void)
 {
 	float flying;
 	flying = IsFlying(self); // do this BEFORE to make the trace values from FireRailgunBullet last
 
-	W_SetupShot (self, '25 8 -4', TRUE, 5, "weapons/nexfire.wav");
+	W_SetupShot (self, '25 8 -4', TRUE, 5, "weapons/minstanexfire.wav");
 
 	yoda = 0;
+	damage_goodhits = 0;
+	headshot = 0;
 	FireRailgunBullet (w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, 10000, 800, WEP_MINSTANEX);
 
-	if(!g_minstagib)
-	if(yoda)
-	if(flying)
-		announce(self, "announcer/male/yoda.ogg");
+	if(g_minstagib)
+	{
+		if(yoda)
+			announce(self, "announcer/male/yoda.ogg");
+	}
+	else
+	{
+		if(yoda && flying)
+			announce(self, "announcer/male/yoda.ogg");
+		if(headshot)
+			announce(self, "announcer/male/headshot.ogg");
+		if(damage_goodhits && self.minstanex_lasthit)
+		{
+			if(announce(self, "announcer/male/impressive.ogg"))
+				damage_goodhits = 0; // only every second time
+		}
+	}
+
+	self.minstanex_lasthit = damage_goodhits;
 
 	pointparticles(particleeffectnum("nex_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -142,12 +161,15 @@ float w_minstanex(float req)
 		precache_model ("models/weapons/g_minstanex.md3");
 		precache_model ("models/weapons/v_minstanex.md3");
 		precache_model ("models/weapons/w_minstanex.zym");
-		precache_sound ("weapons/nexfire.wav");
+		precache_sound ("weapons/minstanexfire.wav");
 		precache_sound ("weapons/neximpact.wav");
 		w_laser(WR_PRECACHE);
 	}
 	else if (req == WR_SETUP)
+	{
 		weapon_setup(WEP_MINSTANEX);
+		self.minstanex_lasthit = 0;
+	}
 	else if (req == WR_CHECKAMMO1)
 	{
 		if (g_minstagib)

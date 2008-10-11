@@ -920,13 +920,26 @@ void Sbar_DrawScoreboard()
 		{
 			if(tl > 0)
 				str = strcat(str, " or");
-			str = strcat(str, " until ^3", ScoreString(scores_flags[ps_primary], fl));
-			if(scores_label[ps_primary] == "score")
-				str = strcat(str, " points^7");
-			else if(scores_label[ps_primary] == "fastest")
-				str = strcat(str, " is beaten^7");
+			if(teamplay)
+			{
+				str = strcat(str, " until ^3", ScoreString(teamscores_flags[ts_primary], fl));
+				if(teamscores_label[ts_primary] == "score")
+					str = strcat(str, " points^7");
+				else if(teamscores_label[ts_primary] == "fastest")
+					str = strcat(str, " is beaten^7");
+				else
+					str = strcat(str, " ", teamscores_label[ts_primary]);
+			}
 			else
-				str = strcat(str, " ", scores_label[ps_primary]);
+			{
+				str = strcat(str, " until ^3", ScoreString(scores_flags[ps_primary], fl));
+				if(scores_label[ps_primary] == "score")
+					str = strcat(str, " points^7");
+				else if(scores_label[ps_primary] == "fastest")
+					str = strcat(str, " is beaten^7");
+				else
+					str = strcat(str, " ", scores_label[ps_primary]);
+			}
 		}
 	}
 	
@@ -1383,15 +1396,26 @@ void Sbar_Draw (void)
 			s = strcat("^1Press ^3", getcommandkey("jump", "+jump"), "^1 to join");
 		o = Sbar_DrawNoteLine(o, s);
 	}
+
+	string blinkcolor;
+	if(mod(time, 1) >= 0.5)
+		blinkcolor = "^1";
+	else
+		blinkcolor = "^3";
 		
+	if(warmup_stage)
+	{
+		s = "^2Currently in ^1warmup^2 stage!";
+		o = Sbar_DrawNoteLine(o, s);
+	}
 	if(ready_waiting)
 	{
 		if(ready_waiting_for_me)
 		{
 			if(warmup_stage) 
-				s = strcat("^2Press ^3", getcommandkey("ready", "ready"), "^2 to end warmup");
+				s = strcat(blinkcolor, "Press ^3", getcommandkey("ready", "ready"), blinkcolor, " to end warmup");
 			else
-				s = strcat("^2Press ^3", getcommandkey("ready", "ready"), "^2 once you are ready");
+				s = strcat(blinkcolor, "Press ^3", getcommandkey("ready", "ready"), blinkcolor, " once you are ready");
 		}
 		else
 		{
@@ -1402,6 +1426,11 @@ void Sbar_Draw (void)
 		}
 		o = Sbar_DrawNoteLine(o, s);
 	}
+	else if(warmup_stage) 
+	{
+		s = strcat("^2Press ^3", getcommandkey("ready", "ready"), "^2 to end warmup");
+		o = Sbar_DrawNoteLine(o, s);
+	}
 	if(vote_waiting)
 	{
 		s = strcat("^2A vote has been called for ^1", vote_called_vote);
@@ -1409,13 +1438,13 @@ void Sbar_Draw (void)
 
 		if(vote_waiting_for_me)
 		{
-			s = strcat("^2Press ^3", getcommandkey("vote yes", "vyes"), "^2 to accept");
+			s = strcat(blinkcolor, "Press ^3", getcommandkey("vote yes", "vyes"), blinkcolor, " to accept");
 			o = Sbar_DrawNoteLine(o, s);
 
-			s = strcat("^2Press ^3", getcommandkey("vote no", "vno"), "^2 to reject");
+			s = strcat(blinkcolor, "Press ^3", getcommandkey("vote no", "vno"), blinkcolor, " to reject");
 			o = Sbar_DrawNoteLine(o, s);
 
-			s = strcat("^2Press ^3", getcommandkey("vote abstain", "vabstain"), "^2 to abstain");
+			s = strcat(blinkcolor, "Press ^3", getcommandkey("vote abstain", "vabstain"), blinkcolor, " to abstain");
 			o = Sbar_DrawNoteLine(o, s);
 		}
 		else

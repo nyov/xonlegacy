@@ -1,7 +1,10 @@
-
 float checkrules_firstblood;
 
 float yoda;
+float damage_goodhits;
+float damage_gooddamage;
+float headshot;
+
 
 float IsDifferentTeam(entity a, entity b)
 {
@@ -93,7 +96,7 @@ void GiveFrags (entity attacker, entity targ, float f)
 	}
 	else if(g_ctf)
 	{
-		if(g_ctf_win_mode == 3)
+		if(g_ctf_ignore_frags)
 			f = 0;
 	}
 
@@ -146,7 +149,7 @@ void LogDeath(string mode, float deathtype, entity killer, entity killed)
 	GameLogEcho(s);
 }
 
-void Obituary (entity attacker, entity targ, float deathtype)
+void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 {
 	string	s, a;
 	float p;
@@ -209,10 +212,11 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				if (targ.killcount > 2)
 					bprint ("^1",s,"^1 ended it all with a ",ftos(targ.killcount)," scoring spree\n");
 			} else {
-				if(deathtype >= WEP_FIRST && deathtype <= WEP_LAST)
+				if(deathtype < DEATH_SPECIAL_START && deathtype & DEATH_WEAPONMASK >= WEP_FIRST && deathtype & DEATH_WEAPONMASK <= WEP_LAST)
 				{
 					w_deathtypestring = "couldn't resist the urge to self-destruct";
-					weapon_action(deathtype, WR_SUICIDEMESSAGE);
+					w_deathtype = deathtype;
+					weapon_action(deathtype & DEATH_WEAPONMASK, WR_SUICIDEMESSAGE);
 					bprint("^1", s, "^1 ", w_deathtypestring, "\n");
 				}
 				else if (deathtype == DEATH_KILL)
@@ -289,10 +293,11 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				if(sv_gentle) {
 					bprint ("^1",s, "^1 needs a restart thanks to ", a, "\n");
 				} else {
-					if(deathtype >= WEP_FIRST && deathtype <= WEP_LAST)
+					if(deathtype < DEATH_SPECIAL_START && deathtype & DEATH_WEAPONMASK >= WEP_FIRST && deathtype & DEATH_WEAPONMASK <= WEP_LAST)
 					{
 						w_deathtypestring = "was blasted by";
-						weapon_action(deathtype, WR_KILLMESSAGE);
+						w_deathtype = deathtype;
+						weapon_action(deathtype & DEATH_WEAPONMASK, WR_KILLMESSAGE);
 						p = strstrofs(w_deathtypestring, "#", 0);
 						if(p < 0)
 							bprint("^1", s, "^1 ", w_deathtypestring, " ", a, "\n");
@@ -313,8 +318,14 @@ void Obituary (entity attacker, entity targ, float deathtype)
 						bprint ("^1",s, "^1 was shot into space by ", a, "\n");
 					else if (deathtype == DEATH_SWAMP)
 						bprint ("^1",s, "^1 was conserved by ", a, "\n");
-					else if (deathtype == DEATH_HURTTRIGGER)
-						bprint ("^1",s, "^1 was thrown into a world of hurt by ", a, "\n");
+					else if (deathtype == DEATH_HURTTRIGGER && attacker.message2 != "")
+					{
+						p = strstrofs(inflictor.message2, "#", 0);
+						if(p < 0)
+							bprint("^1", s, "^1 ", inflictor.message2, " ", a, "\n");
+						else
+							bprint("^1", s, "^1 ", substring(inflictor.message2, 0, p), a, "^1", substring(inflictor.message2, p+1, strlen(inflictor.message2) - (p+1)), "\n");
+					}
                     else if(deathtype == DEATH_TURRET)
                         bprint ("^1",s, "^1 was pushed into the line of fire by ^1", a, "\n");
 					else
@@ -322,10 +333,9 @@ void Obituary (entity attacker, entity targ, float deathtype)
 				}
 				if(g_ctf && targ.flagcarried)
 				{
-					//GiveFrags(attacker, targ, cvar("g_ctf_flagscore_kill"));
-					UpdateFrags(attacker, cvar("g_ctf_flagscore_kill"));
+					UpdateFrags(attacker, ctf_score_value("score_kill"));
 					PlayerScore_Add(attacker, SP_CTF_FCKILLS, 1);
-					GiveFrags(attacker, targ, 0);
+					GiveFrags(attacker, targ, 0); // for logging
 				}
 				else
 					GiveFrags(attacker, targ, 1);
@@ -562,13 +572,6 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 			attacker.lms_traveled_distance = cvar("g_lms_campcheck_distance");
 		}
 
-		if(targ != attacker)
-		if(!targ.deadflag)
-		if(damage > 0)
-		if(targ.classname == "player")
-		if(attacker)
-			attacker.hitsound += 1;
-
 		if (g_minstagib)
 		{
 			if ((deathtype == DEATH_FALL)  ||
@@ -586,12 +589,6 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				damage = 0;
 				targ.hitsound += 1;
 			}
-			else if (deathtype == WEP_MINSTANEX && targ.items & IT_STRENGTH)
-			{
-				if(clienttype(attacker) == CLIENTTYPE_REAL)
-					if(IsDifferentTeam(targ, attacker))
-						yoda = 1;
-			}
 			if (deathtype == WEP_LASER)
 			{
 				damage = 0;
@@ -606,12 +603,6 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 					attacker = targ;
 				}
 			}
-		} else {
-			if (!targ.deadflag)
-				if(targ.takedamage == DAMAGE_AIM)
-					if(IsFlying(targ))
-						if(IsDifferentTeam(targ, attacker))
-							yoda = 1;
 		}
 
 		// apply strength multiplier
@@ -677,6 +668,37 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 			}
 			else if (targ.runes & CURSE_VULNER)
 				damage = damage * cvar("g_balance_curse_vulner_takedamage");
+		}
+
+		// count the damage
+		if(attacker)
+		if(targ.classname == "player")
+		if(IsDifferentTeam(targ, attacker))
+		if(!targ.deadflag)
+		if(targ.takedamage == DAMAGE_AIM)
+		if(damage > 0)
+		{
+			attacker.hitsound += 1;
+
+			damage_goodhits += 1;
+			damage_gooddamage += damage;
+
+			if(!g_minstagib)
+			if(IsFlying(targ))
+				yoda = 1;
+
+			if(g_minstagib)
+			if(targ.items & IT_STRENGTH)
+				yoda = 1;
+
+			// HEAD SHOT:
+			// find height of hit on player axis
+			// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
+			vector headmins, headmaxs;
+			headmins = targ.origin + '0.5 0 0' * targ.mins_x + '0 0.5 0' * targ.mins_y + '0 0 1' * targ.view_ofs_z;
+			headmaxs = targ.origin + '0.5 0 0' * targ.maxs_x + '0 0.5 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
+			if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
+				headshot = 1;
 		}
 	}
 
@@ -771,7 +793,7 @@ vector NearestPointOnBox(entity box, vector org)
 	return nearest;
 }
 
-float RadiusDamage (entity inflictor, entity attacker, float coredamage, float edgedamage, float rad, entity ignore, float forceintensity, float deathtype)
+float RadiusDamage (entity inflictor, entity attacker, float coredamage, float edgedamage, float rad, entity ignore, float forceintensity, float deathtype, entity directhitentity)
 // Returns total damage applies to creatures
 {
 	entity	targ;
@@ -829,7 +851,10 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 							{
 								if(targ.iscreature)
 									total_damage_to_creatures += finaldmg;
-								Damage (targ, inflictor, attacker, finaldmg, deathtype, nearest, force);
+								if(targ == directhitentity)
+									Damage (targ, inflictor, attacker, finaldmg, deathtype, nearest, force);
+								else
+									Damage (targ, inflictor, attacker, finaldmg, deathtype | HITTYPE_SPLASH, nearest, force);
 								break;
 							}
 							nearest_x = targ.mins_x + random() * targ.size_x;
