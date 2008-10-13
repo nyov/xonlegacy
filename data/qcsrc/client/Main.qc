@@ -194,33 +194,35 @@ float SetTeam(entity o, float Team)
 void Playerchecker_Think()
 {
 	float i;
+	entity e;
 	for(i = 0; i < maxclients; ++i)
 	{
+		e = playerslots[i];
 		if(getplayerkey(i, "name") == "")
 		{
-			if(playerslots[i].sort_prev)
+			if(e.sort_prev)
 			{
 				//print("playerchecker: KILL KILL KILL\n");
 				// player disconnected
-				SetTeam(playerslots[i], -1);
-				RemovePlayer(playerslots[i]);
-				playerslots[i].sort_prev = world;
-				playerslots[i].gotscores = 0;
+				SetTeam(e, -1);
+				RemovePlayer(e);
+				e.sort_prev = world;
+				//e.gotscores = 0;
 			}
 		}
 		else
 		{
-			if not(playerslots[i].sort_prev)
+			if not(e.sort_prev)
 			{
 				//print("playerchecker: SPAWN SPAWN SPAWN\n");
 				// player connected
-				if not(playerslots[i])
-					playerslots[i] = spawn();
-				playerslots[i].sv_entnum = i;
-				playerslots[i].gotscores = 0;
-				SetTeam(playerslots[i], COLOR_SPECTATOR);
-				RegisterPlayer(playerslots[i]);
-				Sbar_UpdatePlayerPos(playerslots[i]);
+				if not(e)
+					playerslots[i] = e = spawn();
+				e.sv_entnum = i;
+				//e.gotscores = 0; // we might already have the scores...
+				SetTeam(e, GetPlayerColor(i)); // will not hurt; later updates come with Sbar_UpdatePlayerTeams
+				RegisterPlayer(e);
+				Sbar_UpdatePlayerPos(e);
 			}
 		}
 	}
@@ -363,7 +365,7 @@ void Ent_RemoveEntCS()
 void Ent_Remove();
 void Ent_ReadPlayerScore()
 {
-	float i, Team, n;
+	float i, n;
 	float isNew;
 	entity o;
 
@@ -383,17 +385,16 @@ void Ent_ReadPlayerScore()
 #endif
 
 	self.sv_entnum = n;
-	Team = GetPlayerColor(self.sv_entnum);
 
 	if not(playerslots[self.sv_entnum])
 		playerslots[self.sv_entnum] = spawn();
 	o = self.owner = playerslots[self.sv_entnum];
 	o.sv_entnum = self.sv_entnum;
 	o.gotscores = 1;
-	if not(o.sort_prev)
-		RegisterPlayer(o);
 
-	SetTeam(o, Team);
+	//if not(o.sort_prev)
+	//	RegisterPlayer(o);
+	//playerchecker will do this for us later, if it has not already done so
 
 #if MAX_SCORE <= 3
 	for(i = 0; i < MAX_SCORE; ++i)
@@ -411,7 +412,8 @@ void Ent_ReadPlayerScore()
 			o.(scores[i]) = ReadShort();
 #endif
 
-	Sbar_UpdatePlayerPos(o);
+	if(o.sort_prev)
+		Sbar_UpdatePlayerPos(o); // if not registered, we cannot do this yet!
 }
 
 void Ent_ReadTeamScore()
@@ -500,6 +502,7 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 // with others, make sure it can no longer do so.
 void Ent_Remove()
 {
+	float i;
 	if(self.enttype == ENT_CLIENT_ENTCS)
 	{
 		Ent_RemoveEntCS();
@@ -508,9 +511,9 @@ void Ent_Remove()
 		if(self.owner)
 		{
 			SetTeam(self.owner, -1);
-			if(self.owner.sort_prev)
-				RemovePlayer(self.owner);
-			self.owner.sort_prev = NULL;
+			self.owner.gotscores = 0;
+			for(i = 0; i < MAX_SCORE; ++i)
+				self.owner.(scores[i]) = 0; // clear all scores
 		}
 	} else if(self.enttype == ENT_CLIENT_TEAMSCORES)
 	{
