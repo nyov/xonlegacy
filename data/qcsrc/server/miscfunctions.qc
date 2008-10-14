@@ -731,7 +731,7 @@ float warmup_start_armorvalue;
 
 entity get_weaponinfo(float w);
 
-void readplayerstartcvars() 
+void readplayerstartcvars()
 {
 	entity e;
 	float i;
@@ -1021,6 +1021,11 @@ void precache()
 		precache_model ("models/runematch/rune.mdl");
 	}
 
+#ifdef TTURRETS_ENABLED
+    if(cvar("g_turrets"))
+        turrets_precash();
+#endif
+
 	// Precache all player models if desired
 	if (cvar("sv_precacheplayermodels"))
 	{
@@ -1308,7 +1313,10 @@ void InitializeEntity(entity e, void(void) func, float order)
 }
 void InitializeEntitiesRun()
 {
-	for(self = initialize_entity_first; self; )
+	entity startoflist;
+	startoflist = initialize_entity_first;
+	initialize_entity_first = world;
+	for(self = startoflist; self; )
 	{
 		entity e;
 		var void(void) func;
@@ -1328,7 +1336,6 @@ void InitializeEntitiesRun()
 		func();
 		self = e;
 	}
-	initialize_entity_first = world;
 }
 
 .float uncustomizeentityforclient_set;
@@ -1432,7 +1439,7 @@ float log2of(float x)
 }
 
 //
-// func_breakable 
+// func_breakable
 // - basically func_assault_destructible for general gameplay use
 //
 float () crandom;
@@ -1440,10 +1447,10 @@ void () SUB_UseTargets, assault_destructible_use, SUB_Remove, SUB_Null;
 void LaunchDebris (string debrisname) =
 {
 	local	entity dbr;
-	
+
 	if (debrisname == "" || !debrisname)
 		return;
-	
+
 	dbr = spawn();
 	dbr.origin = self.origin;
 	setmodel (dbr, debrisname );
@@ -1470,14 +1477,14 @@ void func_breakable_destroy() {
 		self.solid = SOLID_NOT;
 	}
 	self.takedamage = DAMAGE_NO;
-	
+
 	// now throw around the debris
 	LaunchDebris(self.debris1);
 	LaunchDebris(self.debris2);
 	LaunchDebris(self.debris3);
-	
+
 	SUB_UseTargets();
-	
+
 	self.event_damage = SUB_Null;
 }
 
@@ -1505,12 +1512,12 @@ void spawnfunc_func_breakable() {
 
 
 
-	self.classname = "func_breakable";	
+	self.classname = "func_breakable";
 	self.mdl = self.model;
 	setmodel(self, self.mdl);
-	
+
 	self.solid = SOLID_BSP;
-	
+
 	// precache all the models
 	if (self.mdl_dead)
 		precache_model(self.mdl_dead);
@@ -1520,7 +1527,7 @@ void spawnfunc_func_breakable() {
 		precache_model(self.debris2);
 	if (self.debris3)
 		precache_model(self.debris3);
-	
+
 	self.use = assault_destructible_use;	// shared use function, b/c they woudl do the same thing anyways
 	self.event_damage = func_breakable_damage;
 }
