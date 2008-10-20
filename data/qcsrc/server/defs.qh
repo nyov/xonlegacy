@@ -25,12 +25,14 @@ float g_warmup_allguns;
 float g_warmup_allow_timeout;
 float g_ctf_win_mode;
 float g_ctf_ignore_frags;
+float g_ctf_reverse;
 float g_race_qualifying;
 float inWarmupStage;
 float g_pickup_respawntime_short;
 float g_pickup_respawntime_medium;
 float g_pickup_respawntime_long;
 float g_pickup_respawntime_powerup;
+float g_maplist_allow_hidden;
 
 float sv_cheats;
 float sv_gentle;
@@ -168,7 +170,7 @@ void player_setanim(vector anim, float looping, float override, float restart);
 .float		dmgtime;
 
 .float		killcount;
-.float hitsound;
+.float hitsound, typehitsound;
 
 .float watersound_finished;
 .float iscreature;
@@ -252,17 +254,6 @@ void VoteReject();
 void VoteTimeout();
 void VoteStop(entity stopper);
 void VoteCount();
-
-// Wazat's grappling hook
-.entity		hook;
-void GrapplingHookFrame();
-void RemoveGrapplingHook(entity pl);
-void SetGrappleHookBindings();
-// hook impulses
-float GRAPHOOK_FIRE		= 20;
-float GRAPHOOK_RELEASE		= 21;
-// (note: you can change the hook impulse #'s to whatever you please)
-.float hook_time;
 
 // Laser target for laser-guided weapons
 .entity lasertarget;

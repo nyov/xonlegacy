@@ -66,8 +66,6 @@ float RemapVote(string vote, string cmd, entity e)
 	entity victim;
 	vote_argc = tokenize_sane(vote);
 
-	print(">>", vote, "<<\n");
-
 	if(!VoteAllowed(argv(0)))
 	{
 		return FALSE;
@@ -553,8 +551,9 @@ void VoteCount() {
 		}
 		VoteReset();
 	} else {
-		float votefactor;
+		float votefactor, simplevotefactor;
 		votefactor = bound(0.5, cvar("sv_vote_majority_factor"), 0.999);
+		simplevotefactor = cvar("sv_vote_simple_majority_factor");
 		if(yescount > (playercount - abstaincount) * votefactor)
 		{
 			VoteSpam(yescount, nocount, abstaincount, playercount - yescount - nocount - abstaincount, -1, "yes");
@@ -567,10 +566,11 @@ void VoteCount() {
 		}
 		else if(time > votefinished)
 		{
-			if(cvar("sv_vote_simple_majority"))
+			if(simplevotefactor)
 			{
 				string result;
-				if(yescount > (yescount + nocount) * votefactor)
+				simplevotefactor = bound(votefactor, simplevotefactor, 0.999);
+				if(yescount > (yescount + nocount) * simplevotefactor)
 					result = "yes";
 				else if(yescount + nocount > 0)
 					result = "no";

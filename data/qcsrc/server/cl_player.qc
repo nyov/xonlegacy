@@ -413,7 +413,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 					else
 						player_setanim(self.anim_pain2, FALSE, TRUE, TRUE);
 
-					if(deathtype >= DEATH_SPECIAL_START || deathtype & DEATH_WEAPONMASK != WEP_LASER || attacker != self || self.health < 2 * cvar("g_balance_laser_primary_damage") * cvar("g_balance_selfdamagepercent") + 1)
+					if(!DEATH_ISWEAPON(deathtype, WEP_LASER) || attacker != self || self.health < 2 * cvar("g_balance_laser_primary_damage") * cvar("g_balance_selfdamagepercent") + 1)
 					// exclude pain sounds for laserjumps as long as you aren't REALLY low on health and would die of the next two
 					{
 						if(self.health > 75) // TODO make a "gentle" version?
@@ -751,6 +751,8 @@ float GetVoiceMessageTeamsayType(string type)
 		return 0;
 	if(type == "teamshoot")
 		return 2;
+	if(type == "teamshoot_auto")
+		return 3;
 	return 1;
 }
 
@@ -763,17 +765,18 @@ float GetPlayerSoundSampleField_fixed;
 	GetPlayerSoundSampleField_fixed = 0;
 	switch(type)
 	{
-		case "attack":       return playersound_attack;
-		case "attackinfive": return playersound_attackinfive;
-		case "coverme":      return playersound_coverme;
-		case "defend":       return playersound_defend;
-		case "freelance":    return playersound_freelance;
-		case "incoming":     return playersound_incoming;
-		case "meet":         return playersound_meet;
-		case "needhelp":     return playersound_needhelp;
-		case "seenflag":     return playersound_seenflag;
-		case "taunt":        return playersound_taunt;
-		case "teamshoot":    return playersound_teamshoot;
+		case "attack":            return playersound_attack;
+		case "attackinfive":      return playersound_attackinfive;
+		case "coverme":           return playersound_coverme;
+		case "defend":            return playersound_defend;
+		case "freelance":         return playersound_freelance;
+		case "incoming":          return playersound_incoming;
+		case "meet":              return playersound_meet;
+		case "needhelp":          return playersound_needhelp;
+		case "seenflag":          return playersound_seenflag;
+		case "taunt":             return playersound_taunt;
+		case "teamshoot":         return playersound_teamshoot;
+		case "teamshoot_auto":    return playersound_teamshoot;
 	}
 	GetPlayerSoundSampleField_notFound = 1;
 	return playersound_taunt;
@@ -906,21 +909,32 @@ void GlobalSound(string sample, float chan, float teamsay)
 	tokenize_sane(sample);
 	n = stof(argv(1));
 	if(n > 0)
-		sample = strcat(argv(0), ftos(ceil(random() * n)), ".wav"); // randomization
+		sample = strcat(argv(0), ftos(floor(random() * n + 1)), ".wav"); // randomization
 	else
 		sample = strcat(argv(0), ".wav"); // randomization
 
-	if(teamsay == 2) // only to last attacker
+	if(teamsay == 3) // only to last attacker
 	{
-		if(teams_matter)
-			if(self.pusher)
-				if(self.pusher.team == self.team)
-				{
-					msg_entity = self.pusher;
+		if(self.pusher)
+			if(self.pusher.team == self.team)
+			{
+				msg_entity = self.pusher;
+				if(clienttype(msg_entity) == CLIENTTYPE_REAL)
 					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
-					msg_entity = self;
+			}
+	}
+	else if(teamsay == 2) // only to last attacker and self
+	{
+		if(self.pusher)
+			if(self.pusher.team == self.team)
+			{
+				msg_entity = self.pusher;
+				if(clienttype(msg_entity) == CLIENTTYPE_REAL)
 					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
-				}
+				msg_entity = self;
+				if(clienttype(msg_entity) == CLIENTTYPE_REAL)
+					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
+			}
 	}
 	else if(teamsay == 0) // to everyone
 	{

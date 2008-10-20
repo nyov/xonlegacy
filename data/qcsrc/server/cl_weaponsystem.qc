@@ -50,6 +50,7 @@ void W_SetupShot(entity ent, vector vecs, float antilag, float recoil, string sn
 	// calculate the shotdir from the chosen shotorg
 	w_shotdir = normalize(trueaimpoint - w_shotorg);
 
+#if 0
 	// explanation of g_antilag:
 	// if client reports it was aiming at a player, and the serverside trace
 	// says it would miss, change the aim point to the player's new origin,
@@ -79,7 +80,7 @@ void W_SetupShot(entity ent, vector vecs, float antilag, float recoil, string sn
 				if(self.antilag_debug)
 					antilag_takeback(self.cursor_trace_ent, time - self.antilag_debug);
 				else
-					antilag_takeback(self.cursor_trace_ent, time - self.ping * 0.001);
+					antilag_takeback(self.cursor_trace_ent, time - ANTILAG_LATENCY(self));
 
 				traceline(self.origin + self.view_ofs, self.origin + self.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
 				antilag_restore(self.cursor_trace_ent);
@@ -100,8 +101,8 @@ void W_SetupShot(entity ent, vector vecs, float antilag, float recoil, string sn
 				{
 					vector v, vplus, vel;
 					float X;
-					v     = antilag_takebackorigin(self.cursor_trace_ent, time - (self.ping * 0.001       ));
-					vplus = antilag_takebackorigin(self.cursor_trace_ent, time - (self.ping * 0.001 + 0.01));
+					v     = antilag_takebackorigin(self.cursor_trace_ent, time - (ANTILAG_LATENCY(self)       ));
+					vplus = antilag_takebackorigin(self.cursor_trace_ent, time - (ANTILAG_LATENCY(self) + 0.01));
 					vel = (vplus - v) * (1 / 0.01);
 					// solve: v + X * vel = closest to self.origin + self.view_ofs, v_forward axis
 					v     -= (self.origin + self.view_ofs);
@@ -113,11 +114,53 @@ void W_SetupShot(entity ent, vector vecs, float antilag, float recoil, string sn
 					// (v + X * vel)^2 closest to 0
 					// v^2 + 2 * X * (v * vel) + X^2 * vel^2 closest to 0
 					X = -(v * vel) / (vel * vel);
-					dprint("dead center needs adjustment of ", ftos(X * 1000), " (that is, ", ftos(self.ping + X * 1000), " instead of ", ftos(self.ping), "\n");
+					dprint("dead center needs adjustment of ", ftos(X), " (that is, ", ftos(ANTILAG_LATENCY(self) + X), " instead of ", ftos(ANTILAG_LATENCY(self)), "\n");
 				}
 			}
 		}
 	}
+#else
+	if (antilag)
+	{
+		if (cvar("g_antilag") == 1) // switch to "ghost" if not hitting original
+		{
+			traceline(w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
+			if (!trace_ent.takedamage)
+			{
+				traceline_antilag_force (self, w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, MOVE_NORMAL, self, ANTILAG_LATENCY(self));
+				if (trace_ent.takedamage && trace_ent.classname == "player")
+				{
+					entity e;
+					e = trace_ent;
+					traceline(w_shotorg, e.origin, MOVE_NORMAL, self);
+					if(trace_ent == e)
+						w_shotdir = normalize(trace_ent.origin - w_shotorg);
+				}
+			}
+		}
+		else if(cvar("g_antilag") == 3) // client side hitscan
+		{
+			if (self.cursor_trace_ent)                 // client was aiming at someone
+			if (self.cursor_trace_ent != self)         // just to make sure
+			if (self.cursor_trace_ent.takedamage)      // and that person is killable
+			if (self.cursor_trace_ent.classname == "player") // and actually a player
+			{
+				// verify that the shot would miss without antilag
+				// (avoids an issue where guns would always shoot at their origin)
+				traceline(w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
+				if (!trace_ent.takedamage)
+				{
+					// verify that the shot would hit if altered
+					traceline(w_shotorg, self.cursor_trace_ent.origin, MOVE_NORMAL, self);
+					if (trace_ent == self.cursor_trace_ent)
+						w_shotdir = normalize(self.cursor_trace_ent.origin - w_shotorg);
+					else
+						print("antilag fail\n");
+				}
+			}
+		}
+	}
+#endif
 
 	self.solid = oldsolid; // restore solid type (generally SOLID_SLIDEBOX)
 

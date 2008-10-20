@@ -400,7 +400,6 @@ void Cmd_Sbar_SetFields(float argc)
 	}
 		
 	
-	argc = min(MAX_SBAR_FIELDS, argc);
 	sbar_num_fields = 0;
 
 	drawfont = sbar_font;
@@ -412,8 +411,7 @@ void Cmd_Sbar_SetFields(float argc)
 	else
 		subpattern2 = ",noteams,";
 
-	argc = min(argc-1, MAX_SBAR_FIELDS-1);
-	for(i = 0; i < argc; ++i)
+	for(i = 0; i < argc - 1; ++i)
 	{
 		str = argv(i+1);
 
@@ -452,11 +450,6 @@ void Cmd_Sbar_SetFields(float argc)
 			sbar_field[sbar_num_fields] = SP_PL;
 		} else if(str == "kd" || str == "kdr" || str == "kdratio" || str == "k/d") {
 			sbar_field[sbar_num_fields] = SP_KDRATIO;
-		} else if(str == "color") {
-			if(!teamplay)
-				sbar_field[sbar_num_fields] = SP_COLOR;
-			else
-				continue; // can't put this column in teamplay, it is redundant and stupid
 		} else if(str == "name" || str == "nick") {
 			sbar_field[sbar_num_fields] = SP_NAME;
 			sbar_size[sbar_num_fields] = MIN_NAMELEN; // minimum size? any use?
@@ -486,6 +479,8 @@ void Cmd_Sbar_SetFields(float argc)
 				have_secondary = 1;
 		}
 		++sbar_num_fields;
+		if(sbar_num_fields >= MAX_SBAR_FIELDS)
+			break;
 	}
 
 	if(scores_flags[ps_primary] & SFL_ALLOW_HIDE)
@@ -611,21 +606,21 @@ string Sbar_GetField(entity pl, float field)
 			return str;
 		
 		case SP_NAME:
+			if(!teamplay)
+			{
+				f = stof(getplayerkey(pl.sv_entnum, "colors"));
+				sbar_field_icon0 = "gfx/sb_playercolor_base";
+				sbar_field_icon1 = "gfx/sb_playercolor_shirt";
+				sbar_field_icon1_rgb = colormapPaletteColor(floor(f / 16), 0);
+				sbar_field_icon2 = "gfx/sb_playercolor_pants";
+				sbar_field_icon2_rgb = colormapPaletteColor(mod(f, 16), 1);
+			}
 			return getplayerkey(pl.sv_entnum, "name");
 
 		case SP_FRAGS:
 			f = pl.(scores[SP_KILLS]);
 			f -= pl.(scores[SP_SUICIDES]);
 			return ftos(f);
-
-		case SP_COLOR:
-			f = stof(getplayerkey(pl.sv_entnum, "colors"));
-			sbar_field_icon0 = "gfx/sb_playercolor_base";
-			sbar_field_icon1 = "gfx/sb_playercolor_shirt";
-			sbar_field_icon1_rgb = colormapPaletteColor(floor(f / 16), 0);
-			sbar_field_icon2 = "gfx/sb_playercolor_pants";
-			sbar_field_icon2_rgb = colormapPaletteColor(mod(f, 16), 1);
-			return "";
 
 		case SP_KDRATIO:
 			num = pl.(scores[SP_KILLS]);
@@ -703,10 +698,11 @@ string textShortenToWidth(string theText, float maxWidth, float handleColors)
 float xmin, xmax, ymin, ymax, sbwidth;
 float sbar_fixscoreboardcolumnwidth_len;
 float sbar_fixscoreboardcolumnwidth_iconlen;
+float sbar_fixscoreboardcolumnwidth_marginlen;
 
 string Sbar_FixScoreboardColumnWidth(float i, string str)
 {
-	float field, maxsize, j;
+	float field, maxsize, j, f;
 	vector sz;
 	field = sbar_field[i];
 
@@ -727,32 +723,37 @@ string Sbar_FixScoreboardColumnWidth(float i, string str)
 	if(sbar_field_icon0 != "")
 	{
 		sz = drawgetimagesize(sbar_field_icon0);
-		if(sbar_fixscoreboardcolumnwidth_iconlen < sz_x / sz_y)
-			sbar_fixscoreboardcolumnwidth_iconlen = sz_x / sz_y;
+		f = sz_x / sz_y;
+		if(sbar_fixscoreboardcolumnwidth_iconlen < f)
+			sbar_fixscoreboardcolumnwidth_iconlen = f;
 	}
 
 	if(sbar_field_icon1 != "")
 	{
 		sz = drawgetimagesize(sbar_field_icon1);
-		if(sbar_fixscoreboardcolumnwidth_iconlen < sz_x / sz_y)
-			sbar_fixscoreboardcolumnwidth_iconlen = sz_x / sz_y;
+		f = sz_x / sz_y;
+		if(sbar_fixscoreboardcolumnwidth_iconlen < f)
+			sbar_fixscoreboardcolumnwidth_iconlen = f;
 	}
 
 	if(sbar_field_icon2 != "")
 	{
 		sz = drawgetimagesize(sbar_field_icon2);
-		if(sbar_fixscoreboardcolumnwidth_iconlen < sz_x / sz_y)
-			sbar_fixscoreboardcolumnwidth_iconlen = sz_x / sz_y;
+		f = sz_x / sz_y;
+		if(sbar_fixscoreboardcolumnwidth_iconlen < f)
+			sbar_fixscoreboardcolumnwidth_iconlen = f;
 	}
 
 	sbar_fixscoreboardcolumnwidth_iconlen *= sbar_fontsize_y / sbar_fontsize_x; // fix icon aspect
 
-	if(sbar_size[i] < sbar_fixscoreboardcolumnwidth_len + sbar_fixscoreboardcolumnwidth_iconlen)
-	{
-		print("size: extended from ", ftos(sbar_size[i]), " to ");
-		sbar_size[i] = sbar_fixscoreboardcolumnwidth_len + sbar_fixscoreboardcolumnwidth_iconlen;
-		print(ftos(sbar_size[i]), "\n");
-	}
+	if(sbar_fixscoreboardcolumnwidth_iconlen != 0 && sbar_fixscoreboardcolumnwidth_len != 0)
+		sbar_fixscoreboardcolumnwidth_marginlen = stringwidth(" ", FALSE);
+	else
+		sbar_fixscoreboardcolumnwidth_marginlen = 0;
+
+	f = sbar_fixscoreboardcolumnwidth_len + sbar_fixscoreboardcolumnwidth_marginlen + sbar_fixscoreboardcolumnwidth_iconlen;
+	if(sbar_size[i] < f)
+		sbar_size[i] = f;
 
 	return str;
 }
@@ -791,7 +792,7 @@ void Sbar_PrintScoreboardItem(vector pos, entity pl, float is_self)
 		pos_x += sbar_fontsize_x*sbar_size[i] + sbar_fontsize_x;
 
 		if(field == SP_NAME) {
-			tmp_x = sbar_fontsize_x*(sbar_size[i] - sbar_fixscoreboardcolumnwidth_iconlen) + sbar_fontsize_x;
+			tmp_x = sbar_fontsize_x*(sbar_size[i] - sbar_fixscoreboardcolumnwidth_iconlen - sbar_fixscoreboardcolumnwidth_marginlen) + sbar_fontsize_x;
 			drawcolorcodedstring(pos - tmp, str, sbar_fontsize, 1, DRAWFLAG_NORMAL);
 		} else {
 			tmp_x = sbar_fixscoreboardcolumnwidth_len*sbar_fontsize_x + sbar_fontsize_x;

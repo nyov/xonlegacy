@@ -863,6 +863,8 @@ void readlevelcvars(void)
 	sv_maxidle_spectatorsareidle = cvar("sv_maxidle_spectatorsareidle");
 	sv_pogostick = cvar("sv_pogostick");
 	sv_doublejump = cvar("sv_doublejump");
+	g_maplist_allow_hidden = cvar("g_maplist_allow_hidden");
+	g_ctf_reverse = cvar("g_ctf_reverse");
 
 	inWarmupStage = cvar("g_warmup");
 	g_warmup_limit = cvar("g_warmup_limit");
@@ -1093,7 +1095,8 @@ void precache()
 	precache_sound ("player/slime.wav");
 
 	// announcer sounds - male
-	//precache_sound ("announcer/male/electrobitch.wav");
+	precache_sound ("announcer/male/electrobitch.wav");
+	precache_sound ("announcer/male/airshot.wav");
 	precache_sound ("announcer/male/03kills.wav");
 	precache_sound ("announcer/male/05kills.wav");
 	precache_sound ("announcer/male/10kills.wav");

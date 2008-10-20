@@ -5,6 +5,11 @@ float damage_goodhits;
 float damage_gooddamage;
 float headshot;
 
+.float teamkill_complain;
+.float teamkill_soundtime;
+.entity teamkill_soundsource;
+.entity pusher;
+
 
 float IsDifferentTeam(entity a, entity b)
 {
@@ -152,7 +157,7 @@ void LogDeath(string mode, float deathtype, entity killer, entity killed)
 void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 {
 	string	s, a;
-	float p;
+	float p, w;
 
 	if (targ.classname == "player" || targ.classname == "corpse")
 	{
@@ -212,11 +217,12 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 				if (targ.killcount > 2)
 					bprint ("^1",s,"^1 ended it all with a ",ftos(targ.killcount)," scoring spree\n");
 			} else {
-				if(deathtype < DEATH_SPECIAL_START && deathtype & DEATH_WEAPONMASK >= WEP_FIRST && deathtype & DEATH_WEAPONMASK <= WEP_LAST)
+				w = DEATH_WEAPONOF(deathtype);
+				if(WEP_VALID(w))
 				{
 					w_deathtypestring = "couldn't resist the urge to self-destruct";
 					w_deathtype = deathtype;
-					weapon_action(deathtype & DEATH_WEAPONMASK, WR_SUICIDEMESSAGE);
+					weapon_action(w, WR_SUICIDEMESSAGE);
 					bprint("^1", s, "^1 ", w_deathtypestring, "\n");
 				}
 				else if (deathtype == DEATH_KILL)
@@ -293,11 +299,12 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 				if(sv_gentle) {
 					bprint ("^1",s, "^1 needs a restart thanks to ", a, "\n");
 				} else {
-					if(deathtype < DEATH_SPECIAL_START && deathtype & DEATH_WEAPONMASK >= WEP_FIRST && deathtype & DEATH_WEAPONMASK <= WEP_LAST)
+					w = DEATH_WEAPONOF(deathtype);
+					if(WEP_VALID(w))
 					{
 						w_deathtypestring = "was blasted by";
 						w_deathtype = deathtype;
-						weapon_action(deathtype & DEATH_WEAPONMASK, WR_KILLMESSAGE);
+						weapon_action(w, WR_KILLMESSAGE);
 						p = strstrofs(w_deathtypestring, "#", 0);
 						if(p < 0)
 							bprint("^1", s, "^1 ", w_deathtypestring, " ", a, "\n");
@@ -513,7 +520,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		targ.flags -= targ.flags & FL_GODMODE;
 		damage = 100000;
 	}
-	else if(deathtype == DEATH_MIRRORDAMAGE)
+	else if(deathtype == DEATH_MIRRORDAMAGE || deathtype == DEATH_NOAMMO)
 	{
 		// no processing
 	}
@@ -589,7 +596,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				damage = 0;
 				targ.hitsound += 1;
 			}
-			if (deathtype == WEP_LASER)
+			if (DEATH_ISWEAPON(deathtype, WEP_LASER))
 			{
 				damage = 0;
 				if (targ != attacker)
@@ -606,7 +613,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		}
 
 		// apply strength multiplier
-		if (attacker.items & IT_STRENGTH && !g_minstagib)
+		if ((attacker.items & IT_STRENGTH) && !g_minstagib)
 		{
 			if(targ == attacker)
 			{
@@ -672,33 +679,52 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 
 		// count the damage
 		if(attacker)
-		if(targ.classname == "player")
-		if(IsDifferentTeam(targ, attacker))
 		if(!targ.deadflag)
 		if(targ.takedamage == DAMAGE_AIM)
-		if(damage > 0)
+		if(targ != attacker)
+		if(targ.classname == "player")
 		{
-			attacker.hitsound += 1;
+			if(IsDifferentTeam(targ, attacker))
+			{
+				if(damage > 0)
+				{
+					if(targ.BUTTON_CHAT)
+						attacker.typehitsound += 1;
+					else
+						attacker.hitsound += 1;
 
-			damage_goodhits += 1;
-			damage_gooddamage += damage;
+					damage_goodhits += 1;
+					damage_gooddamage += damage;
 
-			if(!g_minstagib)
-			if(IsFlying(targ))
-				yoda = 1;
+					if(!g_minstagib)
+					if(IsFlying(targ))
+						yoda = 1;
 
-			if(g_minstagib)
-			if(targ.items & IT_STRENGTH)
-				yoda = 1;
+					if(g_minstagib)
+					if(targ.items & IT_STRENGTH)
+						yoda = 1;
 
-			// HEAD SHOT:
-			// find height of hit on player axis
-			// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
-			vector headmins, headmaxs;
-			headmins = targ.origin + '0.5 0 0' * targ.mins_x + '0 0.5 0' * targ.mins_y + '0 0 1' * targ.view_ofs_z;
-			headmaxs = targ.origin + '0.5 0 0' * targ.maxs_x + '0 0.5 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
-			if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
-				headshot = 1;
+					// HEAD SHOT:
+					// find height of hit on player axis
+					// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
+					vector headmins, headmaxs, org;
+					org = antilag_takebackorigin(targ, time - ANTILAG_LATENCY(attacker));
+					headmins = org + '0.5 0 0' * targ.mins_x + '0 0.5 0' * targ.mins_y + '0 0 1' * targ.view_ofs_z;
+					headmaxs = org + '0.5 0 0' * targ.maxs_x + '0 0.5 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
+					if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
+						headshot = 1;
+				}
+			}
+			else
+			{
+				attacker.typehitsound += 1; // TODO possibly trigger teamkill complain sound!
+				if(time > attacker.teamkill_complain)
+				{
+					attacker.teamkill_complain = time + 5;
+					attacker.teamkill_soundtime = time + 0.4;
+					attacker.teamkill_soundsource = targ;
+				}
+			}
 		}
 	}
 

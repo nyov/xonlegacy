@@ -2055,9 +2055,8 @@ void PlayerPreThink (void)
 
 	if(frametime)
 	{
-		antilag_record(self);
-
 		SendFog();
+		antilag_record(self);
 	}
 
 	if(self.classname == "player") {
@@ -2237,6 +2236,22 @@ void PlayerPreThink (void)
 		WriteByte(MSG_ONE, self.spectatee_status);
 		if(g_race)
 			race_InitSpectator();
+	}
+
+	if(self.teamkill_soundtime)
+	if(time > self.teamkill_soundtime)
+	{
+		self.teamkill_soundtime = 0;
+
+		entity oldpusher, oldself;
+
+		oldself = self; self = self.teamkill_soundsource;
+		oldpusher = self.pusher; self.pusher = oldself;
+
+		VoiceMessage("teamshoot_auto");
+
+		self.pusher = oldpusher;
+		self = oldself;
 	}
 }
 

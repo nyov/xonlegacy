@@ -143,7 +143,7 @@ float GotoFirstMap()
 			cvar_set("nextmap", argv(0));
 
 			MapInfo_Enumerate();
-			MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0);
+			MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 0);
 
 			if(!DoNextMapOverride())
 				GotoNextMap();
@@ -356,7 +356,7 @@ void spawnfunc_worldspawn (void)
 	orig_slowmo = cvar("slowmo");
 
 	MapInfo_Enumerate();
-	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 1);
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 1);
 
 	if(whichpack(strcat("maps/", mapname, ".cfg")) != "")
 	{
@@ -629,7 +629,7 @@ float() MaplistMethod_Random = // random map selection
 	for(i = 0; i <= imax; ++i)
 	{
 		float mapindex;
-		mapindex = mod(Map_Current + ceil(random() * (Map_Count - 1)), Map_Count); // any OTHER map
+		mapindex = mod(Map_Current + floor(random() * (Map_Count - 1) + 1), Map_Count); // any OTHER map
 		if(Map_Check(mapindex, 1))
 			return mapindex;
 	}
@@ -681,7 +681,7 @@ void Maplist_Init()
 	if(Map_Count == 0)
 	{
 		bprint( "Maplist is empty!  Resetting it to default map list.\n" );
-		cvar_set("g_maplist", temp = MapInfo_ListAllowedMaps());
+		cvar_set("g_maplist", temp = MapInfo_ListAllowedMaps(0, MAPINFO_FLAG_HIDDEN));
 		localcmd("\nmenu_cmd sync\n");
 		Map_Count = tokenizebyseparator(temp, " ");
 	}
@@ -799,7 +799,7 @@ void GotoNextMap()
 			if(allowReset)
 			{
 				bprint( "Maplist contains no single playable map!  Resetting it to default map list.\n" );
-				cvar_set("g_maplist", MapInfo_ListAllowedMaps());
+				cvar_set("g_maplist", MapInfo_ListAllowedMaps(0, MAPINFO_FLAG_HIDDEN));
 				localcmd("\nmenu_cmd sync\n");
 			}
 			else
@@ -1399,7 +1399,7 @@ void ShuffleMaplist()
 		result = "";
 
 		// select a random item
-		selected = ceil(random() * (litems - start) + start) - 1;
+		selected = floor(random() * (litems - start) + start);
 
 		// shift this item to the place start
 		for(i = 0; i < start; ++i)
@@ -1747,7 +1747,7 @@ string MapVote_Suggest(string m)
 			return "This map was already suggested.";
 	if(mapvote_suggestion_ptr >= MAPVOTE_COUNT)
 	{
-		i = ceil(random() * mapvote_suggestion_ptr) - 1;
+		i = floor(random() * mapvote_suggestion_ptr);
 	}
 	else
 	{
@@ -1797,7 +1797,7 @@ void MapVote_Init()
 
 	if(mapvote_suggestion_ptr)
 		for(i = 0; i < 100 && mapvote_count < smax; ++i)
-			MapVote_AddVotable(mapvote_suggestions[ceil(random() * mapvote_suggestion_ptr) - 1], TRUE);
+			MapVote_AddVotable(mapvote_suggestions[floor(random() * mapvote_suggestion_ptr)], TRUE);
 
 	for(i = 0; i < 100 && mapvote_count < nmax; ++i)
 		MapVote_AddVotable(GetNextMap(), FALSE);
@@ -1805,7 +1805,7 @@ void MapVote_Init()
 	if(mapvote_count == 0)
 	{
 		bprint( "Maplist contains no single playable map!  Resetting it to default map list.\n" );
-		cvar_set("g_maplist", MapInfo_ListAllowedMaps());
+		cvar_set("g_maplist", MapInfo_ListAllowedMaps(0, MAPINFO_FLAG_HIDDEN));
 		localcmd("\nmenu_cmd sync\n");
 		for(i = 0; i < 100 && mapvote_count < nmax; ++i)
 			MapVote_AddVotable(GetNextMap(), FALSE);
@@ -2180,7 +2180,7 @@ void MapVote_Start()
 		return;
 
 	MapInfo_Enumerate();
-	if(MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 1))
+	if(MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 1))
 		mapvote_run = TRUE;
 }
 void MapVote_Think()
@@ -2237,17 +2237,24 @@ void EndFrame()
 	{
 		if(self.classname == "spectator")
 		{
-			if(self.enemy.hitsound)
+			if(self.enemy.typehitsound)
+				play2(self, "misc/typehit.wav");
+			else if(self.enemy.hitsound)
 				play2(self, "misc/hit.wav");
 		}
 		else
 		{
-			if(self.hitsound)
+			if(self.typehitsound)
+				play2(self, "misc/typehit.wav");
+			else if(self.hitsound)
 				play2(self, "misc/hit.wav");
 		}
 	}
 	FOR_EACH_CLIENT(self)
+	{
 		self.hitsound = FALSE;
+		self.typehitsound = FALSE;
+	}
 }
 
 
@@ -2312,7 +2319,7 @@ void RestoreGame()
 	// Mapinfo
 	MapInfo_Shutdown();
 	MapInfo_Enumerate();
-	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 1);
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 1);
 }
 
 void SV_Shutdown()

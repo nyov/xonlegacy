@@ -534,8 +534,16 @@ void spawnfunc_item_flag_team1()
 	ctf_worldflaglist = self;
 
 	self.classname = "item_flag_team";
-	self.team = COLOR_TEAM1; // color 4 team (red)
-	self.items = IT_KEY2; // gold key (redish enough)
+	if(g_ctf_reverse)
+	{
+		self.team = COLOR_TEAM2; // color 13 team (blue)
+		self.items = IT_KEY1; // silver key (bluish enough)
+	}
+	else
+	{
+		self.team = COLOR_TEAM1; // color 4 team (red)
+		self.items = IT_KEY2; // gold key (redish enough)
+	}
 	self.netname = "^1RED^7 flag";
 	self.target = "###item###";
 	self.skin = 0;
@@ -618,8 +626,16 @@ void spawnfunc_item_flag_team2()
 	ctf_worldflaglist = self;
 
 	self.classname = "item_flag_team";
-	self.team = COLOR_TEAM2; // color 13 team (blue)
-	self.items = IT_KEY1; // silver key (bluish enough)
+	if(g_ctf_reverse)
+	{
+		self.team = COLOR_TEAM1; // color 4 team (red)
+		self.items = IT_KEY2; // gold key (redish enough)
+	}
+	else
+	{
+		self.team = COLOR_TEAM2; // color 13 team (blue)
+		self.items = IT_KEY1; // silver key (bluish enough)
+	}
 	self.netname = "^4BLUE^7 flag";
 	self.target = "###item###";
 	self.skin = 0;
@@ -761,9 +777,9 @@ void ctf_setstatus()
 
 		for (flag = ctf_worldflaglist; flag; flag = flag.ctf_worldflagnext) if(flag.cnt != FLAG_BASE)
 		{
-			if(flag.team == COLOR_TEAM1)
+			if(flag.items & IT_KEY2) // blue
 				++redflags;
-			else if(flag.team == COLOR_TEAM2)
+			else if(flag.items & IT_KEY1) // red
 				++blueflags;
 		}
 
@@ -775,12 +791,12 @@ void ctf_setstatus()
 
 		for (flag = ctf_worldflaglist; flag; flag = flag.ctf_worldflagnext) if(flag.cnt != FLAG_BASE)
 		{
-			if(flag.team == COLOR_TEAM1)
+			if(flag.items & IT_KEY2) // blue
 			{
 				if(--redflags == -1) // happens exactly once (redflags is in 0..count-1, and will --'ed count times)
 					ctf_setstatus2(flag, IT_RED_FLAG_TAKEN);
 			}
-			else if(flag.team == COLOR_TEAM2)
+			else if(flag.items & IT_KEY1) // red
 			{
 				if(--blueflags == -1) // happens exactly once
 					ctf_setstatus2(flag, IT_BLUE_FLAG_TAKEN);
