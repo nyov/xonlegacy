@@ -55,7 +55,7 @@ void draw_teamradar_background(float bg, float fg)
 		R_EndPolygon();
 	}
 
-	if(fg > 0)
+	if(fg > 0 && minimapname != "")
 	{
 		if(csqc_flags & CSQC_FLAG_READPICTURE) // not 2.4.2
 			R_BeginPolygon(minimapname, DRAWFLAG_SCREEN | DRAWFLAG_MIPMAP);
@@ -195,7 +195,7 @@ void() teamradar_view =
 	float scale2d, normalsize, bigsize;
 	float f;
 
-	if(minimapname == "")
+	if(minimapname == "" && !ons_showmap)
 		return;
 
 	teamradar_loadcvars();
