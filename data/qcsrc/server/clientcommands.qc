@@ -221,9 +221,11 @@ entity GetPlayer(string name)
 }
 
 //float ctf_clientcommand();
+float readyrestart_happened;
 void SV_ParseClientCommand(string s) {
 	local string cmd;
-	local float i, j, tokens;
+	local float i, j, tokens, f, effectnum;
+	local vector start, end;
 
 	tokens = tokenize_sane(s);
 
@@ -330,13 +332,16 @@ void SV_ParseClientCommand(string s) {
 				return sprint(self, "^1You cannot reset the game while a timeout is active!\n");
 			}
 			
-			if(game_starttime == 0 || cvar("sv_ready_restart_repeatable"))
+			//if(!restartAnnouncer)
 			{
-				self.ready = TRUE;
-				bprint(self.netname, "^2 is ready\n");
-				ReadyCount();
-			} else {
-				sprint(self, "^1game has already been restarted\n");
+				if(!readyrestart_happened || cvar("sv_ready_restart_repeatable"))
+				{
+					self.ready = TRUE;
+					bprint(self.netname, "^2 is ready\n");
+					ReadyCount();
+				} else {
+					sprint(self, "^1game has already been restarted\n");
+				}
 			}
 		}
 	} else if(argv(0) == "maplist") {
@@ -414,6 +419,36 @@ void SV_ParseClientCommand(string s) {
 		Score_NicePrint(self);
 	} else if(argv(0) == "cvar_changes") {
 		sprint(self, cvar_changes);
+	} else if(argv(0) == "pointparticles") {
+		if(sv_cheats && tokens == 5)
+		{
+			// arguments:
+			//   effectname
+			//   origin (0..1, on crosshair line)
+			//   velocity
+			//   howmany
+			effectnum = particleeffectnum(argv(1));
+			f = stof(argv(2));
+			start = (1-f) * self.origin + f * self.cursor_trace_endpos;
+			end = stov(argv(3));
+			f = stof(argv(4));
+			pointparticles(effectnum, start, end, f);
+		}
+		else
+			print("Usage: sv_cheats 1; restart; cmd pointparticles effectname position(0..1) velocityvector multiplier\n");
+	} else if(argv(0) == "trailparticles") {
+		if(sv_cheats && tokens == 3)
+		{
+			// arguments:
+			//   effectname
+			//   shot origin vector
+			effectnum = particleeffectnum(argv(1));
+			W_SetupShot(self, stov(argv(2)), FALSE, FALSE, "");
+			traceline(w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
+			trailparticles(self, effectnum, w_shotorg, trace_endpos);
+		}
+		else
+			print("Usage: sv_cheats 1; restart; cmd trailparticles effectname shotorigin\n");
 	} else {
 		//if(ctf_clientcommand())
 		//	return;
@@ -461,6 +496,7 @@ void ReadyRestart()
 	if(checkrules_overtimeend)
 		checkrules_overtimeend = 0;
 
+	readyrestart_happened = 1;
 	game_starttime = time + RESTART_COUNTDOWN;
 	restart_mapalreadyrestarted = 0; //reset this var, needed when cvar sv_ready_restart_repeatable is in use
 
@@ -488,7 +524,7 @@ void ReadyRestart()
 	restartAnnouncer = spawn();
 	restartAnnouncer.think = restartAnnouncer_Think;
 	restartAnnouncer.nextthink = time;
-	restartAnnouncer.cnt = RESTART_COUNTDOWN;
+	restartAnnouncer.spawnflags = !!cvar("sv_ready_restart_after_countdown");
 	
 	//after a restart every players number of allowed timeouts gets reset, too
 	if(cvar("sv_timeout"))
@@ -552,8 +588,12 @@ void ReadyCount()
 void restartAnnouncer_Think() {
 	local entity plr;
 	local string s;
-	if(self.cnt <= 0) { //show the "Begin" message and
-		if (cvar("sv_ready_restart_after_countdown")) {
+	float f, c;
+	c = game_starttime - time;
+	f = floor(0.5 + c);
+	if(c <= 0) { //show the "Begin" message and
+		if(self.spawnflags & 1)
+		{
 			restart_mapalreadyrestarted = 1;
 			reset_map();
 		}
@@ -572,16 +612,15 @@ void restartAnnouncer_Think() {
 	else {
 		FOR_EACH_REALCLIENT(plr) {
 			if(plr.classname == "player") {
-				s = strcat(NEWLINES, "^1Game starts in ", ftos(self.cnt), " seconds");
+				s = strcat(NEWLINES, "^1Game starts in ", ftos(f), " seconds");
 				centerprint(plr, s);
 			}
 		}
 
-		if(self.cnt <= 3) {
-			play2all(strcat("announcer/robotic/", ftos(self.cnt), ".ogg"));
+		if(f <= 3) {
+			play2all(strcat("announcer/robotic/", ftos(f), ".ogg"));
 		}
-		self.nextthink = time + 1;
-		self.cnt -= 1;
+		self.nextthink = game_starttime - (f - 1);
 	}
 }
 

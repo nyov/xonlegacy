@@ -1,3 +1,7 @@
+void onslaught_generator_updatesprite(entity e);
+void onslaught_controlpoint_updatesprite(entity e);
+void onslaught_link_checkupdate();
+
 .entity sprite;
 .string target2;
 .float iscaptured;
@@ -8,13 +12,10 @@
 .float iscpneighbor_blue;
 .float isshielded;
 .float lasthealth;
+.float lastteam;
+.float lastshielded;
 
-#ifdef YOU_HAVE_FIXED_ONSLAUGHT_WAYPOINTS
-float ons_sprite_cp_red, ons_sprite_cp_blue, ons_sprite_cp_neut;
-float ons_sprite_cp_atck_red, ons_sprite_cp_atck_blue, ons_sprite_cp_atck_neut;
-float ons_sprite_cp_dfnd_red, ons_sprite_cp_dfnd_blue;
-float ons_sprite_gen_red, ons_sprite_gen_blue, ons_sprite_gen_shielded;
-#endif
+.string model1, model2, model3;
 
 void onslaught_updatelinks()
 {
@@ -176,6 +177,7 @@ void onslaught_updatelinks()
 				l.goalentity.bot_attack = TRUE;
 			}
 		}
+		onslaught_controlpoint_updatesprite(l);
 		l = l.chain;
 	}
 	// count generators owned by each team
@@ -190,6 +192,7 @@ void onslaught_updatelinks()
 			if (l.team == COLOR_TEAM3) t3 = 1;
 			if (l.team == COLOR_TEAM4) t4 = 1;
 		}
+		onslaught_generator_updatesprite(l);
 		l = l.chain;
 	}
 	// see if multiple teams remain (if not, it's game over)
@@ -424,70 +427,138 @@ void onslaught_generator_delayed()
 	self.nextthink = time;
 };
 
-#ifdef YOU_HAVE_FIXED_ONSLAUGHT_WAYPOINTS
-float onslaught_generator_waypointsprite_for_player(entity e)
+string onslaught_generator_waypointsprite_for_team(entity e, float t)
 {
-	if(e.classname == "player")
-		if(e.team == self.owner.team)
-		{
-			if(self.owner.team == COLOR_TEAM1)
-				return ons_sprite_gen_red;
-			else if(self.owner.team == COLOR_TEAM2)
-				return ons_sprite_gen_blue;
-		}
-	if(self.owner.isshielded)
-		return ons_sprite_gen_shielded;
-	if(self.owner.team == COLOR_TEAM1)
-		return ons_sprite_gen_red;
-	else if(self.owner.team == COLOR_TEAM2)
-		return ons_sprite_gen_blue;
-	return 0;
+	if(t == e.team)
+	{
+		if(e.team == COLOR_TEAM1)
+			return "ons-gen-red";
+		else if(e.team == COLOR_TEAM2)
+			return "ons-gen-blue";
+	}
+	if(e.isshielded)
+		return "ons-gen-shielded";
+	if(e.team == COLOR_TEAM1)
+		return "ons-gen-red";
+	else if(e.team == COLOR_TEAM2)
+		return "ons-gen-blue";
+	return "";
 }
 
-float onslaught_controlpoint_waypointsprite_for_player(entity e)
+void onslaught_generator_updatesprite(entity e)
+{
+	string s1, s2, s3;
+	s1 = onslaught_generator_waypointsprite_for_team(e, COLOR_TEAM1);
+	s2 = onslaught_generator_waypointsprite_for_team(e, COLOR_TEAM2);
+	s3 = onslaught_generator_waypointsprite_for_team(e, -1);
+	WaypointSprite_UpdateSprites(e.sprite, s1, s2, s3);
+
+	if(e.lastteam != e.team + 2 || e.lastshielded != e.isshielded)
+	{
+		e.lastteam = e.team + 2;
+		e.lastshielded = e.isshielded;
+		if(e.lastshielded)
+		{
+			if(e.team == COLOR_TEAM1)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0.5 0 0');
+			else if(e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0 0 0.5');
+			else
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0.5 0.5 0.5');
+		}
+		else
+		{
+			if(e.team == COLOR_TEAM1)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '1 0 0');
+			else if(e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0 0 1');
+			else
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0.75 0.75 0.75');
+		}
+		WaypointSprite_Ping(e.sprite);
+	}
+}
+
+string onslaught_controlpoint_waypointsprite_for_team(entity e, float t)
 {
 	float a;
-	if(e.classname == "player")
+	if(t != -1)
 	{
-		a = onslaught_controlpoint_attackable(self.owner, e.team);
+		a = onslaught_controlpoint_attackable(e, t);
 		if(a == 3 || a == 4) // ATTACK/TOUCH THIS ONE NOW
 		{
-			if(self.owner.team == COLOR_TEAM1)
-				return ons_sprite_cp_atck_red;
-			else if(self.owner.team == COLOR_TEAM2)
-				return ons_sprite_cp_atck_blue;
+			if(e.team == COLOR_TEAM1)
+				return "ons-cp-atck-red";
+			else if(e.team == COLOR_TEAM2)
+				return "ons-cp-atck-blue";
 			else
-				return ons_sprite_cp_atck_neut;
+				return "ons-cp-atck-neut";
 		}
 		else if(a == -2) // DEFEND THIS ONE NOW
 		{
-			if(self.owner.team == COLOR_TEAM1)
-				return ons_sprite_cp_dfnd_red;
-			else if(self.owner.team == COLOR_TEAM2)
-				return ons_sprite_cp_dfnd_blue;
+			if(e.team == COLOR_TEAM1)
+				return "ons-cp-dfnd-red";
+			else if(e.team == COLOR_TEAM2)
+				return "ons-cp-dfnd-blue";
 		}
-		else if(self.owner.team == e.team || a == -1 || a == 1) // own point, or fire at it
+		else if(e.team == t || a == -1 || a == 1) // own point, or fire at it
 		{
-			if(self.owner.team == COLOR_TEAM1)
-				return ons_sprite_cp_red;
-			else if(self.owner.team == COLOR_TEAM2)
-				return ons_sprite_cp_blue;
+			if(e.team == COLOR_TEAM1)
+				return "ons-cp-red";
+			else if(e.team == COLOR_TEAM2)
+				return "ons-cp-blue";
 		}
 		else if(a == 2) // touch it
-			return ons_sprite_cp_neut;
+			return "ons-cp-neut";
 	}
 	else
 	{
-		if(self.owner.team == COLOR_TEAM1)
-			return ons_sprite_cp_red;
-		else if(self.owner.team == COLOR_TEAM2)
-			return ons_sprite_cp_blue;
+		if(e.team == COLOR_TEAM1)
+			return "ons-cp-red";
+		else if(e.team == COLOR_TEAM2)
+			return "ons-cp-blue";
 		else
-			return ons_sprite_cp_neut;
+			return "ons-cp-neut";
 	}
-	return 0;
+	return "";
 }
-#endif
+
+void onslaught_controlpoint_updatesprite(entity e)
+{
+	string s1, s2, s3;
+	s1 = onslaught_controlpoint_waypointsprite_for_team(e, COLOR_TEAM1);
+	s2 = onslaught_controlpoint_waypointsprite_for_team(e, COLOR_TEAM2);
+	s3 = onslaught_controlpoint_waypointsprite_for_team(e, -1);
+	WaypointSprite_UpdateSprites(e.sprite, s1, s2, s3);
+
+	float sh;
+	sh = !(onslaught_controlpoint_can_be_linked(e, COLOR_TEAM1) || onslaught_controlpoint_can_be_linked(e, COLOR_TEAM2));
+
+	if(e.lastteam != e.team + 2 || e.lastshielded != sh)
+	{
+		e.lastteam = e.team + 2;
+		e.lastshielded = sh;
+		if(e.lastshielded)
+		{
+			if(e.team == COLOR_TEAM1)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0.5 0 0');
+			else if(e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0 0 0.5');
+			else
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0.5 0.5 0.5');
+		}
+		else
+		{
+			if(e.team == COLOR_TEAM1)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '1 0 0');
+			else if(e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0 0 1');
+			else
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0.75 0.75 0.75');
+		}
+		WaypointSprite_Ping(e.sprite);
+	}
+}
 
 /*QUAKED spawnfunc_onslaught_generator (0 .5 .8) (-32 -32 -24) (32 32 64)
 Base generator.
@@ -505,45 +576,6 @@ void spawnfunc_onslaught_generator()
 		remove(self);
 		return;
 	}
-
-#ifdef YOU_HAVE_FIXED_ONSLAUGHT_WAYPOINTS
-	if(!ons_sprite_cp_blue)
-	{
-		precache_model("models/sprites/ons-cp-blue.sp2");
-		setmodel(self, "models/sprites/ons-cp-blue.sp2");
-		ons_sprite_cp_blue = self.modelindex;
-		precache_model("models/sprites/ons-cp-red.sp2");
-		setmodel(self, "models/sprites/ons-cp-red.sp2");
-		ons_sprite_cp_red = self.modelindex;
-		precache_model("models/sprites/ons-cp-neut.sp2");
-		setmodel(self, "models/sprites/ons-cp-neut.sp2");
-		ons_sprite_cp_neut = self.modelindex;
-		precache_model("models/sprites/ons-cp-dfnd-blue.sp2");
-		setmodel(self, "models/sprites/ons-cp-dfnd-blue.sp2");
-		ons_sprite_cp_dfnd_blue = self.modelindex;
-		precache_model("models/sprites/ons-cp-dfnd-red.sp2");
-		setmodel(self, "models/sprites/ons-cp-dfnd-red.sp2");
-		ons_sprite_cp_dfnd_red = self.modelindex;
-		precache_model("models/sprites/ons-cp-atck-blue.sp2");
-		setmodel(self, "models/sprites/ons-cp-atck-blue.sp2");
-		ons_sprite_cp_atck_blue = self.modelindex;
-		precache_model("models/sprites/ons-cp-atck-red.sp2");
-		setmodel(self, "models/sprites/ons-cp-atck-red.sp2");
-		ons_sprite_cp_atck_red = self.modelindex;
-		precache_model("models/sprites/ons-cp-atck-neut.sp2");
-		setmodel(self, "models/sprites/ons-cp-atck-neut.sp2");
-		ons_sprite_cp_atck_neut = self.modelindex;
-		precache_model("models/sprites/ons-gen-blue.sp2");
-		setmodel(self, "models/sprites/ons-gen-blue.sp2");
-		ons_sprite_gen_blue = self.modelindex;
-		precache_model("models/sprites/ons-gen-red.sp2");
-		setmodel(self, "models/sprites/ons-gen-red.sp2");
-		ons_sprite_gen_red = self.modelindex;
-		precache_model("models/sprites/ons-gen-shielded.sp2");
-		setmodel(self, "models/sprites/ons-gen-shielded.sp2");
-		ons_sprite_gen_shielded = self.modelindex;
-	}
-#endif
 
 	local entity e;
 	precache_model("models/onslaught/generator.md3");
@@ -581,10 +613,10 @@ void spawnfunc_onslaught_generator()
 	self.think = onslaught_generator_delayed;
 	self.nextthink = time + 0.2;
 
-#ifdef YOU_HAVE_FIXED_ONSLAUGHT_WAYPOINTS
 	WaypointSprite_SpawnFixed(string_null, e.origin + '0 0 1' * e.maxs_z, self, sprite);
-	self.sprite.waypointsprite_for_player = onslaught_generator_waypointsprite_for_player;
-#endif
+	WaypointSprite_UpdateRule(self.sprite, COLOR_TEAM2, SPRITERULE_TEAMPLAY);
+
+	onslaught_updatelinks();
 };
 
 void onslaught_generator_reset()
@@ -778,14 +810,13 @@ void spawnfunc_onslaught_controlpoint()
 	//setsize(e, '-32 -32 0', '32 32 128');
 	setorigin(e, self.origin);
 	e.colormap = self.colormap;
-	onslaught_updatelinks();
 
 	waypoint_spawnforitem(self);
 
-#ifdef YOU_HAVE_FIXED_ONSLAUGHT_WAYPOINTS
 	WaypointSprite_SpawnFixed(string_null, e.origin + '0 0 1' * e.maxs_z, self, sprite);
-	self.sprite.waypointsprite_for_player = onslaught_controlpoint_waypointsprite_for_player;
-#endif
+	WaypointSprite_UpdateRule(self.sprite, COLOR_TEAM2, SPRITERULE_TEAMPLAY);
+
+	onslaught_updatelinks();
 };
 
 void onslaught_controlpoint_reset()
@@ -809,6 +840,71 @@ void onslaught_controlpoint_reset()
 	SUB_UseTargets(); // to reset the structures, playerspawns etc.
 }
 
+float onslaught_link_send(entity to, float sendflags)
+{
+	WriteByte(MSG_ENTITY, ENT_CLIENT_RADARLINK);
+	WriteByte(MSG_ENTITY, sendflags);
+	if(sendflags & 1)
+	{
+		WriteCoord(MSG_ENTITY, self.goalentity.origin_x);
+		WriteCoord(MSG_ENTITY, self.goalentity.origin_y);
+		WriteCoord(MSG_ENTITY, self.goalentity.origin_z);
+	}
+	if(sendflags & 2)
+	{
+		WriteCoord(MSG_ENTITY, self.enemy.origin_x);
+		WriteCoord(MSG_ENTITY, self.enemy.origin_y);
+		WriteCoord(MSG_ENTITY, self.enemy.origin_z);
+	}
+	if(sendflags & 4)
+	{
+		WriteByte(MSG_ENTITY, self.clientcolors); // which is goalentity's color + enemy's color * 16
+	}
+	return TRUE;
+}
+
+void onslaught_link_checkupdate()
+{
+	// TODO check if the two sides have moved (currently they won't move anyway)
+	float redpower, bluepower;
+
+	redpower = bluepower = 0;
+	if(self.goalentity.islinked)
+	{
+		if(self.goalentity.team == COLOR_TEAM1)
+			redpower = 1;
+		else if(self.goalentity.team == COLOR_TEAM2)
+			bluepower = 1;
+	}
+	if(self.enemy.islinked)
+	{
+		if(self.enemy.team == COLOR_TEAM1)
+			redpower = 2;
+		else if(self.enemy.team == COLOR_TEAM2)
+			bluepower = 2;
+	}
+
+	float cc;
+	if(redpower == 1 && bluepower == 2)
+		cc = (COLOR_TEAM1 - 1) * 0x01 + (COLOR_TEAM2 - 1) * 0x10;
+	else if(redpower == 2 && bluepower == 1)
+		cc = (COLOR_TEAM1 - 1) * 0x10 + (COLOR_TEAM2 - 1) * 0x01;
+	else if(redpower)
+		cc = (COLOR_TEAM1 - 1) * 0x11;
+	else if(bluepower)
+		cc = (COLOR_TEAM2 - 1) * 0x11;
+	else
+		cc = 0;
+
+	if(cc != self.clientcolors)
+	{
+		self.clientcolors = cc;
+		self.SendFlags |= 4;
+	}
+
+	self.nextthink = time;
+}
+
 void onslaught_link_delayed()
 {
 	self.goalentity = find(world, targetname, self.target);
@@ -818,6 +914,10 @@ void onslaught_link_delayed()
 	if (!self.enemy)
 		objerror("can not find target2\n");
 	dprint(etos(self.goalentity), " linked with ", etos(self.enemy), "\n");
+
+	self.SendFlags |= 3;
+	self.think = onslaught_link_checkupdate;
+	self.nextthink = time;
 }
 
 /*QUAKED spawnfunc_onslaught_link (0 .5 .8) (-16 -16 -16) (16 16 16)
@@ -840,4 +940,6 @@ void spawnfunc_onslaught_link()
 		objerror("target and target2 must be set\n");
 	self.think = onslaught_link_delayed;
 	self.nextthink = time + 0.1;
+	self.SendEntity = onslaught_link_send;
+	Net_LinkEntity(self);
 };

@@ -73,6 +73,7 @@ void CSQC_Init(void)
 
 	configdb = db_create();
 	binddb = db_create();
+	tempdb = db_create();
 	compressShortVector_init();
 
 	drawfont = 0;
@@ -146,6 +147,7 @@ void CSQC_Shutdown(void)
 	remove(players);
 	db_close(configdb);
 	db_close(binddb);
+	db_close(tempdb);
 
 	cvar_clientsettemp_restore();
 }
@@ -284,15 +286,6 @@ float CSQC_ConsoleCommand(string strMessage)
 	} else if(strCmd == "-button3") { // secondary
 		button_attack2 = 0;
 		return false;
-	} else if(strCmd == "ons_map") {
-		Cmd_ons_map();
-		return true;
-	} else if(strCmd == "sbar_columns_set") {
-		Cmd_Sbar_SetFields(argc);
-		return true;
-	} else if(strCmd == "sbar_columns_help") {
-		Cmd_Sbar_Help(argc);
-		return true;
 	} else if(strCmd == "+showscores") {
 		sb_showscores = true;
 		return true;
@@ -316,6 +309,15 @@ float GameCommand(string msg)
 	}
 	else if(cmd == "settemp") {
 		cvar_clientsettemp(argv(1), argv(2));
+	}
+	else if(cmd == "radar") {
+		ons_showmap = !ons_showmap;
+	}
+	else if(cmd == "sbar_columns_set") {
+		Cmd_Sbar_SetFields(argc);
+	}
+	else if(cmd == "sbar_columns_help") {
+		Cmd_Sbar_Help(argc);
 	}
 	
 	return false;
@@ -464,6 +466,7 @@ void Ent_Nagger()
 
 // CSQC_Ent_Update : Called every frame that the server has indicated an update to the SSQC / CSQC entity has occured.
 // The only parameter reflects if the entity is "new" to the client, meaning it just came into the client's PVS.
+void Ent_RadarLink();
 void(float bIsNewEntity) CSQC_Ent_Update =
 {
 	float t;
@@ -493,6 +496,8 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		Ent_Nagger();
 	else if(self.enttype == ENT_CLIENT_WAYPOINT)
 		Ent_WaypointSprite();
+	else if(self.enttype == ENT_CLIENT_RADARLINK)
+		Ent_RadarLink();
 	else
 		error(strcat("unknown entity type in CSQC_Ent_Update: ", ftos(self.enttype), "\n"));
 	
@@ -635,6 +640,9 @@ void Net_ReadInit()
 	maxclients = ReadByte();
 	for(i = 0; i < 24; ++i)
 		weaponimpulse[i] = ReadByte() - 1;
+	hook_shotorigin_x = ReadCoord();
+	hook_shotorigin_y = ReadCoord();
+	hook_shotorigin_z = ReadCoord();
 	CSQC_CheckRevision();
 }
 

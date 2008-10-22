@@ -205,3 +205,7 @@ float spectatee_status;
 
 // short mapname
 string shortmapname;
+
+// database for misc stuff
+float tempdb;
+vector hook_shotorigin;

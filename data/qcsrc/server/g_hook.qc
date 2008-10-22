@@ -130,7 +130,7 @@ void GrapplingHookThink()
 	self.nextthink = time;
 
 	makevectors(self.owner.v_angle);
-	org = self.owner.origin + self.owner.view_ofs + v_forward * 8 - v_right * 8 + v_up * -12;
+	org = self.owner.origin + self.owner.view_ofs + v_forward * hook_shotorigin_x + v_right * hook_shotorigin_y + v_up * hook_shotorigin_z;
 
 #if 0
 	tracebox(org, self.mins, self.maxs, self.origin, MOVE_NOMONSTERS, self.owner);
@@ -250,8 +250,6 @@ void GrapplingHookThink()
 
 			self.owner.flags (-) FL_ONGROUND;
 		}
-
-		org = org + dir*50; // get the beam out of the player's eyes
 	}
 
 	makevectors(self.angles_x * '-1 0 0' + self.angles_y * '0 1 0');
@@ -326,7 +324,7 @@ void FireGrapplingHook (void)
 
 	// UGLY WORKAROUND: play this on CHAN_WEAPON2 so it can't cut off fire sounds
 	sound (self, CHAN_WEAPON2, "weapons/hook_fire.wav", VOL_BASE, ATTN_NORM);
-	org = self.origin + self.view_ofs + v_forward * 8 - v_right * 8 + '0 0 -12';
+	org = self.origin + self.view_ofs + v_forward * hook_shotorigin_x + v_right * hook_shotorigin_y + v_up * hook_shotorigin_z;
 	pointparticles(particleeffectnum("grapple_muzzleflash"), org, '0 0 0', 1);
 
 	missile = spawn ();
@@ -387,10 +385,10 @@ void GrapplingHookFrame()
 		// offhand hook controls
 		if(self.BUTTON_HOOK)
 		{
-			if not(self.hook || (self.hook_state & HOOK_WAITING_FOR_REFIRE))
+			if not(self.hook || (self.hook_state & HOOK_WAITING_FOR_RELEASE))
 			{
 				self.hook_state |= HOOK_FIRING;
-				self.hook_state |= HOOK_WAITING_FOR_REFIRE;
+				self.hook_state |= HOOK_WAITING_FOR_RELEASE;
 			}
 		}
 		else
@@ -398,7 +396,7 @@ void GrapplingHookFrame()
 			if(self.hook)
 			{
 				self.hook_state |= HOOK_REMOVING;
-				self.hook_state (-) HOOK_WAITING_FOR_REFIRE;
+				self.hook_state (-) HOOK_WAITING_FOR_RELEASE;
 			}
 		}
 
@@ -413,6 +411,12 @@ void GrapplingHookFrame()
 			self.hook_state |= HOOK_PULLING;
 			//self.hook_state (-) HOOK_RELEASING;
 		}
+	}
+
+	if(!g_grappling_hook && self.weapon != WEP_HOOK)
+	{
+		self.hook_state (-) HOOK_FIRING;
+		self.hook_state |= HOOK_REMOVING;
 	}
 
 	if (self.hook_state & HOOK_FIRING)
@@ -456,6 +460,14 @@ void GrapplingHookFrame()
 		}
 	}*/
 	// note: The hook entity does the actual pulling
+}
+
+void GrappleHookInit()
+{
+	if(g_grappling_hook)
+		hook_shotorigin = '8 -8 -12';
+	else
+		hook_shotorigin = '25 8 -8';
 }
 
 void SetGrappleHookBindings()

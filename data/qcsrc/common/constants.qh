@@ -20,7 +20,8 @@
 // Revision 19: fog
 // Revision 20: naggers
 // Revision 21: entcs for players optimized (position data down from 12 to 7 bytes); waypointsprites in csqc for team radar
-#define CSQC_REVISION 21
+// Revision 22: hook shot origin
+#define CSQC_REVISION 22
 
 // probably put these in common/
 // so server/ and client/ can be synced better
@@ -52,16 +53,19 @@ const float ENT_CLIENT_RAINSNOW = 7;
 const float ENT_CLIENT_LASER = 8;
 const float ENT_CLIENT_NAGGER = 9; // flags [votecalledvote]
 const float ENT_CLIENT_WAYPOINT = 10; // flags origin [team displayrule] [spritename] [spritename2] [spritename3] [lifetime maxdistance hideable]
+const float ENT_CLIENT_RADARLINK = 11; // flags [startorigin] [endorigin] [startcolor+16*endcolor]
 
-	const float SPRITERULE_DEFAULT = 0;
-	const float SPRITERULE_TEAMPLAY = 1;
+const float SPRITERULE_DEFAULT = 0;
+const float SPRITERULE_TEAMPLAY = 1;
 
-	const float RADARICON_FLAG = 1;
-	const float RADARICON_FLAGCARRIER = 1;
-	const float RADARICON_HERE = 1; // TODO make these 3 and 4, and make images for them
-	const float RADARICON_DANGER = 1;
-	const float RADARICON_WAYPOINT = 1;
-	const float RADARICON_HELPME = 1;
+const float RADARICON_FLAG = 1;
+const float RADARICON_FLAGCARRIER = 1;
+const float RADARICON_HERE = 1; // TODO make these 3 and 4, and make images for them
+const float RADARICON_DANGER = 1;
+const float RADARICON_WAYPOINT = 1;
+const float RADARICON_HELPME = 1;
+const float RADARICON_CONTROLPOINT = 1;
+const float RADARICON_GENERATOR = 1;
 
 ///////////////////////////
 // key constants
@@ -309,8 +313,9 @@ float WEP_HAGAR				=  8; float WEPBIT_HAGAR			= 128;
 float WEP_ROCKET_LAUNCHER	=  9; float WEPBIT_ROCKET_LAUNCHER	= 256;
 float WEP_PORTO				= 10; float WEPBIT_PORTO			= 512;
 float WEP_MINSTANEX			= 11; float WEPBIT_MINSTANEX		= 1024;
-float WEP_LAST				= 11; float WEPBIT_ALL              = 2047;
-float WEP_COUNT             = 12;
+float WEP_HOOK     			= 12; float WEPBIT_HOOK     		= 2048;
+float WEP_LAST				= 12; float WEPBIT_ALL              = 4095;
+float WEP_COUNT             = 13;
 
 float	IT_UNLIMITED_AMMO       = 1;
 // when this bit is set, using a weapon does not reduce ammo. Checkpoints can give this powerup.
