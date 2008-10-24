@@ -222,7 +222,7 @@ void GrapplingHookThink()
 				dv = ((self.owner.velocity - v0) * dir) * dir;
 				if(cvar("g_grappling_hook_tarzan") >= 2)
 				{
-					if(self.aiment.movetype == MOVETYPE_WALK || self.aiment.movetype == MOVETYPE_TOSS)
+					if(self.aiment.movetype == MOVETYPE_WALK)
 					{
 						self.owner.velocity = self.owner.velocity - dv * 0.5;
 						self.aiment.velocity = self.aiment.velocity - dv * 0.5;
@@ -380,7 +380,7 @@ void FireGrapplingHook (void)
 
 void GrapplingHookFrame()
 {
-	if(g_grappling_hook && timeoutStatus != 2)
+	if(g_grappling_hook && timeoutStatus != 2 && self.weapon != WEP_HOOK)
 	{
 		// offhand hook controls
 		if(self.BUTTON_HOOK)
@@ -393,11 +393,8 @@ void GrapplingHookFrame()
 		}
 		else
 		{
-			if(self.hook)
-			{
-				self.hook_state |= HOOK_REMOVING;
-				self.hook_state (-) HOOK_WAITING_FOR_RELEASE;
-			}
+			self.hook_state |= HOOK_REMOVING;
+			self.hook_state (-) HOOK_WAITING_FOR_RELEASE;
 		}
 
 		self.hook_state (-) HOOK_RELEASING;

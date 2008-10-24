@@ -120,7 +120,7 @@ string W_FixWeaponOrder_ForceComplete(string order)
 }
 
 float w_getbestweapon(entity e)
-{ 
+{
 	return W_GetCycleWeapon(e, e.cvar_cl_weaponpriority, 0, -1, 0);
 };
 
@@ -389,7 +389,7 @@ void Nixnex_GiveCurrentWeapon()
 		if(nixnex_nextchange != self.nixnex_lastchange_id) // this shall only be called once per round!
 		{
 			self.nixnex_lastchange_id = nixnex_nextchange;
-			if (self.items & IT_UNLIMITED_AMMO)
+			if (self.items & IT_UNLIMITED_WEAPON_AMMO)
 			{
 				self.ammo_shells = cvar("g_pickup_shells_max");
 				self.ammo_nails = cvar("g_pickup_nails_max");
@@ -416,7 +416,7 @@ void Nixnex_GiveCurrentWeapon()
 				centerprint(self, strcat("^3", ftos(dt), "^2 seconds until weapon change...\n\nNext weapon: ^3", W_Name(nixnex_nextweapon), "\n"));
 		}
 
-		if(!(self.items & IT_UNLIMITED_AMMO) && time > self.nixnex_nextincr)
+		if(!(self.items & IT_UNLIMITED_WEAPON_AMMO) && time > self.nixnex_nextincr)
 		{
 			self.ammo_shells = self.ammo_shells + cvar("g_balance_nixnex_ammoincr_shells");
 			self.ammo_nails = self.ammo_nails + cvar("g_balance_nixnex_ammoincr_nails");
@@ -452,5 +452,8 @@ void RegisterWeapons()
 	register_weapon(WEP_PORTO,            w_porto,     IT_SUPERWEAPON, 0, 0,     0, "porto" ,    "porto",           "Port-O-Launch");
 	register_weapon(WEP_MINSTANEX,        w_minstanex, IT_CELLS,       7, 0, 10000, "minstanex", "minstanex",       "MinstaNex");
 	register_weapon(WEP_HOOK,             w_hook,      IT_CELLS,       0, 0,     0, "hookgun",   "hook",            "Grappling Hook");
+	register_weapon(WEP_SEEKER,           w_seeker,    IT_ROCKETS,     8, 0,     0, "seeker",    "seeker",          "T.A.G. Seeker");
+	register_weapon(WEP_HLAC,             w_hlac,      IT_CELLS,       6, 0,     0, "hlac",      "hlac",            "Heavy Laser Assault Cannon");
+
 	register_weapons_done();
 }

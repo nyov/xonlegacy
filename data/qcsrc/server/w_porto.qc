@@ -76,9 +76,9 @@ void W_Porto_Touch (void)
 		return; // handled by the portal
 
 	norm = trace_plane_normal;
-	if(trace_ent.movetype == MOVETYPE_WALK)
+	if(trace_ent.iscreature)
 	{
-		traceline(trace_ent.origin, trace_ent.origin + '0 0 2' * PL_MIN_z, MOVE_NORMAL, self);
+		traceline(trace_ent.origin, trace_ent.origin + '0 0 2' * PL_MIN_z, MOVE_WORLDONLY, self);
 		if(trace_fraction >= 1)
 			return;
 		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_SLICK || trace_dphitcontents & DPCONTENTS_PLAYERCLIP)
@@ -152,7 +152,7 @@ void W_Porto_Attack (void)
 {
 	local entity gren;
 
-	if not(self.items & IT_UNLIMITED_AMMO)
+	if not(self.items & IT_UNLIMITED_SUPERWEAPONS)
 		self.weapons = self.weapons - (self.weapons & WEPBIT_PORTO);
 	W_SetupShot (self, '0 0 0', FALSE, 4, "porto/fire.ogg");
 

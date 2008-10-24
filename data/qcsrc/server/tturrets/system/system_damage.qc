@@ -183,13 +183,24 @@ void turret_stdproc_die()
 // Go boom
     RadiusDamage (self,self, min(self.ammo,50),min(self.ammo,50) * 0.25,250,world,min(self.ammo,50)*5,0,world);
 
-// Setup respawn
-    self.nextthink      = time + self.respawntime;
-    //self.think          = self.turret_spawnfunc;
-    self.think          = turret_stdproc_respawn;
+    if(self.damage_flags & TFL_DMG_DEATH_NORESPAWN)
+    {
+        if (self.turret_diehook)
+            self.turret_diehook();
 
-    if (self.turret_diehook)
-        self.turret_diehook();
+        remove(self.tur_head);
+        remove(self);
+    }
+    else
+    {
+    // Setup respawn
+        self.nextthink      = time + self.respawntime;
+        //self.think          = self.turret_spawnfunc;
+        self.think          = turret_stdproc_respawn;
+        if (self.turret_diehook)
+            self.turret_diehook();
+    }
+
 }
 
 void turret_stdproc_respawn()
@@ -199,8 +210,12 @@ void turret_stdproc_respawn()
     // Make sure all parts belong to the same team since
     // this function doubles as "teamchange" function.
     self.tur_head.team = self.team;
-    if (self.team == COLOR_TEAM1) self.colormod = '1.4 0.8 0.8';
-    if (self.team == COLOR_TEAM2) self.colormod = '0.8 0.8 1.4';
+	if (self.team == COLOR_TEAM1)
+		self.colormod = '1.4 0.8 0.8';
+	else if (self.team == COLOR_TEAM2)
+		self.colormod = '0.8 0.8 1.4';
+	else
+		self.colormod = '0 0 0'; // reset
 
     self.deadflag = DEAD_NO;
     self.tur_head.deadflag = self.deadflag;
@@ -254,7 +269,7 @@ void turret_stdproc_damage (entity inflictor, entity attacker, float damage, flo
     {
         if (self.team == attacker.team)
         {
-            sprint(attacker,"Turret: Im on your team!\n");
+            sprint(attacker, "\{1}Turret tells you: I'm on your team!\n");
             return;
         }
         else

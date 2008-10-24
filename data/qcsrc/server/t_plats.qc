@@ -77,7 +77,7 @@ void plat_go_up()
 
 void plat_center_touch()
 {
-	if (other.classname != "player")
+	if not(other.iscreature)
 		return;
 
 	if (other.health <= 0)
@@ -92,7 +92,7 @@ void plat_center_touch()
 
 void plat_outside_touch()
 {
-	if (other.classname != "player")
+	if not(other.iscreature)
 		return;
 
 	if (other.health <= 0)
@@ -505,7 +505,7 @@ void button_touch()
 //	}
 	if (!other)
 		return;
-	if (other.classname != "player")
+	if not(other.iscreature)
 		return;
 	if(other.velocity * self.movedir < 0)
 		return;
@@ -771,6 +771,7 @@ void door_use()
 void door_trigger_touch()
 {
 	if (other.health < 1)
+	if not(other.iscreature && other.deadflag == DEAD_NO)
 		return;
 
 	if (time < self.attack_finished_single)
@@ -809,7 +810,7 @@ Prints messages
 */
 void door_touch()
 {
-	if (other.classname != "player")
+	if(other.classname != "player")
 		return;
 	if (self.owner.attack_finished_single > time)
 		return;
@@ -1207,7 +1208,7 @@ Prints messages
 */
 void secret_touch()
 {
-	if (activator.classname != "player")
+	if not(other.iscreature)
 		return;
 	if (self.attack_finished_single > time)
 		return;

@@ -10,7 +10,7 @@ extensions.qh
 ../common/util.qh
 
 //// tZork Turrets ////
-tturrets/include/turret_tturrets_early.qh
+tturrets/include/turrets_early.qh
 
 campaign.qh
 ../common/campaign_common.qh
@@ -84,6 +84,8 @@ w_hagar.qc
 w_rocketlauncher.qc
 w_porto.qc
 w_hook.qc
+w_hlac.qc
+w_seeker.qc
 
 t_items.qc
 cl_weapons.qc
@@ -134,7 +136,7 @@ race.qc
 
 
 //// tZork Turrets ////
-tturrets/include/turret_tturrets.qh
+tturrets/include/turrets.qh
 
 scores.qc
 

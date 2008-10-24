@@ -1065,7 +1065,7 @@ For the number fields, not specifying a value means not changing it. To clear ar
 You may want to target this by a race checkpoint, a teleporter, or a trigger_multiple with ALLENTS set (so it removes weapons thrown through the field to avoid getting a weapon through it).
 -------- KEYS --------
 targetname: used to trigger this
-netname: space separated list of items (either weapon short names (like in g_start_weapon_* cvars), or item short names "unlimited_ammo", "invincible" and "strength"
+netname: space separated list of items (either weapon short names (like in g_start_weapon_* cvars), or item short names "unlimited_ammo", "unlimited_weapon_ammo", "unlimited_superweapons", "invincible" and "strength"
 message: message to print
 ammo_shells: amount of shells
 ammo_nails: amount of bullets
@@ -1086,6 +1086,7 @@ Spawns or modifies an entity when triggered.
 The entity field list is a single string of the form:
 'field' 'value' 'field' 'value' ... 'classname' 'item_bullets' ... 'field' 'value'
 The special "field" name $ calls a void(void) function, for example a spawn function.
+Special function names available are _setmodel and _setsize.
 Field values can use various variable replacements:
 $E
 $E.field
@@ -1112,6 +1113,7 @@ Example is a Mario-style question mark block which could throw a new weapon_nex 
 targetname: used to trigger this
 message: entity field list
 target: when set, target_spawn edits entities, instead of creating new ones
+count: make sure no more than count entities have been created by this (refuse to spawn new ones if exceeded)
 -------- SPAWNFLAGS --------
 ONLOAD: create a first entity on map load
 */
@@ -1131,4 +1133,16 @@ debris: names of debris models to show when destroyed, separated by spaces
 -------- SPAWNFLAGS --------
 DISABLED: do not allow damaging this until it is first activated
 INDICATE: indicate amount of damage already taken by coloring
+*/
+
+/*QUAKED trigger_relay_if (0 1 0) (-8 -8 -8) (8 8 8) MORETHAN
+Relays the trigger event if there are at most count entities of the given type.
+-------- KEYS --------
+target: The entity/entities to relay the trigger events to
+targetname: The name other entities can use to target this entity
+netname: The name of the field to check (can currently only be targetname, netname, target or classname)
+message: The value of the field to check
+count: The count of entities that must be found
+-------- SPAWNFLAGS --------
+MORETHAN: trigger if there are more than the given count, not at least
 */

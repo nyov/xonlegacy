@@ -54,9 +54,12 @@ void SUB_UseTargets()
 //
 	if (activator.classname == "player" && self.message != "")
 	{
-		centerprint (activator, self.message);
-		if (!self.noise)
-			play2(activator, "misc/talk.wav");
+		if(clienttype(activator) == CLIENTTYPE_REAL)
+		{
+			centerprint (activator, self.message);
+			if (!self.noise)
+				play2(activator, "misc/talk.wav");
+		}
 	}
 
 //
@@ -174,7 +177,7 @@ void multi_touch()
 {
 	if not(self.spawnflags & 2)
 	{
-		if (other.classname != "player")
+		if not(other.iscreature)
 			return;
 
 		if(self.team)
@@ -762,7 +765,7 @@ void misc_laser_think()
 	if(self.enemy.target != "") // DETECTOR laser
 	{
 		traceline(self.origin, o, MOVE_NORMAL, self);
-		if(trace_ent.classname == "player")
+		if(trace_ent.iscreature)
 		{
 			self.pusher = trace_ent;
 			if(!self.count)
@@ -915,11 +918,12 @@ void trigger_impulse_touch1()
     float str;
 
 	// FIXME: Better checking for what to push and not.
-	if (other.classname != "player")
+	if not(other.iscreature)
 	if (other.classname != "corpse")
 	if (other.classname != "body")
 	if (other.classname != "gib")
 	if (other.classname != "missile")
+	if (other.classname != "rocket")
 	if (other.classname != "casing")
 	if (other.classname != "grenade")
 	if (other.classname != "plasma")
@@ -928,7 +932,7 @@ void trigger_impulse_touch1()
 	if (other.classname != "droppedweapon")
 		return;
 
-	if (other.deadflag && other.classname == "player")
+	if (other.deadflag && other.iscreature)
 		return;
 
 	EXACTTRIGGER_TOUCH;
@@ -962,11 +966,12 @@ void trigger_impulse_touch2()
     float pushdeltatime;
 
 	// FIXME: Better checking for what to push and not.
-	if (other.classname != "player")
+	if not(other.iscreature)
 	if (other.classname != "corpse")
 	if (other.classname != "body")
 	if (other.classname != "gib")
 	if (other.classname != "missile")
+	if (other.classname != "rocket")
 	if (other.classname != "casing")
 	if (other.classname != "grenade")
 	if (other.classname != "plasma")
@@ -975,7 +980,7 @@ void trigger_impulse_touch2()
 	if (other.classname != "droppedweapon")
 		return;
 
-	if (other.deadflag && other.classname == "player")
+	if (other.deadflag && other.iscreature)
 		return;
 
 	EXACTTRIGGER_TOUCH;
@@ -998,11 +1003,12 @@ void trigger_impulse_touch3()
     float str;
 
 	// FIXME: Better checking for what to push and not.
-	if (other.classname != "player")
+	if not(other.iscreature)
 	if (other.classname != "corpse")
 	if (other.classname != "body")
 	if (other.classname != "gib")
 	if (other.classname != "missile")
+	if (other.classname != "rocket")
 	if (other.classname != "casing")
 	if (other.classname != "grenade")
 	if (other.classname != "plasma")
@@ -1011,7 +1017,7 @@ void trigger_impulse_touch3()
 	if (other.classname != "droppedweapon")
 		return;
 
-	if (other.deadflag && other.classname == "player")
+	if (other.deadflag && other.iscreature)
 		return;
 
 	EXACTTRIGGER_TOUCH;
@@ -1101,6 +1107,7 @@ void spawnfunc_trigger_flipflop()
 void monoflop_use()
 {
 	self.nextthink = time + self.wait;
+	self.enemy = activator;
 	if(self.state)
 		return;
 	self.state = 1;
@@ -1112,12 +1119,14 @@ void monoflop_fixed_use()
 		return;
 	self.nextthink = time + self.wait;
 	self.state = 1;
+	self.enemy = activator;
 	SUB_UseTargets();
 }
 
 void monoflop_think()
 {
 	self.state = 0;
+	activator = self.enemy;
 	SUB_UseTargets();
 }
 
@@ -1142,6 +1151,7 @@ void multivibrator_send()
 
 	newstate = (time < cyclestart + self.wait);
 
+	activator = self;
 	if(self.state != newstate)
 		SUB_UseTargets();
 	self.state = newstate;
