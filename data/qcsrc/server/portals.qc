@@ -226,11 +226,39 @@ float Portal_FindSafeOrigin(entity portal)
 	return 1;
 }
 
+float Portal_WillHitPlane(vector eorg, vector emins, vector emaxs, vector evel, vector porg, vector pnorm, float psize)
+{
+	float dist, distpersec, delta;
+	vector v;
+
+	dist = (eorg - porg) * pnorm;
+	dist += min(emins_x * pnorm_x, emaxs_x * pnorm_x);
+	dist += min(emins_y * pnorm_y, emaxs_y * pnorm_y);
+	dist += min(emins_z * pnorm_z, emaxs_z * pnorm_z);
+	if(dist < -1) // other side?
+		return 0;
+	distpersec = evel * pnorm;
+	if(distpersec >= 0) // going away from the portal?
+		return 0;
+	delta = dist / distpersec;
+	v = eorg - evel * delta - porg;
+	v = v - pnorm * (pnorm * v);
+	return vlen(v) < psize;
+}
+
 void Portal_Touch()
 {
+	vector g;
+
 	// portal is being removed?
 	if(self.solid != SOLID_TRIGGER)
 		return; // possibly engine bug
+
+	if(other.classname == "player")
+		return; // handled by think
+	
+	if(other.classname == "grapplinghook")
+		return; // handled by think
 	
 	if(!self.enemy)
 		error("Portal_Touch called for a broken portal\n");
@@ -238,9 +266,6 @@ void Portal_Touch()
 	if(trace_fraction < 1)
 		return; // only handle TouchAreaGrid ones (only these can teleport)
 		// for some unknown reason, this also gets collisions from SV_Impact sometimes
-
-	if(other.classname == "grapplinghook")
-		return;
 
 	if(other.classname == "porto")
 	{
@@ -262,7 +287,8 @@ void Portal_Touch()
 			if(IS_INDEPENDENT_PLAYER(other.owner) || IS_INDEPENDENT_PLAYER(self.owner))
 				return; // cannot go through someone else's portal
 	fixedmakevectors(self.angles);
-	if((other.origin - self.origin) * v_forward < 0)
+	g = frametime * '0 0 -1' * cvar("sv_gravity");
+	if(!Portal_WillHitPlane(other.origin, other.mins, other.maxs, other.velocity + g, self.origin, v_forward, self.maxs_x))
 		return;
 
 	/*
@@ -420,9 +446,22 @@ void Portal_Damage(entity inflictor, entity attacker, float damage, float deatht
 		Portal_Remove(self, 1);
 }
 
+void Portal_Think_TryTeleportPlayer(entity e, vector g)
+{
+	if(!Portal_WillHitPlane(e.origin, e.mins, e.maxs, e.velocity + g, self.origin, v_forward, self.maxs_x))
+		return;
+
+	// if e would hit the portal in a frame...
+	// already teleport him
+	tracebox(e.origin, e.mins, e.maxs, e.origin + e.velocity * 2 * frametime, MOVE_NORMAL, e);
+	if(trace_ent == self)
+		Portal_TeleportPlayer(self, e);
+}
+
 void Portal_Think()
 {
 	entity e, o;
+	vector g;
 
 	// portal is being removed?
 	if(self.solid != SOLID_TRIGGER)
@@ -435,24 +474,21 @@ void Portal_Think()
 	self.solid = SOLID_BBOX;
 	self.owner = world;
 
+	g = frametime * '0 0 -1' * cvar("sv_gravity");
+
 	fixedmakevectors(self.angles);
 
 	FOR_EACH_PLAYER(e)
 	{
-		if(time < self.portal_activatetime)
-			if(e == o)
-				continue;
 		if(e != o)
 			if(IS_INDEPENDENT_PLAYER(e) || IS_INDEPENDENT_PLAYER(o))
 				continue; // cannot go through someone else's portal
-		if((e.origin - self.origin) * v_forward < 0) // wrong side of the plane? no teleport
-			continue;
 
-		// if e would hit the portal in a frame...
-		// already teleport him
-		tracebox(e.origin, e.mins, e.maxs, e.origin + e.velocity * 2 * frametime, MOVE_NORMAL, e);
-		if(trace_ent == self)
-			Portal_TeleportPlayer(self, e);
+		if(e != o || time >= self.portal_activatetime)
+			Portal_Think_TryTeleportPlayer(e, g);
+
+		if(e.hook)
+			Portal_Think_TryTeleportPlayer(e.hook, g);
 	}
 	self.solid = SOLID_TRIGGER;
 	self.owner = o;
@@ -599,7 +635,7 @@ entity Portal_Spawn(entity own, vector org, vector ang)
 	portal.angles = ang;
 	portal.think = Portal_Think;
 	portal.nextthink = 0;
-	portal.portal_activatetime = time + 1.1;
+	portal.portal_activatetime = time + 0.1;
 	portal.event_damage = Portal_Damage;
 	portal.health = 200;
 	portal.fade_time = time + cvar("g_balance_portal_lifetime");

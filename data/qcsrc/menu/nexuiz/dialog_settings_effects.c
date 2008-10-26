@@ -87,6 +87,8 @@ void fillNexuizEffectsSettingsTab(entity me)
 		me.TDempty(me, 0.2);
 		me.TD(me, 1, 2.8, e = makeNexuizCheckBox(1, "r_picmipworld", "Reduce model texture quality only"));
 			setDependent(e, "gl_picmip", 0.5, -0.5);
+	me.TR(me);
+		me.TD(me, 1, 3, e = makeNexuizCheckBox(1, "mod_q3bsp_nolightmaps", "Use lightmaps"));
 
 	me.TR(me);
 
@@ -110,8 +112,6 @@ void fillNexuizEffectsSettingsTab(entity me)
 			e.addValue(e, "Many", "0.5");
 			e.addValue(e, "Lots", "0");
 			e.configureNexuizTextSliderValues(e);
-
-	me.TR(me);
 
 	me.TR(me);
 		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "r_coronas", "Coronas"));
@@ -183,7 +183,7 @@ void fillNexuizEffectsSettingsTab(entity me)
 			me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "r_showsurfaces", "Show surfaces"));
 
 	me.gotoRC(me, me.rows - 1, 0);
-		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "sendcvar cl_nogibs; r_restart", COMMANDBUTTON_APPLY));
+		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "sendcvar cl_nogibs; gl_flashblend_update; r_restart", COMMANDBUTTON_APPLY));
 }
 /*
  * [X] depth first world [X] depth first models (?????)
