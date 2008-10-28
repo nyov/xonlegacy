@@ -209,7 +209,6 @@ void spawnfunc_worldspawn (void)
 	world_already_spawned = TRUE;
 
 	remove = remove_safely; // during spawning, watch what you remove!
-	remove_empty_template = spawn(); // make an empty entity
 
 	compressShortVector_init();
 
@@ -324,8 +323,8 @@ void spawnfunc_worldspawn (void)
 			s = strcat(s, ":no_pickup_items");
 		if(cvar("g_instagib"))
 			s = strcat(s, ":instagib");
-		if(cvar("g_rocketarena"))
-			s = strcat(s, ":rockerarena");
+		if(cvar_string("g_weaponarena") != "0")
+			s = strcat(s, ":", cvar_string("g_weaponarena"), " arena");
 		if(cvar("g_nixnex"))
 			s = strcat(s, ":nixnex");
 		if(cvar("g_vampire"))
@@ -1613,8 +1612,10 @@ void CheckRules_World()
 
 	if(inWarmupStage || time <= game_starttime) // NOTE: this is <= to prevent problems in the very tic where the game starts
 	{
-		timelimit = 0; // timelimit is not made for warmup
-		fraglimit = 0; // no fraglimit for now
+		if(timelimit > 0)
+			timelimit = 0; // timelimit is not made for warmup
+		if(fraglimit > 0)
+			fraglimit = 0; // no fraglimit for now
 	}
 
 	if(timelimit > 0)

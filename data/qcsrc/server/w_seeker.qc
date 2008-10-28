@@ -222,11 +222,11 @@ void Seeker_Vollycontroler_Think()
 {
     entity oldself,oldenemy;
     self.cnt = self.cnt - 1;
-    if ((self.owner.ammo_rockets < cvar("g_balance_seeker_missile_ammo")) || (self.cnt <= -1))
+
+    if ((self.owner.ammo_rockets < cvar("g_balance_seeker_missile_ammo")) || (self.cnt <= -1) || (self.owner.deadflag != DEAD_NO))
     {
         remove(self);
         return;
-
     }
 
     self.nextthink = time + cvar("g_balance_seeker_missile_delay");
@@ -302,7 +302,7 @@ void Seeker_Tag_Touch()
     self.event_damage = SUB_Null;
     sound (self, CHAN_PROJECTILE, "weapons/laserimpact.wav", 1, ATTN_NORM);
 
-    if (other.takedamage && other.deadflag == DEAD_NO)
+    if (other.takedamage != DAMAGE_AIM && other.deadflag == DEAD_NO)
     {
         entity e;
         e           = spawn();
