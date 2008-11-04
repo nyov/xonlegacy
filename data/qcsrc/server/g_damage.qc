@@ -508,6 +508,23 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
         damage_inflictor = inflictor;
         damage_attacker = attacker;
 		attacker_save = attacker;
+	
+	if(targ.classname == "player")
+		if(targ.hook)
+			if(targ.hook.aiment)
+				if(targ.hook.aiment == attacker)
+					RemoveGrapplingHook(targ); // STOP THAT, you parasite!
+
+	// special rule: gravity bomb does not hit team mates (other than for disconnecting the hook)
+	if(DEATH_WEAPONOF(deathtype) == WEP_HOOK)
+	{
+		if(targ.classname == "player")
+			if not(IsDifferentTeam(targ, attacker))
+			{
+				self = oldself;
+				return;
+			}
+	}
 
 	if(deathtype == DEATH_KILL || deathtype == DEATH_TEAMCHANGE || deathtype == DEATH_AUTOTEAMCHANGE)
 	{

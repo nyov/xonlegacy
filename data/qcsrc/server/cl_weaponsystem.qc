@@ -9,7 +9,7 @@
 
 void W_SwitchWeapon_Force(entity e, float w)
 {
-	e.cnt = e.weapon ? e.weapon : e.switchweapon;
+	e.cnt = e.switchweapon;
 	e.switchweapon = w;
 }
 
@@ -453,6 +453,7 @@ void weapon_setup(float windex)
 	// the two weapon entities will notice this has changed and update their models
 	self.weapon = windex;
 	self.weaponname = e.mdl;
+	self.bulletcounter = 0;
 };
 
 // perform weapon to attack (weaponstate and attack_finished check is here)
@@ -494,6 +495,7 @@ float weapon_prepareattack(float secondary, float attacktime)
 		//dprint("resetting attack finished to ", ftos(time), "\n");
 	}
 	ATTACK_FINISHED(self) = ATTACK_FINISHED(self) + attacktime;
+	self.bulletcounter += 1;
 	//dprint("attack finished ", ftos(ATTACK_FINISHED(self)), "\n");
 	return TRUE;
 };

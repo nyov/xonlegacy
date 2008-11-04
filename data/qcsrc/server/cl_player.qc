@@ -273,7 +273,7 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 	else if (take > 10)
 		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM);
 
-	if not(IS_INDEPENDENT_PLAYER(self))
+	if(independent_players)
 	if(sv_gentle < 1) {	
 		if (take > 50)
 			TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.1,1);
@@ -308,16 +308,16 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 
 
 		// make a meaty mess
-		if(IS_INDEPENDENT_PLAYER(self))
+		if(independent_players)
 		{
 			TossGib (self, "models/gibs/eye.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
-			MAKE_INDEPENDENT_PLAYER(self); // undo SOLID_CORPSE
+			self.solid = SOLID_TRIGGER; // undo SOLID_CORPSE
 			self.takedamage = DAMAGE_NO; // can't damage this gib, to prevent better jumps from it
 		}
 		else
 			TossGib (self, "models/gibs/eye.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
 		
-		if not(IS_INDEPENDENT_PLAYER(self))
+		if not(independent_players)
 		if(sv_gentle < 1) {
 			te_bloodshower (self.origin + self.mins, self.origin + self.maxs, 1200 * multiplier, 1000);
 			TossGib (world, "models/gibs/bloodyskull.md3", self.origin + self.view_ofs, self.velocity,0);
@@ -364,11 +364,6 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 {
 	local float take, save, waves, sdelay;
 
-	if(self.hook)
-		if(self.hook.aiment)
-			if(self.hook.aiment == attacker)
-				RemoveGrapplingHook(self); // STOP THAT, you parasite!
-
 	damage = damage * bound(1.0, self.cvar_cl_handicap, 100.0);
 	if(sv_gentle > 0) {
 		pointparticles(particleeffectnum("damage_hit"), hitloc, force, bound(0, damage, 200));
@@ -398,10 +393,14 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 	else if (take > 10)
 		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM); // FIXME possibly remove them?
 
-	if (take > 50)
-		TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.1,1);
-	if (take > 100)
-		TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.2,1);
+	if(sv_gentle < 1)
+	if not(independent_players)
+	{
+		if (take > 50)
+			TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.1,1);
+		if (take > 100)
+			TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.2,1);
+	}
 
 	if (time > self.spawnshieldtime)
 	{

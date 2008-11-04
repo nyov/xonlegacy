@@ -8,7 +8,10 @@ CLASS(NexuizCampaignList) EXTENDS(NexuizListBox)
 	METHOD(NexuizCampaignList, resizeNotify, void(entity, vector, vector, vector, vector))
 	METHOD(NexuizCampaignList, setSelected, void(entity, float))
 	METHOD(NexuizCampaignList, keyDown, float(entity, float, float, float))
+	METHOD(NexuizCampaignList, campaignGo, void(entity, float))
+	METHOD(NexuizCampaignList, destroy, void(entity))
 
+	ATTRIB(NexuizCampaignList, campaignGlob, float, 0)
 	ATTRIB(NexuizCampaignList, realFontSize, vector, '0 0 0')
 	ATTRIB(NexuizCampaignList, columnPreviewOrigin, float, 0)
 	ATTRIB(NexuizCampaignList, columnPreviewSize, float, 0)
@@ -32,9 +35,15 @@ CLASS(NexuizCampaignList) EXTENDS(NexuizListBox)
 	ATTRIB(NexuizCampaignList, cvarName, string, string_null)
 	METHOD(NexuizCampaignList, loadCvars, void(entity))
 	METHOD(NexuizCampaignList, saveCvars, void(entity))
+
+	ATTRIB(NexuizCampaignList, buttonNext, entity, NULL)
+	ATTRIB(NexuizCampaignList, buttonPrev, entity, NULL)
+	ATTRIB(NexuizCampaignList, labelTitle, entity, NULL)
 ENDCLASS(NexuizCampaignList)
 entity makeNexuizCampaignList();
 void CampaignList_LoadMap(entity btn, entity me);
+void MultiCampaign_Next(entity btn, entity me);
+void MultiCampaign_Prev(entity btn, entity me);
 #endif
 
 #ifdef IMPLEMENTATION
@@ -110,7 +119,15 @@ entity makeNexuizCampaignList()
 void configureNexuizCampaignListNexuizCampaignList(entity me)
 {
 	me.configureNexuizListBox(me);
+	me.campaignGlob = search_begin("maps/campaign*.txt", TRUE, TRUE);
 	me.loadCvars(me);
+	me.campaignGo(me, 0); // takes care of enabling/disabling buttons too
+}
+
+void destroyNexuizCampaignList(entity me)
+{
+	if(me.campaignGlob >= 0)
+		search_end(me.campaignGlob);
 }
 
 void loadCvarsNexuizCampaignList(entity me)
@@ -122,6 +139,8 @@ void loadCvarsNexuizCampaignList(entity me)
 		strunzone(me.cvarName);
 	campaign_name = strzone(cvar_string("g_campaign_name"));
 	me.cvarName = strzone(strcat("g_campaign", campaign_name, "_index"));
+	registercvar(me.cvarName, "", 0); // saved by server QC anyway
+	CampaignFile_Unload();
 	CampaignFile_Load(0, CAMPAIGN_MAX_ENTRIES);
 	me.campaignIndex = bound(0, cvar(me.cvarName), campaign_entries);
 	cvar_set(me.cvarName, ftos(me.campaignIndex));
@@ -130,13 +149,70 @@ void loadCvarsNexuizCampaignList(entity me)
 	me.nItems = min(me.campaignIndex + 2, campaign_entries);
 	me.selectedItem = min(me.campaignIndex, me.nItems - 1);
 	me.scrollPos = me.nItems * me.itemHeight - 1;
+	if(me.labelTitle)
+		me.labelTitle.setText(me.labelTitle, campaign_title);
 }
 
 void saveCvarsNexuizCampaignList(entity me)
 {
 	// write campaign cvars
-	cvar_set("g_campaign_name", campaign_name);
+	// no reason to do this!
+	// cvar_set("g_campaign_name", campaign_name);
 	// cvar_set(me.cvarName, ftos(me.campaignIndex)); // NOTE: only server QC does that!
+}
+
+void campaignGoNexuizCampaignList(entity me, float step)
+{
+	float canNext, canPrev;
+	string s;
+	float i, j, n;
+
+	canNext = canPrev = 0;
+
+	if(me.campaignGlob >= 0)
+	{
+		n = search_getsize(me.campaignGlob);
+		if(n > 0)
+		{
+			j = -1;
+			s = strcat("maps/campaign", campaign_name, ".txt");
+			for(i = 0; i < n; ++i)
+			{
+				if(search_getfilename(me.campaignGlob, i) == s)
+					j = i;
+			}
+			if(j < 0)
+			{
+				if(step >= 0)
+					j = 0;
+				else
+					j = n - 1;
+			}
+			else
+				j = mod(j + step, n);
+			s = search_getfilename(me.campaignGlob, j);
+			print(s, "\n");
+			s = substring(s, 13, strlen(s) - 17);
+			cvar_set("g_campaign_name", s);
+			me.loadCvars(me);
+			canNext = (j != n - 1);
+			canPrev = (j != 0);
+		}
+	}
+
+	if(me.buttonNext)
+		me.buttonNext.disabled = !canNext;
+	if(me.buttonPrev)
+		me.buttonPrev.disabled = !canPrev;
+}
+
+void MultiCampaign_Next(entity btn, entity me)
+{
+	me.campaignGo(me, +1);
+}
+void MultiCampaign_Prev(entity btn, entity me)
+{
+	me.campaignGo(me, -1);
 }
 
 void drawNexuizCampaignList(entity me)

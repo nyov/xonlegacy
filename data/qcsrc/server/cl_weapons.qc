@@ -1,7 +1,7 @@
 // switch between weapons
 void W_SwitchWeapon(float imp)
 {
-	if (self.weapon != imp)
+	if (self.switchweapon != imp)
 	if (client_hasweapon(self, imp, TRUE, TRUE))
 		W_SwitchWeapon_Force(self, imp);
 };
@@ -207,7 +207,7 @@ float W_ThrowNewWeapon(entity own, float wpn, float doreduce, vector org, vector
 // toss current weapon
 void W_ThrowWeapon(vector velo, vector delta, float doreduce)
 {
-	local float w, a, wb;
+	local float w, a, wb, wa;
 
 	w = self.weapon;
 	if (w == 0)
@@ -224,8 +224,20 @@ void W_ThrowWeapon(vector velo, vector delta, float doreduce)
 		return;
 
 	wb = W_WeaponBit(w);
+	wa = W_AmmoItemCode(w);
+	if(!wb)
+		return;
 	if(self.weapons & wb != wb)
 		return;
+	if(start_weapons & wb)
+	{
+		if(wa == IT_SUPERWEAPON && start_items & IT_UNLIMITED_SUPERWEAPONS)
+			return;
+		if(wa != IT_SUPERWEAPON && start_items & IT_UNLIMITED_WEAPON_AMMO)
+			return;
+		if(wa == 0)
+			return;
+	}
 
 	self.weapons = self.weapons - wb;
 	W_SwitchWeapon_Force(self, w_getbestweapon(self));
@@ -452,8 +464,8 @@ void RegisterWeapons()
 	register_weapon(WEP_PORTO,            w_porto,     IT_SUPERWEAPON, 0, 0,     0, "porto" ,    "porto",           "Port-O-Launch");
 	register_weapon(WEP_MINSTANEX,        w_minstanex, IT_CELLS,       7, 0, 10000, "minstanex", "minstanex",       "MinstaNex");
 	register_weapon(WEP_HOOK,             w_hook,      IT_CELLS,       0, 0,     0, "hookgun",   "hook",            "Grappling Hook");
-	register_weapon(WEP_SEEKER,           w_seeker,    IT_ROCKETS,     8, 0,     0, "seeker",    "seeker",          "T.A.G. Seeker");
-	register_weapon(WEP_HLAC,             w_hlac,      IT_CELLS,       6, 0,     0, "hlac",      "hlac",            "Heavy Laser Assault Cannon");
+	register_weapon(WEP_SEEKER,           w_seeker,    IT_ROCKETS,     8, 1,     0, "seeker",    "seeker",          "T.A.G. Seeker");
+	register_weapon(WEP_HLAC,             w_hlac,      IT_CELLS,       6, 1,     0, "hlac",      "hlac",            "Heavy Laser Assault Cannon");
 
 	register_weapons_done();
 }

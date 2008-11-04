@@ -4,6 +4,12 @@ void W_Plasma_Explode (void)
 	vector org2;
 	org2 = findbetterlocation (self.origin, 8);
 
+	if(other.takedamage == DAMAGE_AIM)
+		if(other.classname == "player")
+			if(IsDifferentTeam(self.owner, other))
+				if(IsFlying(other))
+					announce(self.owner, "announcer/male/electrobitch.ogg");
+
 	self.event_damage = SUB_Null;
 	if (self.movetype == MOVETYPE_BOUNCE)
 	{
@@ -15,12 +21,6 @@ void W_Plasma_Explode (void)
 		pointparticles(particleeffectnum("electro_impact"), org2, '0 0 0', 1);
 		RadiusDamage (self, self.owner, cvar("g_balance_electro_primary_damage"), cvar("g_balance_electro_primary_edgedamage"), cvar("g_balance_electro_primary_radius"), world, cvar("g_balance_electro_primary_force"), self.projectiledeathtype, other);
 	}
-
-	if(other.takedamage == DAMAGE_AIM)
-		if(other.classname == "player")
-			if(IsDifferentTeam(self.owner, other))
-				if(IsFlying(other))
-					announce(self.owner, "announcer/male/electrobitch.ogg");
 
 	sound (self, CHAN_PROJECTILE, "weapons/electro_impact.wav", VOL_BASE, ATTN_NORM);
 
@@ -42,12 +42,7 @@ void W_Plasma_Explode_Combo (void) {
 
 void W_Plasma_Touch (void)
 {
-	if (trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
-	{
-		sound (self, CHAN_PROJECTILE, "misc/null.wav", VOL_BASE, ATTN_NORM);
-		remove(self);
-		return;
-	}
+	PROJECTILE_TOUCH_NOSOUND;
 	if (other.takedamage == DAMAGE_AIM) {
 		W_Plasma_Explode ();
 	} else {
@@ -58,14 +53,7 @@ void W_Plasma_Touch (void)
 
 void W_Plasma_TouchExplode (void)
 {
-	entity o;
-	if (trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
-	{
-		sound (self, CHAN_PROJECTILE, "misc/null.wav", VOL_BASE, ATTN_NORM);
-		remove(self);
-		return;
-	}
-	o = self.owner;
+	PROJECTILE_TOUCH_NOSOUND;
 	W_Plasma_Explode ();
 }
 
