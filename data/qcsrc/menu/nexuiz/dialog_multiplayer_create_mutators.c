@@ -6,9 +6,9 @@ CLASS(NexuizMutatorsDialog) EXTENDS(NexuizDialog)
 	METHOD(NexuizMutatorsDialog, close, void(entity))
 	ATTRIB(NexuizMutatorsDialog, title, string, "Mutators")
 	ATTRIB(NexuizMutatorsDialog, color, vector, SKINCOLOR_DIALOG_MUTATORS)
-	ATTRIB(NexuizMutatorsDialog, intendedWidth, float, 0.6)
-	ATTRIB(NexuizMutatorsDialog, rows, float, 9)
-	ATTRIB(NexuizMutatorsDialog, columns, float, 4)
+	ATTRIB(NexuizMutatorsDialog, intendedWidth, float, 0.8)
+	ATTRIB(NexuizMutatorsDialog, rows, float, 16)
+	ATTRIB(NexuizMutatorsDialog, columns, float, 6)
 	ATTRIB(NexuizMutatorsDialog, refilterEntity, entity, NULL)
 ENDCLASS(NexuizMutatorsDialog)
 #endif
@@ -16,8 +16,50 @@ ENDCLASS(NexuizMutatorsDialog)
 #ifdef IMPLEMENTATION
 void showNotifyNexuizMutatorsDialog(entity me)
 {
-        loadAllCvars(me);
+	loadAllCvars(me);
 }
+
+string weaponarenastring;
+string weaponarenastring_cvar;
+string WeaponArenaString()
+{
+	string s;
+	float n, i, j;
+	entity e;
+	s = cvar_string("g_weaponarena");
+	if(s == "0")
+		return "";
+	if(s == "all")
+		return "All Weapons Arena";
+	if(s == "most")
+		return "Most Weapons Arena";
+	if(s == weaponarenastring_cvar)
+		return weaponarenastring;
+	if(weaponarenastring)
+		strunzone(weaponarenastring);
+	if(weaponarenastring_cvar)
+		strunzone(weaponarenastring_cvar);
+
+	weaponarenastring_cvar = strzone(s);
+
+	n = tokenize_sane(s);
+	s = "";
+	for(i = 0; i < n; ++i)
+	{
+		for(j = WEP_FIRST; j <= WEP_LAST; ++j)
+		{
+			e = get_weaponinfo(j);
+			if(argv(i) == e.netname)
+				s = strcat(s, " & ", e.message);
+		}
+	}
+	s = strcat(substring(s, 3, strlen(s) - 3), " Arena");
+	
+	weaponarenastring = strzone(s);
+
+	return weaponarenastring;
+}
+
 string toStringNexuizMutatorsDialog(entity me)
 {
 	string s;
@@ -26,8 +68,8 @@ string toStringNexuizMutatorsDialog(entity me)
 		s = strcat(s, ", MinstaGib");
 	if(cvar("g_nixnex"))
 		s = strcat(s, ", NixNex");
-	if(cvar("g_rocketarena"))
-		s = strcat(s, ", RL arena");
+	if(cvar_string("g_weaponarena") != "0")
+		s = strcat(s, ", ", WeaponArenaString());
 	if(cvar("sv_gravity") < 800)
 		s = strcat(s, ", Low gravity");
 	if(cvar("g_cloaked"))
@@ -42,14 +84,73 @@ string toStringNexuizMutatorsDialog(entity me)
 		s = strcat(s, ", Midair");
 	if(cvar("g_vampire"))
 		s = strcat(s, ", Vampire");
+	if(cvar("g_weapon_stay"))
+		s = strcat(s, ", Weapons stay");
 	if(s == "")
 		return "None";
 	else
 		return substring(s, 2, strlen(s) - 2);
 }
+
+
+
+// WARNING: dirty hack. TODO clean this up by putting this behaviour in extra classes.
+void loadCvarsLaserWeaponArenaWeaponButton(entity me)
+{
+	tokenize_sane(cvar_string("g_weaponarena"));
+	me.checked = (argv(0) == me.cvarValue);
+}
+
+void saveCvarsLaserWeaponArenaWeaponButton(entity me)
+{
+	string suffix;
+	suffix = "";
+	if(me.cvarValue != "laser")
+		if(cvar("menu_weaponarena_with_laser"))
+			suffix = " laser";
+	if(me.checked)
+		cvar_set(me.cvarName, strcat(me.cvarValue, suffix));
+	else
+		cvar_set(me.cvarName, me.cvarOffValue);
+}
+
+.void(entity) draw_weaponarena;
+.void(entity) saveCvars_weaponarena;
+void saveCvarsLaserWeaponArenaLaserButton(entity me)
+{
+	// run the old function
+	me.saveCvars_weaponarena(me);
+
+	me.disabled = ((cvar_string("g_weaponarena") == "0") || (cvar_string("g_weaponarena") == "laser"));
+
+	if not(me.disabled)
+	{
+		// check for the laser suffix
+		string s;
+		s = cvar_string("g_weaponarena");
+		if(me.checked && substring(s, strlen(s) - 6, 6) != " laser")
+			s = strcat(s, " laser");
+		else if(!me.checked && substring(s, strlen(s) - 6, 6) == " laser")
+			s = substring(s, 0, strlen(s) - 6);
+		cvar_set("g_weaponarena", s);
+	}
+}
+
+void preDrawLaserWeaponArenaLaserButton(entity me)
+{
+	me.disabled = ((cvar_string("g_weaponarena") == "0") || (cvar_string("g_weaponarena") == "laser"));
+	// run the old function
+	me.draw_weaponarena(me);
+}
+// WARNING: end of dirty hack. Do not try this at home.
+
+
+
 void fillNexuizMutatorsDialog(entity me)
 {
-	entity e, s;
+	entity e, s, w;
+	float i, j;
+	string str, hstr;
 	me.TR(me);
 		me.TD(me, 1, 2, makeNexuizTextLabel(0, "Game mutators:"));
 	me.TR(me);
@@ -64,30 +165,58 @@ void fillNexuizMutatorsDialog(entity me)
 		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "g_midair", "Midair"));
 	me.TR(me);
 		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "g_vampire", "Vampire"));
-
-	me.gotoRC(me, 0, 2); me.setFirstColumn(me, me.currentColumn);
-		me.TD(me, 1, 2, makeNexuizTextLabel(0, "Arena mutators:"));
 	me.TR(me);
-		me.TD(me, 1, 2, e = makeNexuizRadioButton(1, string_null, string_null, "Regular"));
+		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "g_weapon_stay", "Weapons stay"));
 	me.TR(me);
-		me.TD(me, 1, 2, e = makeNexuizRadioButton(1, "g_minstagib", string_null, "MinstaGib"));
-	me.TR(me);
-		me.TD(me, 1, 2, e = makeNexuizRadioButton(1, "g_nixnex", string_null, "NixNex"));
-	me.TR(me);
-		me.TDempty(me, 0.2);
-		me.TD(me, 1, 1.8, e = makeNexuizCheckBox(1, "g_nixnex_with_laser", "with laser"));
-			setDependent(e, "g_nixnex", 1, 1);
-	me.TR(me);
-		me.TD(me, 1, 2, e = makeNexuizRadioButton(1, "g_weaponarena", "rocketlauncher", "Rocket launcher arena"));
-			e.cvarOffValue = "0";
-
-	me.gotoRC(me, me.rows - 2, 0);
 		s = makeNexuizSlider(80, 400, 8, "sv_gravity");
 			s.valueDigits = 0;
 			s.valueDisplayMultiplier = 0.125; // show gravity in percent
-		me.TD(me, 1, 1, e = makeNexuizSliderCheckBox(800, 1, s, "Low gravity"));
+		me.TD(me, 1, 2, e = makeNexuizSliderCheckBox(800, 1, s, "Low gravity"));
 			e.savedValue = 200; // good on silvercity
-		me.TD(me, 1, 3, s);
+	me.TR(me);
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 1.8, s);
+
+	me.gotoRC(me, 0, 2); me.setFirstColumn(me, me.currentColumn);
+		me.TD(me, 1, 4, makeNexuizTextLabel(0, "Weapon arenas:"));
+	me.TR(me);
+		me.TD(me, 1, 4, e = makeNexuizRadioButton(1, string_null, string_null, "Regular (no arena)"));
+	for(i = WEP_FIRST, j = 0; i <= WEP_LAST; ++i, ++j)
+	{
+		w = get_weaponinfo(i);
+		if(j & 1 == 0)
+			me.TR(me);
+		str = w.netname;
+		hstr = w.message;
+		me.TD(me, 1, 2, e = makeNexuizRadioButton(1, "g_weaponarena", strzone(str), strzone(hstr)));
+			e.cvarOffValue = "0";
+			// custom load/save logic that ignores a " laser" suffix, or adds it 
+			e.loadCvars = loadCvarsLaserWeaponArenaWeaponButton;
+			e.saveCvars = saveCvarsLaserWeaponArenaWeaponButton;
+			e.loadCvars(e);
+	}
+	me.TR(me);
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 3.8, e = makeNexuizCheckBox(0, "menu_weaponarena_with_laser", "with laser"));
+			// hook the draw function to gray it out
+			e.draw_weaponarena = e.draw;
+			e.draw = preDrawLaserWeaponArenaLaserButton;
+			// hook the save function to notify about the cvar
+			e.saveCvars_weaponarena = e.saveCvars;
+			e.saveCvars = saveCvarsLaserWeaponArenaLaserButton;
+	me.TR(me);
+		me.TD(me, 1, 4, makeNexuizTextLabel(0, "Special arenas:"));
+	me.TR(me);
+		me.TD(me, 1, 4, e = makeNexuizRadioButton(1, "g_minstagib", string_null, "MinstaGib"));
+	me.TR(me);
+		me.TD(me, 1, 4, e = makeNexuizRadioButton(1, "g_nixnex", string_null, "NixNex"));
+	me.TR(me);
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 3.8, e = makeNexuizCheckBox(0, "g_nixnex_with_laser", "with laser"));
+			setDependent(e, "g_nixnex", 1, 1);
+	me.TR(me);
+		me.TD(me, 1, 4, e = makeNexuizRadioButton(1, "g_weaponarena", "all", "All weapons"));
+			e.cvarOffValue = "0";
 
 	me.gotoRC(me, me.rows - 1, 0);
 		me.TD(me, 1, me.columns, e = makeNexuizButton("OK", '0 0 0'));

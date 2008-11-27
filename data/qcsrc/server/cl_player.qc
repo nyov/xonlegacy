@@ -364,7 +364,13 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 {
 	local float take, save, waves, sdelay;
 
-	damage = damage * bound(1.0, self.cvar_cl_handicap, 100.0);
+	if(!DEATH_ISSPECIAL(deathtype))
+	{
+		damage *= sqrt(bound(1.0, self.cvar_cl_handicap, 100.0));
+		if(self != attacker)
+			damage /= sqrt(bound(1.0, attacker.cvar_cl_handicap, 100.0));
+	}
+
 	if(sv_gentle > 0) {
 		pointparticles(particleeffectnum("damage_hit"), hitloc, force, bound(0, damage, 200));
 	} else {
@@ -764,7 +770,7 @@ float GetVoiceMessageTeamsayType(string type)
 	return 1;
 }
 
-string allvoicesamples = "attack attackinfive coverme defend freelance incoming meet needhelp seenflag taunt teamshoot";
+string allvoicesamples;
 float GetPlayerSoundSampleField_notFound;
 float GetPlayerSoundSampleField_fixed;
 .string GetVoiceMessageSampleField(string type)
@@ -773,18 +779,11 @@ float GetPlayerSoundSampleField_fixed;
 	GetPlayerSoundSampleField_fixed = 0;
 	switch(type)
 	{
-		case "attack":            return playersound_attack;
-		case "attackinfive":      return playersound_attackinfive;
-		case "coverme":           return playersound_coverme;
-		case "defend":            return playersound_defend;
-		case "freelance":         return playersound_freelance;
-		case "incoming":          return playersound_incoming;
-		case "meet":              return playersound_meet;
-		case "needhelp":          return playersound_needhelp;
-		case "seenflag":          return playersound_seenflag;
-		case "taunt":             return playersound_taunt;
-		case "teamshoot":         return playersound_teamshoot;
-		case "teamshoot_auto":    return playersound_teamshoot;
+#define _VOICEMSG(m) case #m: return playersound_##m;
+		ALLVOICEMSGS
+#undef _VOICEMSG
+		// exception:
+		case "teamshoot_auto": return playersound_teamshoot;
 	}
 	GetPlayerSoundSampleField_notFound = 1;
 	return playersound_taunt;
@@ -796,15 +795,9 @@ float GetPlayerSoundSampleField_fixed;
 	GetPlayerSoundSampleField_fixed = 0;
 	switch(type)
 	{
-		case "death":        return playersound_death;
-		case "drown":        return playersound_drown;
-		case "falling":      return playersound_falling;
-		case "gasp":         return playersound_gasp;
-		case "jump":         return playersound_jump;
-		case "pain25":       return playersound_pain25;
-		case "pain50":       return playersound_pain50;
-		case "pain75":       return playersound_pain75;
-		case "pain100":      return playersound_pain100;
+#define _VOICEMSG(m) case #m: return playersound_##m;
+		ALLPLAYERSOUNDS
+#undef _VOICEMSG
 	}
 	GetPlayerSoundSampleField_notFound = 1;
 	return playersound_taunt;
@@ -843,30 +836,22 @@ void PrecachePlayerSounds(string f)
 		PrecacheGlobalSound(strcat(argv(1), " ", argv(2)));
 	}
 	fclose(fh);
+
+	if not(allvoicesamples)
+	{
+#define _VOICEMSG(m) allvoicesamples = strcat(allvoicesamples, " ", #m);
+		ALLVOICEMSGS
+#undef _VOICEMSG
+		allvoicesamples = strzone(substring(allvoicesamples, 1, strlen(allvoicesamples) - 1));
+	}
 }
 
 void ClearPlayerSounds()
 {
-	if(self.playersound_attack      ) { strunzone(self.playersound_attack      ); self.playersound_attack = string_null; }
-	if(self.playersound_attackinfive) { strunzone(self.playersound_attackinfive); self.playersound_attackinfive = string_null; }
-	if(self.playersound_coverme     ) { strunzone(self.playersound_coverme     ); self.playersound_coverme = string_null; }
-	if(self.playersound_defend      ) { strunzone(self.playersound_defend      ); self.playersound_defend = string_null; }
-	if(self.playersound_freelance   ) { strunzone(self.playersound_freelance   ); self.playersound_freelance = string_null; }
-	if(self.playersound_incoming    ) { strunzone(self.playersound_incoming    ); self.playersound_incoming = string_null; }
-	if(self.playersound_meet        ) { strunzone(self.playersound_meet        ); self.playersound_meet = string_null; }
-	if(self.playersound_needhelp    ) { strunzone(self.playersound_needhelp    ); self.playersound_needhelp = string_null; }
-	if(self.playersound_seenflag    ) { strunzone(self.playersound_seenflag    ); self.playersound_seenflag = string_null; }
-	if(self.playersound_taunt       ) { strunzone(self.playersound_taunt       ); self.playersound_taunt = string_null; }
-	if(self.playersound_teamshoot   ) { strunzone(self.playersound_teamshoot   ); self.playersound_teamshoot = string_null; }
-	if(self.playersound_death       ) { strunzone(self.playersound_death       ); self.playersound_death = string_null; }
-	if(self.playersound_drown       ) { strunzone(self.playersound_drown       ); self.playersound_drown = string_null; }
-	if(self.playersound_falling     ) { strunzone(self.playersound_falling     ); self.playersound_falling = string_null; }
-	if(self.playersound_gasp        ) { strunzone(self.playersound_gasp        ); self.playersound_gasp = string_null; }
-	if(self.playersound_jump        ) { strunzone(self.playersound_jump        ); self.playersound_jump = string_null; }
-	if(self.playersound_pain25      ) { strunzone(self.playersound_pain25      ); self.playersound_pain25 = string_null; }
-	if(self.playersound_pain50      ) { strunzone(self.playersound_pain50      ); self.playersound_pain50 = string_null; }
-	if(self.playersound_pain75      ) { strunzone(self.playersound_pain75      ); self.playersound_pain75 = string_null; }
-	if(self.playersound_pain100     ) { strunzone(self.playersound_pain100     ); self.playersound_pain100 = string_null; }
+#define _VOICEMSG(m) if(self.playersound_##m) { strunzone(self.playersound_##m); self.playersound_##m = string_null; }
+	ALLPLAYERSOUNDS
+	ALLVOICEMSGS
+#undef _VOICEMSG
 }
 
 void LoadPlayerSounds(string f, float first)

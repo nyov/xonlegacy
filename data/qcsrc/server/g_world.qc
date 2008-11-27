@@ -225,7 +225,10 @@ void spawnfunc_worldspawn (void)
 	RegisterWeapons();
 
 	if(GotoFirstMap())
+	{
+		world_initialized = -1; // don't complain
 		return;
+	}
 
 	if(sv_cheats)
 		ServerProgsDB = db_create();
@@ -401,9 +404,9 @@ void spawnfunc_worldspawn (void)
 	Nagger_Init();
 
 	next_pingtime = time + 5;
-	world_initialized = 1;
-
 	InitializeEntity(self, cvar_changes_init, INITPRIO_CVARS);
+
+	world_initialized = 1;
 }
 
 void spawnfunc_light (void)
@@ -1267,15 +1270,10 @@ float WinningCondition_Assault()
 	{
 		if(ent.winning)	// round end has been triggered by attacking team
 		{
+			bprint("ASSAULT: round completed...\n");
 			SetWinners(team, assault_attacker_team);
-			if(assault_attacker_team == COLOR_TEAM1)
-			{
-				team1_score = team1_score + 50;
-			}
-			else
-			{
-				team2_score = team2_score + 50;
-			}
+
+			TeamScore_AddToTeam(assault_attacker_team, ST_ASSAULT_OBJECTIVES, 666 - TeamScore_AddToTeam(assault_attacker_team, ST_ASSAULT_OBJECTIVES, 0));
 
 			if(ent.cnt == 1) // this was the second round
 			{
@@ -1286,7 +1284,6 @@ float WinningCondition_Assault()
 				local entity oldself;
 				oldself = self;
 				self = ent;
-				cvar_set("timelimit", ftos((2*time)/60)); // FIXME use game_starttime here
 				assault_new_round();
 				self = oldself;
 			}
@@ -1294,7 +1291,6 @@ float WinningCondition_Assault()
 	}
 
 	return status;
-
 }
 
 // LMS winning condition: game terminates if and only if there's at most one
@@ -1473,31 +1469,7 @@ float WinningCondition_QualifyingThenRace(float limit)
 
 	// NEVER initiate overtime
 	if(wc == WINNING_YES || wc == WINNING_STARTOVERTIME)
-	// do NOT support equality when the laps are all raced!
 	{
-		float totalplayers;
-		float playerswithlaps;
-		float readyplayers;
-		entity head;
-		totalplayers = playerswithlaps = readyplayers = 0;
-		FOR_EACH_PLAYER(head)
-		{
-			++totalplayers;
-			if(PlayerScore_Add(head, SP_RACE_FASTEST, 0))
-				++playerswithlaps;
-			if(head.ready)
-				++readyplayers;
-		}
-
-		// at least 2/3 of the players have completed a lap: start the RACE
-		// otherwise, the players should end the qualifying on their own
-		if(readyplayers || ((totalplayers >= 3) && (playerswithlaps * 3 >= totalplayers * 2)))
-		{
-			checkrules_overtimeend = 0;
-			ReadyRestart();
-			return WINNING_NEVER;
-		}
-
 		return WINNING_YES;
 	}
 
@@ -1636,7 +1608,36 @@ void CheckRules_World()
 	else
 	{
 		if (timelimit && time >= timelimit)
-			InitiateOvertime();
+		{
+			if(g_race && g_race_qualifying == 2 && timelimit > 0)
+			{
+				float totalplayers;
+				float playerswithlaps;
+				float readyplayers;
+				entity head;
+				totalplayers = playerswithlaps = readyplayers = 0;
+				FOR_EACH_PLAYER(head)
+				{
+					++totalplayers;
+					if(PlayerScore_Add(head, SP_RACE_FASTEST, 0))
+						++playerswithlaps;
+					if(head.ready)
+						++readyplayers;
+				}
+
+				// at least 2/3 of the players have completed a lap: start the RACE
+				// otherwise, the players should end the qualifying on their own
+				if(readyplayers || ((totalplayers >= 3) && (playerswithlaps * 3 >= totalplayers * 2)))
+				{
+					checkrules_overtimeend = 0;
+					ReadyRestart(); // go to race
+				}
+				else
+					InitiateOvertime();
+			}
+			else
+				InitiateOvertime();
+		}
 	}
 
 	if (checkrules_overtimeend && time >= checkrules_overtimeend)
@@ -2327,7 +2328,7 @@ void RestoreGame()
 
 void SV_Shutdown()
 {
-	if(world_initialized)
+	if(world_initialized > 0)
 	{
 		world_initialized = 0;
 		print("Saving persistent data...\n");
@@ -2344,7 +2345,7 @@ void SV_Shutdown()
 
 		MapInfo_Shutdown();
 	}
-	else
+	else if(world_initialized == 0)
 	{
 		print("NOTE: crashed before even initializing the world, not saving persistent data\n");
 	}

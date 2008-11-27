@@ -34,6 +34,7 @@ float g_pickup_respawntime_long;
 float g_pickup_respawntime_powerup;
 float g_maplist_allow_hidden;
 
+float sv_clones;
 float sv_cheats;
 float sv_gentle;
 float sv_foginterval;
@@ -74,6 +75,7 @@ float maxclients;
 //.float	style;
 //.float	skill;
 .float	sounds;
+.string	music;
 
 .string killtarget;
 
@@ -235,25 +237,6 @@ float alreadychangedlevel;
 
 .float welcomemessage_time;
 .float version;
-
-// esteel's voting
-float votecalled;
-string votecalledvote;
-string votecalledvote_display;
-float votecalledmaster;
-entity votecaller;
-float votefinished;
-.float vote_master;
-.float vote_next;
-.float vote_vote;
-void VoteThink();
-float VoteAllowed(string vote);
-void VoteReset();
-void VoteAccept();
-void VoteReject();
-void VoteTimeout();
-void VoteStop(entity stopper);
-void VoteCount();
 
 // Laser target for laser-guided weapons
 .entity lasertarget;
@@ -436,26 +419,44 @@ float next_pingtime;
 .float(entity to, float sendflags) SendEntity;
 
 // player sounds, voice messages
-.string playersound_attack;
-.string playersound_attackinfive;
-.string playersound_coverme;
-.string playersound_defend;
-.string playersound_freelance;
-.string playersound_incoming;
-.string playersound_meet;
-.string playersound_needhelp;
-.string playersound_seenflag;
-.string playersound_taunt;
-.string playersound_teamshoot;
-.string playersound_death;
-.string playersound_drown;
-.string playersound_falling; // not yet implemented, FIXME
-.string playersound_gasp;
-.string playersound_jump;
-.string playersound_pain25;
-.string playersound_pain50;
-.string playersound_pain75;
-.string playersound_pain100;
+// TODO implemented fall and falling
+#define ALLPLAYERSOUNDS \
+		_VOICEMSG(death) \
+		_VOICEMSG(drown) \
+		_VOICEMSG(fall) \
+		_VOICEMSG(falling) \
+		_VOICEMSG(gasp) \
+		_VOICEMSG(jump) \
+		_VOICEMSG(pain25) \
+		_VOICEMSG(pain50) \
+		_VOICEMSG(pain75) \
+		_VOICEMSG(pain100)
+#define ALLVOICEMSGS \
+		_VOICEMSG(attack) \
+		_VOICEMSG(attackinfive) \
+		_VOICEMSG(coverme) \
+		_VOICEMSG(defend) \
+		_VOICEMSG(freelance) \
+		_VOICEMSG(incoming) \
+		_VOICEMSG(meet) \
+		_VOICEMSG(needhelp) \
+		_VOICEMSG(seenflag) \
+		_VOICEMSG(taunt) \
+		_VOICEMSG(teamshoot) \
+		_VOICEMSG(attacking) \
+		_VOICEMSG(defending) \
+		_VOICEMSG(roaming) \
+		_VOICEMSG(positive) \
+		_VOICEMSG(negative) \
+		_VOICEMSG(onmyway) \
+		_VOICEMSG(seenenemy) \
+		_VOICEMSG(getflag) \
+		_VOICEMSG(droppedflag) \
+		_VOICEMSG(flagcarriertakingdamage)
+#define _VOICEMSG(m) .string playersound_##m;
+ALLPLAYERSOUNDS
+ALLVOICEMSGS
+#undef _VOICEMSG
 string globalsound_fall;
 string globalsound_metalfall;
 string globalsound_step;
@@ -499,3 +500,10 @@ vector railgun_start, railgun_end; // filled by FireRailgunBullet, used by damag
 // reset to 0 on weapon switch
 // may be useful to all weapons
 .float bulletcounter;
+
+void target_voicescript_next(entity pl);
+void target_voicescript_clear(entity pl);
+
+.string target2;
+.string target3;
+.string target4;

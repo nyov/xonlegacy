@@ -386,6 +386,9 @@ void checkpoint_touch()
 
 void checkpoint_use()
 {
+	if(other.classname == "info_player_deathmatch") // a spawn, a spawn
+		return;
+
 	other = activator;
 	checkpoint_passed();
 }
@@ -559,6 +562,8 @@ void race_ReadyRestart()
 {
 	race_ClearRecords();
 
+	PlayerScore_Sort(race_place);
+
 	if(g_race_qualifying == 2)
 	{
 		g_race_qualifying = 0;
@@ -566,6 +571,4 @@ void race_ReadyRestart()
 		cvar_set("fraglimit", ftos(race_fraglimit));
 		ScoreRules_race();
 	}
-
-	PlayerScore_Sort(race_place);
 }

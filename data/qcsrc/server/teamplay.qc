@@ -152,9 +152,10 @@ void ActivateTeamplay()
 	teamplay_default = cvar("teamplay_default");
 
 	if(teamplay_default)
-		cvar_set("teamplay", ftos(teamplay_default));
+		teamplay = teamplay_default;
 	else
-		cvar_set("teamplay", "3");
+		teamplay = 3;
+	cvar_set("teamplay", ftos(teamplay));
 
 	teams_matter = 1;
 }
@@ -283,6 +284,7 @@ void InitGameplayMode()
 		game = GAME_ASSAULT;
 		gamemode_name = "Assault";
 		ActivateTeamplay();
+		ScoreRules_assault();
 	}
 
 	if(g_onslaught)

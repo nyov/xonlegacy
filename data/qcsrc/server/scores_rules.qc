@@ -35,7 +35,7 @@ void ScoreRules_basics_end()
 void ScoreRules_generic()
 {
 	CheckAllowedTeams(world);
-	if(teamplay)
+	if(teams_matter)
 	{
 		CheckAllowedTeams(world);
 		ScoreRules_basics(((c4>=0) ? 4 : (c3>=0) ? 3 : 2), SFL_SORT_PRIO_PRIMARY, SFL_SORT_PRIO_PRIMARY, TRUE);
@@ -159,5 +159,16 @@ void ScoreRules_race()
 		ScoreInfo_SetLabel_PlayerScore(SP_RACE_LAPS,    "laps",      SFL_SORT_PRIO_PRIMARY);
 		ScoreInfo_SetLabel_PlayerScore(SP_RACE_TIME,    "time",      SFL_SORT_PRIO_SECONDARY | SFL_LOWER_IS_BETTER | SFL_TIME);
 	}
+	ScoreRules_basics_end();
+}
+
+// Assault stuff
+#define ST_ASSAULT_OBJECTIVES 1
+#define SP_ASSAULT_OBJECTIVES 4
+void ScoreRules_assault()
+{
+	ScoreRules_basics(2, SFL_SORT_PRIO_SECONDARY, SFL_SORT_PRIO_SECONDARY, TRUE);
+	ScoreInfo_SetLabel_TeamScore(  ST_ASSAULT_OBJECTIVES,    "objectives",      SFL_SORT_PRIO_PRIMARY);
+	ScoreInfo_SetLabel_PlayerScore(SP_ASSAULT_OBJECTIVES,    "objectives",      SFL_SORT_PRIO_PRIMARY);
 	ScoreRules_basics_end();
 }

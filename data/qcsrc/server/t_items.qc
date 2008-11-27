@@ -64,12 +64,12 @@ float Item_GiveTo(entity item, entity player)
 			// play some cool sounds ;)
 			centerprint(player, "\n");
 			if(player.health <= 5)
-				announce(player, "announcer/robotic/lastsecond.ogg");
+				announce(player, "announcer/robotic/lastsecond.wav");
 			else if(player.health < 50)
-				announce(player, "announcer/robotic/narrowly.ogg");
+				announce(player, "announcer/robotic/narrowly.wav");
 			// sound not available
 			// else if(item.items == IT_CELLS)
-			//	play2(player, "announce/robotic/ammo.ogg");
+			//	play2(player, "announce/robotic/ammo.wav");
 
 			if (item.weapons & WEPBIT_MINSTANEX)
 				W_GiveWeapon (player, WEP_MINSTANEX, "Nex");
@@ -83,7 +83,7 @@ float Item_GiveTo(entity item, entity player)
 		{
 			pickedup = TRUE;
 			// sound not available
-			// play2(player, "announce/robotic/extra.ogg\nplay2 announce/robotic/_lives.ogg");
+			// play2(player, "announce/robotic/extra.ogg\nplay2 announce/robotic/_lives.wav");
 			player.armorvalue = player.armorvalue + cvar("g_minstagib_extralives");
 			sprint(player, "^3You picked up some extra lives\n");
 		}
@@ -93,7 +93,7 @@ float Item_GiveTo(entity item, entity player)
 		{
 			pickedup = TRUE;
 			// sound not available
-			// play2(player, "announce/robotic/invisible.ogg");
+			// play2(player, "announce/robotic/invisible.wav");
 			player.strength_finished = max(player.strength_finished, time) + cvar("g_balance_powerup_strength_time");
 		}
 
@@ -102,7 +102,7 @@ float Item_GiveTo(entity item, entity player)
 		{
 			pickedup = TRUE;
 			// sound not available
-			// play2(player, "announce/robotic/speed.ogg");
+			// play2(player, "announce/robotic/speed.wav");
 			player.invincible_finished = max(player.invincible_finished, time) + cvar("g_balance_powerup_strength_time");
 		}
 	}
@@ -802,7 +802,7 @@ void spawnfunc_item_armor_medium (void) {
 		self.armorvalue = g_pickup_armormedium;
 	if(!self.max_armorvalue)
 		self.max_armorvalue = g_pickup_armormedium_max;
-	StartItem ("models/items/g_armormedium.md3", "misc/armor1.wav", g_pickup_respawntime_medium, "25 Armor", IT_ARMOR, 0, 0, commodity_pickupevalfunc, 20000);
+	StartItem ("models/items/g_armormedium.md3", "misc/armor10.wav", g_pickup_respawntime_medium, "25 Armor", IT_ARMOR, 0, 0, commodity_pickupevalfunc, 20000);
 }
 
 void spawnfunc_item_armor_large (void) {
@@ -948,6 +948,25 @@ void spawnfunc_func_illusionary (void)
 	self.use = func_wall_use;
 }
 
+void gamemodel_drop()
+{
+	if(self.spawnflags & 3 == 1) // ALIGN_ORIGIN
+	{
+		traceline(self.origin, self.origin - '0 0 4096', MOVE_NOMONSTERS, self);
+		setorigin(self, trace_endpos);
+	}
+	else if(self.spawnflags & 3 == 2) // ALIGN_BOTTOM
+	{
+		tracebox(self.origin, self.mins, self.maxs, self.origin - '0 0 4096', MOVE_NOMONSTERS, self);
+		setorigin(self, trace_endpos);
+	}
+	else if(self.spawnflags & 3 == 3) // ALIGN_ORIGIN | ALIGN_BOTTOM
+	{
+		traceline(self.origin, self.origin - '0 0 4096', MOVE_NOMONSTERS, self);
+		setorigin(self, trace_endpos - '0 0 1' * self.mins_z);
+	}
+}
+
 .float modelscale;
 void spawnfunc_misc_gamemodel (void)
 {
@@ -955,6 +974,8 @@ void spawnfunc_misc_gamemodel (void)
 		self.scale = self.modelscale;
 	SetBrushEntityModel();
 	self.use = func_wall_use;
+
+	InitializeEntity(self, gamemodel_drop, INITPRIO_DROPTOFLOOR);
 }
 
 float target_item_func_set(float a, float b)

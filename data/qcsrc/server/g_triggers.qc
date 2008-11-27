@@ -30,6 +30,8 @@ match (string)self.target and call their .use function
 void SUB_UseTargets()
 {
 	local entity t, stemp, otemp, act;
+	string s;
+	float i;
 
 //
 // check for a delay
@@ -65,45 +67,47 @@ void SUB_UseTargets()
 //
 // kill the killtagets
 //
-	if (self.killtarget)
+	s = self.killtarget;
+	if (s != "")
 	{
-		t = world;
-		do
-		{
-			t = find (t, targetname, self.killtarget);
-			if (!t)
-				return;
-			remove (t);
-		} while ( 1 );
+		for(t = world; (t = find(t, targetname, s)); )
+			remove(t);
 	}
 
 //
 // fire targets
 //
-	if (self.target)
+	act = activator;
+	stemp = self;
+	otemp = other;
+
+	for(i = 0; i < 4; ++i)
 	{
-		act = activator;
-		t = world;
-		do
+		switch(i)
 		{
-			t = find (t, targetname, self.target);
-			if (!t)
+			default:
+			case 0: s = stemp.target; break;
+			case 1: s = stemp.target2; break;
+			case 2: s = stemp.target3; break;
+			case 3: s = stemp.target4; break;
+		}
+		if (s != "")
+		{
+			for(t = world; (t = find(t, targetname, s)); )
+			if(t.use)
 			{
-				return;
+				print(stemp.classname, " ", stemp.targetname, " -> ", t.classname, " ", t.targetname, "\n");
+				self = t;
+				other = stemp;
+				activator = act;
+				self.use();
 			}
-			stemp = self;
-			otemp = other;
-			self = t;
-			other = stemp;
-			if (self.use)
-				self.use ();
-			self = stemp;
-			other = otemp;
-			activator = act;
-		} while ( 1 );
+		}
 	}
 
-
+	activator = act;
+	self = stemp;
+	other = otemp;
 };
 
 
@@ -431,6 +435,59 @@ float tracebox_hits_trigger_hurt(vector start, vector mi, vector ma, vector end)
 
 	return FALSE;
 }
+
+//////////////////////////////////////////////////////////////
+//
+//
+//
+//Trigger heal --a04191b92fbd93aa67214ef7e72d6d2e
+//
+//////////////////////////////////////////////////////////////
+
+.float triggerhealtime;
+void trigger_heal_touch()
+{
+	// only do the EXACTTRIGGER_TOUCH checks when really needed (saves some cpu)
+	if (other.iscreature)
+	{
+		if (other.takedamage)
+		if (other.triggerhealtime < time)
+		{
+			EXACTTRIGGER_TOUCH;
+			other.triggerhealtime = time + 1;
+			
+			if (other.health < self.max_health)
+			{
+				other.health = min(other.health + self.health, self.max_health);
+				other.pauserothealth_finished = max(other.pauserothealth_finished, time + cvar("g_balance_pause_health_rot"));
+				sound (other, CHAN_AUTO, self.noise, VOL_BASE, ATTN_NORM);
+			}
+		}
+	}
+};
+
+void spawnfunc_trigger_heal()
+{
+	EXACTTRIGGER_INIT;
+	self.touch = trigger_heal_touch;
+	if (!self.health)
+		self.health = 10;
+	if (!self.max_health)
+		self.max_health = 200; //Max health topoff for field
+	if(self.noise == "")
+		self.noise = "misc/mediumhealth.wav";
+	precache_sound(self.noise);
+};
+
+
+//////////////////////////////////////////////////////////////
+//
+//
+//
+//End trigger_heal
+//
+//////////////////////////////////////////////////////////////
+
 
 
 // TODO add a way to do looped sounds with sound(); then complete this entity
@@ -1241,4 +1298,94 @@ void follow_init()
 void spawnfunc_misc_follow()
 {
 	InitializeEntity(self, follow_init, INITPRIO_FINDTARGET);
+}
+
+
+
+
+.entity voicescript; // attached voice script
+.float voicescript_index; // index of next voice, or -1 to use the randomized ones
+.float voicescript_nextthink; // time to play next voice
+.float voicescript_voiceend; // time when this voice ends
+
+void target_voicescript_clear(entity pl)
+{
+	pl.voicescript = world;
+}
+
+void target_voicescript_use()
+{
+	if(activator.voicescript != self)
+	{
+		activator.voicescript = self;
+		activator.voicescript_index = 0;
+		activator.voicescript_nextthink = time + self.delay;
+	}
+}
+
+void target_voicescript_next(entity pl)
+{
+	entity vs;
+	float i, n;
+
+	vs = pl.voicescript;
+	if(!vs)
+		return;
+	if(vs.message == "")
+		return;
+	if(pl.classname != "player")
+		return;
+	if(gameover)
+		return;
+
+	if(time >= pl.voicescript_voiceend)
+	{
+		if(time >= pl.voicescript_nextthink)
+		{
+			// get the next voice...
+			n = tokenize_sane(vs.message);
+
+			if(pl.voicescript_index < vs.cnt)
+				i = pl.voicescript_index * 2;
+			else if(n > vs.cnt * 2)
+				i = mod(pl.voicescript_index - vs.cnt, (n - vs.cnt * 2 - 1) / 2) * 2 + vs.cnt * 2 + 1;
+			else
+				i = -1;
+
+			if(i >= 0)
+			{
+				play2(pl, strcat(vs.netname, "/", argv(i), ".wav"));
+				pl.voicescript_voiceend = time + stof(argv(i + 1));
+			}
+			else
+				pl.voicescript = world;
+
+			pl.voicescript_index += 1;
+			pl.voicescript_nextthink = pl.voicescript_voiceend + vs.wait * (0.5 + random());
+		}
+	}
+}
+
+void spawnfunc_target_voicescript()
+{
+	// netname: directory of the sound files
+	// message: list of "sound file" duration "sound file" duration, a *, and again a list
+	//          foo1 4.1 foo2 4.0 foo3 3.1 * fool1 1.1 fool2 7.1 fool3 9.1 fool4 3.7
+	// wait: average time between messages
+	// delay: initial delay before the first message
+	
+	float i, n;
+	self.use = target_voicescript_use;
+
+	n = tokenize_sane(self.message);
+	self.cnt = n / 2;
+	for(i = 0; i+1 < n; i += 2)
+	{
+		if(argv(i) == "*")
+		{
+			self.cnt = i / 2;
+			++i;
+		}
+		precache_sound(strcat(self.netname, "/", argv(i), ".wav"));
+	}
 }

@@ -3,7 +3,7 @@ CLASS(NexuizInputSettingsTab) EXTENDS(NexuizTab)
 	METHOD(NexuizInputSettingsTab, fill, void(entity))
 	ATTRIB(NexuizInputSettingsTab, title, string, "Input")
 	ATTRIB(NexuizInputSettingsTab, intendedWidth, float, 0.9)
-	ATTRIB(NexuizInputSettingsTab, rows, float, 15)
+	ATTRIB(NexuizInputSettingsTab, rows, float, 17)
 	ATTRIB(NexuizInputSettingsTab, columns, float, 6.5)
 ENDCLASS(NexuizInputSettingsTab)
 entity makeNexuizInputSettingsTab();
@@ -57,6 +57,7 @@ void fillNexuizInputSettingsTab(entity me)
 			me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "joy_enable", "Use joystick input"));
 		else if(cvar_type("joystick") & CVAR_TYPEFLAG_ENGINE)
 			me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "joystick", "Use joystick input"));
+	me.TR(me);
 	me.TR(me);
 		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "cl_movement", "Client-side movement prediction"));
 	me.TR(me);

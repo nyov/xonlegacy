@@ -325,7 +325,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint ("^1",s, "^1 was shot into space by ", a, "\n");
 					else if (deathtype == DEATH_SWAMP)
 						bprint ("^1",s, "^1 was conserved by ", a, "\n");
-					else if (deathtype == DEATH_HURTTRIGGER && attacker.message2 != "")
+					else if (deathtype == DEATH_HURTTRIGGER && inflictor.message2 != "")
 					{
 						p = strstrofs(inflictor.message2, "#", 0);
 						if(p < 0)
@@ -335,6 +335,8 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					}
                     else if(deathtype == DEATH_TURRET)
                         bprint ("^1",s, "^1 was pushed into the line of fire by ^1", a, "\n");
+                    else if(deathtype == DEATH_TOUCHEXPLODE)
+                        bprint ("^1",s, "^1 was pushed into an accident by ^1", a, "\n");
 					else
 						bprint ("^1",s, "^1 was fragged by ", a, "\n");
 				}
@@ -368,7 +370,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint (a,"^7 made a ^1TRIPLE SCORE\n");
 					} else {
 						bprint (a,"^7 made a ^1TRIPLE FRAG\n");
-						announce(attacker, "announcer/male/03kills.ogg");
+						announce(attacker, "announcer/male/03kills.wav");
 					}
 				}
 				else if (attacker.killcount == 5)
@@ -377,7 +379,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint (a,"^7 unleashes ^1SCORING RAGE\n");
 					} else {
 						bprint (a,"^7 unleashes ^1RAGE\n");
-						announce(attacker, "announcer/male/05kills.ogg");
+						announce(attacker, "announcer/male/05kills.wav");
 					}
 				}
 				else if (attacker.killcount == 10)
@@ -386,7 +388,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint (a,"^7 made ^1TEN SCORES IN A ROW!\n");
 					} else {
 						bprint (a,"^7 starts the ^1MASSACRE!\n");
-						announce(attacker, "announcer/male/10kills.ogg");
+						announce(attacker, "announcer/male/10kills.wav");
 					}
 				}
 				else if (attacker.killcount == 15)
@@ -395,7 +397,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint (a,"^7 made ^1FIFTEEN SCORES IN A ROW!\n");
 					} else {
 						bprint (a,"^7 executes ^1MAYHEM!\n");
-						announce(attacker, "announcer/male/15kills.ogg");
+						announce(attacker, "announcer/male/15kills.wav");
 					}
 				}
 				else if (attacker.killcount == 20)
@@ -404,7 +406,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint (a,"^7 made ^1TWENTY SCORES IN A ROW!\n");
 					} else {
 						bprint (a,"^7 is a ^1BERSERKER!\n");
-						announce(attacker, "announcer/male/20kills.ogg");
+						announce(attacker, "announcer/male/20kills.wav");
 					}
 				}
 				else if (attacker.killcount == 25)
@@ -413,7 +415,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint (a,"^7 made ^1TWENTY FIFE SCORES IN A ROW!\n");
 					} else {
 						bprint (a,"^7 inflicts ^1CARNAGE!\n");
-						announce(attacker, "announcer/male/25kills.ogg");
+						announce(attacker, "announcer/male/25kills.wav");
 					}
 				}
 				else if (attacker.killcount == 30)
@@ -422,7 +424,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint (a,"^7 made ^1THIRTY SCORES IN A ROW!\n");
 					} else {
 						bprint (a,"^7 unleashes ^1ARMAGEDDON!\n");
-						announce(attacker, "announcer/male/30kills.ogg");
+						announce(attacker, "announcer/male/30kills.wav");
 					}
 				}
 			}
@@ -430,8 +432,8 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 		else
 		{
 			centerprint(targ, "^1Watch your step!\n\n\n");
-			if (deathtype == DEATH_HURTTRIGGER && attacker.message != "")
-				bprint ("^1",s, "^1 ", attacker.message, "\n");
+			if (deathtype == DEATH_HURTTRIGGER && inflictor.message != "")
+				bprint ("^1",s, "^1 ", inflictor.message, "\n");
 			else if (deathtype == DEATH_DROWN)
 				if(sv_gentle)
 					bprint ("^1",s, "^1 was in the water for too long\n");
@@ -458,6 +460,8 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					bprint ("^1",s, "^1 is now conserved for centuries to come\n");
             else if(deathtype == DEATH_TURRET)
                     bprint ("^1",s, "^1 was mowed down by a turret \n");
+			else if(deathtype == DEATH_TOUCHEXPLODE)
+				bprint ("^1",s, "^1 died in an accident\n");
 			else
 				if(sv_gentle)
 					bprint ("^1",s, "^1 needs a restart\n");
@@ -465,7 +469,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					bprint ("^1",s, "^1 died\n");
 			GiveFrags(targ, targ, -1);
 			if(PlayerScore_Add(targ, SP_SCORE, 0) == -5) {
-				announce(targ, "announcer/male/botlike.ogg");
+				announce(targ, "announcer/male/botlike.wav");
 			}
 
 			if (targ.killcount > 2)
@@ -912,7 +916,7 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 							{
 								if(targ.iscreature)
 									total_damage_to_creatures += finaldmg;
-								if(targ == directhitentity)
+								if(targ == directhitentity || DEATH_ISSPECIAL(deathtype))
 									Damage (targ, inflictor, attacker, finaldmg, deathtype, nearest, force);
 								else
 									Damage (targ, inflictor, attacker, finaldmg, deathtype | HITTYPE_SPLASH, nearest, force);

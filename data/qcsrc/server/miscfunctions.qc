@@ -627,6 +627,7 @@ string Team_ColorNameLowerCase(float t)
 #define CENTERPRIO_REBALANCE 2
 #define CENTERPRIO_VOTE 4
 #define CENTERPRIO_NORMAL 5
+#define CENTERPRIO_SHIELDING 7
 #define CENTERPRIO_MAPVOTE 9
 #define CENTERPRIO_IDLEKICK 50
 #define CENTERPRIO_ADMIN 99
@@ -752,7 +753,33 @@ void readplayerstartcvars()
 
 	g_weaponarena = 0;
 	s = cvar_string("g_weaponarena");
-	if(s != "0")
+	if(s == "0")
+	{
+	}
+	else if(s == "all")
+	{
+		g_weaponarena_list = "All Weapons";
+		for(j = WEP_FIRST; j <= WEP_LAST; ++j)
+		{
+			e = get_weaponinfo(j);
+			g_weaponarena |= e.weapons;
+			weapon_action(e.weapon, WR_PRECACHE);
+		}
+	}
+	else if(s == "most")
+	{
+		g_weaponarena_list = "Most Weapons";
+		for(j = WEP_FIRST; j <= WEP_LAST; ++j)
+		{
+			e = get_weaponinfo(j);
+			if(e.spawnflags & WEPSPAWNFLAG_NORMAL)
+			{
+				g_weaponarena |= e.weapons;
+				weapon_action(e.weapon, WR_PRECACHE);
+			}
+		}
+	}
+	else
 	{
 		t = tokenize_sane(s);
 		g_weaponarena_list = "";
@@ -836,7 +863,7 @@ void readplayerstartcvars()
 			e = get_weaponinfo(i);
 			if(!(e.weapon))
 				continue;
-			if(((e.spawnflags & 1) && g_lms) || cvar(strcat("g_start_weapon_", e.netname)))
+			if(((e.spawnflags & WEPSPAWNFLAG_NORMAL) && g_lms) || cvar(strcat("g_start_weapon_", e.netname)))
 			{
 				start_weapons |= e.weapons;
 				weapon_action(e.weapon, WR_PRECACHE);
@@ -872,7 +899,7 @@ void readplayerstartcvars()
 					e = get_weaponinfo(i);
 					if(!(e.weapon))
 						continue;
-					if(e.spawnflags & 1)
+					if(e.spawnflags & WEPSPAWNFLAG_NORMAL)
 					{
 						warmup_start_weapons |= e.weapons;
 						weapon_action(e.weapon, WR_PRECACHE);
@@ -889,8 +916,53 @@ void readplayerstartcvars()
 	}
 }
 
+float g_bugrigs;
+float g_bugrigs_planar_movement;
+float g_bugrigs_planar_movement_car_jumping;
+float g_bugrigs_reverse_spinning;
+float g_bugrigs_reverse_speeding;
+float g_bugrigs_reverse_stopping;
+float g_bugrigs_air_steering;
+float g_bugrigs_angle_smoothing;
+float g_bugrigs_friction_floor;
+float g_bugrigs_friction_brake;
+float g_bugrigs_friction_air;
+float g_bugrigs_accel;
+float g_bugrigs_speed_ref;
+float g_bugrigs_speed_pow;
+float g_bugrigs_steer;
+
+float g_touchexplode;
+float g_touchexplode_radius;
+float g_touchexplode_damage;
+float g_touchexplode_edgedamage;
+float g_touchexplode_force;
+
 void readlevelcvars(void)
 {
+ 	g_bugrigs = cvar("g_bugrigs");
+ 	g_bugrigs_planar_movement = cvar("g_bugrigs_planar_movement");
+ 	g_bugrigs_planar_movement_car_jumping = cvar("g_bugrigs_planar_movement_car_jumping");
+ 	g_bugrigs_reverse_spinning = cvar("g_bugrigs_reverse_spinning");
+ 	g_bugrigs_reverse_speeding = cvar("g_bugrigs_reverse_speeding");
+ 	g_bugrigs_reverse_stopping = cvar("g_bugrigs_reverse_stopping");
+ 	g_bugrigs_air_steering = cvar("g_bugrigs_air_steering");
+ 	g_bugrigs_angle_smoothing = cvar("g_bugrigs_angle_smoothing");
+ 	g_bugrigs_friction_floor = cvar("g_bugrigs_friction_floor");
+ 	g_bugrigs_friction_brake = cvar("g_bugrigs_friction_brake");
+ 	g_bugrigs_friction_air = cvar("g_bugrigs_friction_air");
+ 	g_bugrigs_accel = cvar("g_bugrigs_accel");
+ 	g_bugrigs_speed_ref = cvar("g_bugrigs_speed_ref");
+ 	g_bugrigs_speed_pow = cvar("g_bugrigs_speed_pow");
+ 	g_bugrigs_steer = cvar("g_bugrigs_steer");
+
+	g_touchexplode = cvar("g_touchexplode");
+	g_touchexplode_radius = cvar("g_touchexplode_radius");
+	g_touchexplode_damage = cvar("g_touchexplode_damage");
+	g_touchexplode_edgedamage = cvar("g_touchexplode_edgedamage");
+	g_touchexplode_force = cvar("g_touchexplode_force");
+
+ 	sv_clones = cvar("sv_clones");
 	sv_cheats = cvar("sv_cheats");
 	sv_gentle = cvar("sv_gentle");
 	sv_foginterval = cvar("sv_foginterval");
@@ -1112,6 +1184,41 @@ void precache()
 		//precache_model("models/player/visitant.zym");
 	}
 
+	if(cvar("sv_defaultcharacter"))
+	{
+		string s;
+		s = cvar_string("sv_defaultplayermodel_red");
+		if(s != "")
+		{
+			precache_model(s);
+			PrecachePlayerSounds(strcat(s, ".sounds"));
+		}
+		s = cvar_string("sv_defaultplayermodel_blue");
+		if(s != "")
+		{
+			precache_model(s);
+			PrecachePlayerSounds(strcat(s, ".sounds"));
+		}
+		s = cvar_string("sv_defaultplayermodel_yellow");
+		if(s != "")
+		{
+			precache_model(s);
+			PrecachePlayerSounds(strcat(s, ".sounds"));
+		}
+		s = cvar_string("sv_defaultplayermodel_pink");
+		if(s != "")
+		{
+			precache_model(s);
+			PrecachePlayerSounds(strcat(s, ".sounds"));
+		}
+		s = cvar_string("sv_defaultplayermodel");
+		if(s != "")
+		{
+			precache_model(s);
+			PrecachePlayerSounds(strcat(s, ".sounds"));
+		}
+	}
+
 	if (g_footsteps)
 	{
 		PrecacheGlobalSound((globalsound_step = "misc/footstep0 6"));
@@ -1164,9 +1271,9 @@ void precache()
 	precache_sound ("announcer/male/25kills.wav");
 	precache_sound ("announcer/male/30kills.wav");
 	precache_sound ("announcer/male/botlike.wav");
-	precache_sound ("announcer/male/yoda.ogg");
-	precache_sound ("announcer/male/headshot.ogg");
-	precache_sound ("announcer/male/impressive.ogg");
+	precache_sound ("announcer/male/yoda.wav");
+	precache_sound ("announcer/male/headshot.wav");
+	precache_sound ("announcer/male/impressive.wav");
 
 	// announcer sounds - robotic
 	precache_sound ("announcer/robotic/prepareforbattle.wav");
@@ -1192,16 +1299,16 @@ void precache()
 	precache_model ("models/sprites/8.spr32");
 	precache_model ("models/sprites/9.spr32");
 	precache_model ("models/sprites/10.spr32");
-	precache_sound ("announcer/robotic/1.ogg");
-	precache_sound ("announcer/robotic/2.ogg");
-	precache_sound ("announcer/robotic/3.ogg");
-	precache_sound ("announcer/robotic/4.ogg");
-	precache_sound ("announcer/robotic/5.ogg");
-	precache_sound ("announcer/robotic/6.ogg");
-	precache_sound ("announcer/robotic/7.ogg");
-	precache_sound ("announcer/robotic/8.ogg");
-	precache_sound ("announcer/robotic/9.ogg");
-	precache_sound ("announcer/robotic/10.ogg");
+	precache_sound ("announcer/robotic/1.wav");
+	precache_sound ("announcer/robotic/2.wav");
+	precache_sound ("announcer/robotic/3.wav");
+	precache_sound ("announcer/robotic/4.wav");
+	precache_sound ("announcer/robotic/5.wav");
+	precache_sound ("announcer/robotic/6.wav");
+	precache_sound ("announcer/robotic/7.wav");
+	precache_sound ("announcer/robotic/8.wav");
+	precache_sound ("announcer/robotic/9.wav");
+	precache_sound ("announcer/robotic/10.wav");
 
 	// common weapon precaches
 	precache_sound ("weapons/weapon_switch.wav");
@@ -1223,6 +1330,9 @@ void precache()
 			wep = wep + 1;
 		}
 	}
+
+	if (!self.noise && self.music) // quake 3 uses the music field
+		self.noise = self.music;
 
 	// plays music for the level if there is any
 	if (self.noise)
@@ -1426,85 +1536,6 @@ void SetCustomizer(entity e, float(void) customizer, void(void) uncustomizer)
 .float nottargeted;
 #define IFTARGETED if(!self.nottargeted && self.targetname != "")
 
-float power2of(float e)
-{
-	return pow(2, e);
-}
-float log2of(float x)
-{
-	// NOTE: generated code
-	if(x > 2048)
-		if(x > 131072)
-			if(x > 1048576)
-				if(x > 4194304)
-					return 23;
-				else
-					if(x > 2097152)
-						return 22;
-					else
-						return 21;
-			else
-				if(x > 524288)
-					return 20;
-				else
-					if(x > 262144)
-						return 19;
-					else
-						return 18;
-		else
-			if(x > 16384)
-				if(x > 65536)
-					return 17;
-				else
-					if(x > 32768)
-						return 16;
-					else
-						return 15;
-			else
-				if(x > 8192)
-					return 14;
-				else
-					if(x > 4096)
-						return 13;
-					else
-						return 12;
-	else
-		if(x > 32)
-			if(x > 256)
-				if(x > 1024)
-					return 11;
-				else
-					if(x > 512)
-						return 10;
-					else
-						return 9;
-			else
-				if(x > 128)
-					return 8;
-				else
-					if(x > 64)
-						return 7;
-					else
-						return 6;
-		else
-			if(x > 4)
-				if(x > 16)
-					return 5;
-				else
-					if(x > 8)
-						return 4;
-					else
-						return 3;
-			else
-				if(x > 2)
-					return 2;
-				else
-					if(x > 1)
-						return 1;
-					else
-						return 0;
-}
-
 void Net_LinkEntity(entity e)
 {
 	e.model = "net_entity";
@@ -1620,7 +1651,7 @@ float SUB_NoImpactCheck()
 	return 0;
 }
 
-#define SUB_OwnerCheck() (other == self.owner)
+#define SUB_OwnerCheck() (other && (other == self.owner))
 
 #define PROJECTILE_TOUCH do { if(SUB_OwnerCheck()) return; if(SUB_NoImpactCheck()) { remove(self); return; } } while(0)
 const string STR_MISC_NULL_WAV = "misc/null.wav";

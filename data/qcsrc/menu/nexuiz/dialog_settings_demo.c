@@ -3,7 +3,7 @@ CLASS(NexuizDemoSettingsTab) EXTENDS(NexuizTab)
 	METHOD(NexuizDemoSettingsTab, fill, void(entity))
 	ATTRIB(NexuizDemoSettingsTab, title, string, "Demo")
 	ATTRIB(NexuizDemoSettingsTab, intendedWidth, float, 0.9)
-	ATTRIB(NexuizDemoSettingsTab, rows, float, 15)
+	ATTRIB(NexuizDemoSettingsTab, rows, float, 17)
 	ATTRIB(NexuizDemoSettingsTab, columns, float, 6.5)
 	ATTRIB(NexuizDemoSettingsTab, name, string, "DemoBroswer")	
 ENDCLASS(NexuizDemoSettingsTab)
@@ -40,7 +40,10 @@ void fillNexuizDemoSettingsTab(entity me)
 	me.TR(me);
 		me.TD(me, me.rows - 4, me.columns, dlist);
 	me.gotoRC(me, me.rows - 1, 0);
-		me.TD(me, 1, me.columns, e = makeNexuizButton("Play", '0 0 0'));
+		me.TD(me, 1, me.columns / 2, e = makeNexuizButton("Timedemo", '0 0 0'));
+			e.onClick = TimeDemo_Click;
+			e.onClickEntity = dlist;
+		me.TD(me, 1, me.columns / 2, e = makeNexuizButton("Play", '0 0 0'));
 			e.onClick = StartDemo_Click;
 			e.onClickEntity = dlist;
 }

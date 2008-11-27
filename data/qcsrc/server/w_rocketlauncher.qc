@@ -241,7 +241,7 @@ void W_Rocket_Attack (void)
 	missile.nextthink = time;
 	missile.cnt = time + cvar("g_balance_rocketlauncher_lifetime");
 	missile.effects = EF_LOWPRECISION;
-	sound (missile, CHAN_PROJECTILE, "weapons/rocket_fly.wav", 0.4 * VOL_BASE, ATTN_NORM);
+	sound (missile, CHAN_PROJECTILE, "weapons/rocket_fly.wav", VOL_BASE, ATTN_NORM);
 	missile.flags = FL_PROJECTILE;
 
 	// muzzle flash for 1st person view
@@ -387,7 +387,7 @@ float w_rlauncher(float req)
 					}
 				}
 				if(rockfound)
-					sound (self, CHAN_WEAPON2, "weapons/rocket_det.wav", 0.5 * VOL_BASE, ATTN_NORM);
+					sound (self, CHAN_WEAPON2, "weapons/rocket_det.wav", VOL_BASE, ATTN_NORM);
 				else
 				{
 					if (weapon_prepareattack(0, cvar("g_balance_rocketlauncher_refire")))
@@ -406,7 +406,7 @@ float w_rlauncher(float req)
 				self.exteriorweaponentity.attack_finished_single = time + 0.4;
 				self.laser_on = !self.laser_on;
 				// UGLY WORKAROUND: play this on CHAN_WEAPON2 so it can't cut off fire sounds
-				sound (self, CHAN_WEAPON2, "weapons/tink1.wav", VOL_BASE, ATTN_NORM);
+				sound (self, CHAN_WEAPON2, "weapons/rocket_mode.wav", VOL_BASE, ATTN_NORM);
 			}
 		}
 		else
@@ -429,7 +429,7 @@ float w_rlauncher(float req)
 					}
 				}
 				if(rockfound)
-					sound (self, CHAN_WEAPON2, "weapons/rocket_det.wav", 0.5 * VOL_BASE, ATTN_NORM);
+					sound (self, CHAN_WEAPON2, "weapons/rocket_det.wav", VOL_BASE, ATTN_NORM);
 			}
 		}
 	}
@@ -445,7 +445,10 @@ float w_rlauncher(float req)
 		precache_sound ("weapons/rocket_fly.wav");
 		precache_sound ("weapons/rocket_impact.wav");
 		if (g_laserguided_missile)
+		{
 			precache_model ("models/laser_dot.mdl"); // rocket launcher
+			precache_sound ("weapons/rocket_mode.wav");
+		}
 	}
 	else if (req == WR_SETUP)
 	{

@@ -25,6 +25,7 @@ ENDCLASS(NexuizDemoList)
 
 entity makeNexuizDemoList();
 void StartDemo_Click(entity btn, entity me);
+void TimeDemo_Click(entity btn, entity me);
 void DemoList_Filter_Change(entity box, entity me);
 #endif
 
@@ -64,6 +65,8 @@ void getDemosNexuizDemoList(entity me)
     	s="demos/*.dem";
 	
     //dprint("Search demos with the pattern ", s, "\n");    
+	if(me.listDemo >= 0)
+		search_end(me.listDemo);
     me.listDemo = search_begin(s, FALSE, TRUE);
     if(me.listDemo < 0)
     	me.nItems=0;
@@ -129,6 +132,13 @@ void startDemoNexuizDemoList(entity me)
 void StartDemo_Click(entity btn, entity me)
 {
     me.startDemo(me);
+}
+
+void TimeDemo_Click(entity btn, entity me)
+{
+    string s;
+    s = me.demoName(me,me.selectedItem);
+    localcmd("timedemo demos/", s, ".dem\nwait\ntogglemenu\n");	
 }
 
 void clickListBoxItemNexuizDemoList(entity me, float i, vector where)

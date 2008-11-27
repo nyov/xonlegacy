@@ -1,4 +1,3 @@
-// let's abuse an existing field
 #define SPAWNPOINT_SCORE frags
 
 .float wantswelcomemessage;
@@ -586,6 +585,21 @@ void FixPlayermodel()
 				setcolor(self, cvar("sv_defaultplayercolors"));
 }
 
+void PlayerTouchExplode(entity p1, entity p2)
+{
+	vector org;
+	org = (p1.origin + p2.origin) * 0.5;
+	org_z += (p1.mins_z + p2.mins_z) * 0.5;
+
+	te_explosion(org);
+
+	entity e;
+	e = spawn();
+	setorigin(e, org);
+	RadiusDamage(e, world, g_touchexplode_damage, g_touchexplode_edgedamage, g_touchexplode_radius, world, g_touchexplode_force, DEATH_TOUCHEXPLODE, world);
+	remove(e);
+}
+
 /*
 =============
 PutClientInServer
@@ -620,7 +634,7 @@ void PutClientInServer (void)
 		self.classname = "observer";
 
 	if(self.classname == "player") {
-		entity	spot;
+		entity spot, oldself;
 
 		race_PreSpawn();
 
@@ -789,6 +803,15 @@ void PutClientInServer (void)
 				centerprint(self, "You are defending!\n");
 		}
 
+		target_voicescript_clear(self);
+
+		oldself = self;
+		self = spot;
+			activator = oldself;
+				SUB_UseTargets();
+			activator = world;
+		self = oldself;
+
 	} else if(self.classname == "observer") {
 		PutObserverInServer ();
 	}
@@ -854,6 +877,9 @@ void DecodeLevelParms (void)
 	self.parm_idlesince = parm1;
 	if(self.parm_idlesince == -(86400 * 366))
 		self.parm_idlesince = time;
+
+	// whatever happens, allow 60 seconds of idling directly after connect for map loading
+	self.parm_idlesince = max(self.parm_idlesince, time - sv_maxidle + 60);
 }
 
 /*
@@ -914,7 +940,7 @@ void KillIndicator_Think()
 		if(clienttype(self.owner) == CLIENTTYPE_REAL)
 		{
 			if(self.cnt <= 10)
-				announce(self.owner, strcat("announcer/robotic/", ftos(self.cnt), ".ogg"));
+				announce(self.owner, strcat("announcer/robotic/", ftos(self.cnt), ".wav"));
 			if(self.owner.killindicator_teamchange)
 			{
 				if(self.owner.killindicator_teamchange == -1)
@@ -1246,14 +1272,17 @@ void ClientConnect (void)
 			MapVote_UpdateData(MSG_ONE);
 		}
 		ScoreInfo_Write(MSG_ONE);
-	}
 
-	if(inWarmupStage)
-	{
-		msg_entity = self;
-		WriteByte(MSG_ONE, SVC_TEMPENTITY);
-		WriteByte(MSG_ONE, TE_CSQC_WARMUP);
-		WriteByte(MSG_ONE, 1);
+		if(inWarmupStage)
+		{
+			msg_entity = self;
+			WriteByte(MSG_ONE, SVC_TEMPENTITY);
+			WriteByte(MSG_ONE, TE_CSQC_WARMUP);
+			WriteByte(MSG_ONE, 1);
+		}
+
+		if(cvar("g_bugrigs"))
+			stuffcmd(self, "cl_cmd settemp chase_active 1\n");
 	}
 
 	if(g_lms)
@@ -1729,7 +1758,7 @@ void SpectateCopy(entity spectatee) {
 	self.armortype = spectatee.armortype;
 	self.armorvalue = spectatee.armorvalue;
 	self.currentammo = spectatee.currentammo;
-	self.effects = spectatee.effects;
+	self.effects = spectatee.effects & EFMASK_CHEAP; // eat performance
 	self.health = spectatee.health;
 	self.impulse = 0;
 	self.items = spectatee.items;
@@ -1808,7 +1837,7 @@ void ShowRespawnCountdown()
 		{
 			self.respawn_countdown = number - 1;
 			if(ceil(self.death_time - (time + 0.5)) == number) // only say it if it is the same number even in 0.5s; to prevent overlapping sounds
-				announce(self, strcat("announcer/robotic/", ftos(number), ".ogg"));
+				announce(self, strcat("announcer/robotic/", ftos(number), ".wav"));
 		}
 	}
 }
@@ -1937,10 +1966,8 @@ void ObserverThink()
 			self.flags = self.flags | FL_JUMPRELEASED;
 		}
 	}
-	/*
 	if(self.BUTTON_ZOOM)
 		self.wantswelcomemessage = 0;
-	*/
 	if(self.wantswelcomemessage)
 		PrintWelcomeMessage(self);
 }
@@ -1976,14 +2003,14 @@ void SpectatorThink()
 			self.flags = self.flags | FL_JUMPRELEASED;
 		}
 	}
-	/*
 	if(self.BUTTON_ZOOM)
 		self.wantswelcomemessage = 0;
-	*/
 	if(self.wantswelcomemessage)
 		PrintWelcomeMessage(self);
 	self.flags = self.flags | FL_CLIENT | FL_NOTARGET;
 }
+
+.float touchexplode_time;
 
 /*
 =============
@@ -2132,6 +2159,24 @@ void PlayerPreThink (void)
 			return;
 		}
 
+		if(g_touchexplode)
+		if(time > self.touchexplode_time)
+		if(self.classname == "player")
+		if(self.deadflag == DEAD_NO)
+		if not(IS_INDEPENDENT_PLAYER(self))
+		FOR_EACH_PLAYER(other) if(self != other)
+		{
+			if(time > other.touchexplode_time)
+			if(other.classname == "player")
+			if(other.deadflag == DEAD_NO)
+			if not(IS_INDEPENDENT_PLAYER(other))
+			if(boxesoverlap(self.absmin, self.absmax, other.absmin, other.absmax))
+			{
+				PlayerTouchExplode(self, other);
+				self.touchexplode_time = other.touchexplode_time = time + 0.2;
+			}
+		}
+
 		if(g_lms && !self.deadflag && cvar("g_lms_campcheck_interval"))
 		{
 			vector dist;
@@ -2161,6 +2206,8 @@ void PlayerPreThink (void)
 				self.lms_traveled_distance = 0;
 			}
 		}
+
+		self.oldorigin = self.origin;
 
 		if (self.BUTTON_CROUCH && !self.hook.state)
 		{
@@ -2251,6 +2298,8 @@ void PlayerPreThink (void)
 		self.pusher = oldpusher;
 		self = oldself;
 	}
+
+	target_voicescript_next(self);
 }
 
 
@@ -2280,7 +2329,7 @@ void PlayerPostThink (void)
 		if(timeleft <= 0)
 		{
 			bprint("^3", self.netname, "^3 was kicked for idling.\n");
-			announce(self, "announcer/robotic/terminated.ogg");
+			announce(self, "announcer/robotic/terminated.wav");
 			dropclient(self);
 			return;
 		}
@@ -2289,7 +2338,7 @@ void PlayerPostThink (void)
 			if(timeleft != self.idlekick_lasttimeleft)
 			{
 				centerprint_atprio(self, CENTERPRIO_IDLEKICK, strcat("^3Stop idling!\n^3Disconnecting in ", ftos(timeleft), "..."));
-				announce(self, strcat("announcer/robotic/", ftos(timeleft), ".ogg"));
+				announce(self, strcat("announcer/robotic/", ftos(timeleft), ".wav"));
 			}
 		}
 		else

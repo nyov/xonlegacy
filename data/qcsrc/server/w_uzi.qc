@@ -136,10 +136,14 @@ float w_uzi(float req)
 		precache_sound ("weapons/ric1.wav");
 		precache_sound ("weapons/ric2.wav");
 		precache_sound ("weapons/ric3.wav");
-		precache_sound ("weapons/tink1.wav");
 		precache_sound ("weapons/uzi_fire.wav");
 		if (cvar("g_casings") >= 2)
+		{
+			precache_sound ("weapons/brass1.wav");
+			precache_sound ("weapons/brass2.wav");
+			precache_sound ("weapons/brass3.wav");
 			precache_model ("models/casing_bronze.mdl");
+		}
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_UZI);

@@ -312,44 +312,44 @@ void Portal_Touch()
 void Portal_Think();
 void Portal_MakeBrokenPortal(entity portal)
 {
+	portal.skin = 2;
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
 	portal.think = SUB_Null;
 	portal.effects = 0;
-	//portal.colormod = '1 1 1';
 	portal.nextthink = 0;
 	portal.takedamage = DAMAGE_NO;
 }
 
 void Portal_MakeWaitingPortal(entity portal)
 {
+	portal.skin = 2;
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
 	portal.think = SUB_Null;
 	portal.effects = EF_ADDITIVE;
-	portal.colormod = '1 1 1';
 	portal.nextthink = 0;
 	portal.takedamage = DAMAGE_YES;
 }
 
 void Portal_MakeInPortal(entity portal)
 {
+	portal.skin = 0;
 	portal.solid = SOLID_TRIGGER;
 	portal.touch = Portal_Touch;
 	portal.think = Portal_Think;
 	portal.effects = EF_RED;
-	portal.colormod = '1 0 0';
 	portal.nextthink = time;
 	portal.takedamage = DAMAGE_NO;
 }
 
 void Portal_MakeOutPortal(entity portal)
 {
+	portal.skin = 1;
 	portal.solid = SOLID_NOT;
 	portal.touch = SUB_Null;
 	portal.think = SUB_Null;
 	portal.effects = EF_STARDUST | EF_BLUE;
-	portal.colormod = '0 0 1';
 	portal.nextthink = 0;
 	portal.takedamage = DAMAGE_YES;
 }
@@ -425,14 +425,14 @@ void Portal_Remove(entity portal, float killed)
 	if(killed)
 	{
 		fixedmakevectors(portal.angles);
-		sound(portal, CHAN_PROJECTILE, "porto/explode.ogg", VOL_BASE, ATTN_NORM);
+		sound(portal, CHAN_PROJECTILE, "porto/explode.wav", VOL_BASE, ATTN_NORM);
 		pointparticles(particleeffectnum("rocket_explode"), portal.origin + v_forward * 16, v_forward * 1024, 4);
 		remove(portal);
 	}
 	else
 	{
 		Portal_MakeBrokenPortal(portal);
-		sound(portal, CHAN_PROJECTILE, "porto/expire.ogg", VOL_BASE, ATTN_NORM);
+		sound(portal, CHAN_PROJECTILE, "porto/expire.wav", VOL_BASE, ATTN_NORM);
 		SUB_SetFade(portal, time, 0.5);
 	}
 }

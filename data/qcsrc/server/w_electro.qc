@@ -8,7 +8,7 @@ void W_Plasma_Explode (void)
 		if(other.classname == "player")
 			if(IsDifferentTeam(self.owner, other))
 				if(IsFlying(other))
-					announce(self.owner, "announcer/male/electrobitch.ogg");
+					announce(self.owner, "announcer/male/electrobitch.wav");
 
 	self.event_damage = SUB_Null;
 	if (self.movetype == MOVETYPE_BOUNCE)
@@ -59,6 +59,8 @@ void W_Plasma_TouchExplode (void)
 
 void W_Plasma_Damage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
+	if(self.health <= 0)
+		return;
 	self.health = self.health - damage;
 	if (self.health <= 0)
 	{
@@ -70,6 +72,7 @@ void W_Plasma_Damage (entity inflictor, entity attacker, float damage, float dea
 			self.owner = inflictor.owner;
 			self.classname = "plasma_chain";
 			self.think = W_Plasma_Explode_Combo;
+			self.nextthink = time + vlen(self.origin - inflictor.origin) / cvar("g_balance_electro_combo_speed"); // delay combo chains, looks cooler
 		}
 		else
 			self.think = W_Plasma_Explode;

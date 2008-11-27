@@ -117,6 +117,232 @@ void CheckWaterJump()
 	}
 };
 
+float racecar_angle(float forward, float down)
+{
+	float ret, angle_mult;
+
+	if(forward < 0)
+	{
+		forward = -forward;
+		down = -down;
+	}
+
+	ret = vectoyaw('0 1 0' * down + '1 0 0' * forward);
+
+	angle_mult = forward / (800 + forward);
+
+	if(ret > 180)
+		return ret * angle_mult + 360 * (1 - angle_mult);
+	else
+		return ret * angle_mult;
+}
+
+void RaceCarPhysics()
+{
+	// using this move type for "big rigs"
+	// the engine does not push the entity!
+
+	float accel, steer, f;
+	vector angles_save, rigvel;
+
+	angles_save = self.angles;
+	accel = bound(-1, self.movement_x / sv_maxspeed, 1);
+	steer = bound(-1, self.movement_y / sv_maxspeed, 1);
+
+	if(g_bugrigs_reverse_speeding)
+	{
+		if(accel < 0)
+		{
+			// back accel is DIGITAL
+			// to prevent speedhack
+			if(accel < -0.5)
+				accel = -1;
+			else
+				accel = 0;
+		}
+	}
+
+	self.angles_x = 0;
+	self.angles_z = 0;
+	makevectors(self.angles); // new forward direction!
+
+	if(self.flags & FL_ONGROUND || g_bugrigs_air_steering)
+	{
+		float myspeed, upspeed, steerfactor, accelfactor;
+
+		myspeed = self.velocity * v_forward;
+		upspeed = self.velocity * v_up;
+
+		// responsiveness factor for steering and acceleration
+		f = 1 / (1 + pow(max(-myspeed, myspeed) / g_bugrigs_speed_ref, g_bugrigs_speed_pow));
+		//MAXIMA: f(v) := 1 / (1 + (v / g_bugrigs_speed_ref) ^ g_bugrigs_speed_pow);
+
+		if(myspeed < 0 && g_bugrigs_reverse_spinning)
+			steerfactor = -myspeed * g_bugrigs_steer;
+		else
+			steerfactor = -myspeed * f * g_bugrigs_steer;
+
+		if(myspeed < 0 && g_bugrigs_reverse_speeding)
+			accelfactor = g_bugrigs_accel;
+		else
+			accelfactor = f * g_bugrigs_accel;
+		//MAXIMA: accel(v) := f(v) * g_bugrigs_accel;
+
+		if(accel < 0)
+		{
+			if(myspeed > 0)
+			{
+				myspeed = max(0, myspeed - frametime * (g_bugrigs_friction_floor - g_bugrigs_friction_brake * accel));
+			}
+			else
+			{
+				if(!g_bugrigs_reverse_speeding)
+					myspeed = min(0, myspeed + frametime * g_bugrigs_friction_floor);
+			}
+		}
+		else
+		{
+			if(myspeed >= 0)
+			{
+				myspeed = max(0, myspeed - frametime * g_bugrigs_friction_floor);
+			}
+			else
+			{
+				if(g_bugrigs_reverse_stopping)
+					myspeed = 0;
+				else
+					myspeed = min(0, myspeed + frametime * (g_bugrigs_friction_floor + g_bugrigs_friction_brake * accel));
+			}
+		}
+		// terminal velocity = velocity at which 50 == accelfactor, that is, 1549 units/sec
+		//MAXIMA: friction(v) := g_bugrigs_friction_floor;
+
+		self.angles_y += steer * frametime * steerfactor; // apply steering
+		makevectors(self.angles); // new forward direction!
+
+		myspeed += accel * accelfactor * frametime;
+
+		rigvel = myspeed * v_forward + '0 0 1' * upspeed;
+	}
+	else
+	{
+		myspeed = vlen(self.velocity);
+
+		// responsiveness factor for steering and acceleration
+		f = 1 / (1 + pow(max(0, myspeed / g_bugrigs_speed_ref), g_bugrigs_speed_pow));
+		steerfactor = -myspeed * f;
+		self.angles_y += steer * frametime * steerfactor; // apply steering
+
+		rigvel = self.velocity;
+		makevectors(self.angles); // new forward direction!
+	}
+
+	rigvel = rigvel * max(0, 1 - vlen(rigvel) * g_bugrigs_friction_air * frametime);
+	//MAXIMA: airfriction(v) := v * v * g_bugrigs_friction_air;
+	//MAXIMA: total_acceleration(v) := accel(v) - friction(v) - airfriction(v);
+	//MAXIMA: solve(total_acceleration(v) = 0, v);
+
+	if(g_bugrigs_planar_movement)
+	{
+		vector rigvel_xy, neworigin, up;
+		float mt;
+
+		rigvel_z -= frametime * sv_gravity; // 4x gravity plays better
+		rigvel_xy = rigvel;
+		rigvel_xy_z = 0;
+
+		if(g_bugrigs_planar_movement_car_jumping && !g_touchexplode) // touchexplode is a better way to handle collisions
+			mt = MOVE_NORMAL;
+		else
+			mt = MOVE_NOMONSTERS;
+
+		tracebox(self.origin, self.mins, self.maxs, self.origin + '0 0 1024', mt, self);
+		up = trace_endpos - self.origin;
+
+		// BUG RIGS: align the move to the surface instead of doing collision testing
+		// can we move?
+		tracebox(trace_endpos, self.mins, self.maxs, trace_endpos + rigvel_xy * frametime, mt, self);
+
+		// align to surface
+		tracebox(trace_endpos, self.mins, self.maxs, trace_endpos - up + '0 0 1' * rigvel_z * frametime, mt, self);
+
+		if(trace_fraction < 0.5)
+		{
+			trace_fraction = 1;
+			neworigin = self.origin;
+		}
+		else
+			neworigin = trace_endpos;
+
+		if(trace_fraction < 1)
+		{
+			// now set angles_x so that the car points parallel to the surface
+			self.angles = vectoangles(
+					'1 0 0' * v_forward_x * trace_plane_normal_z
+					+
+					'0 1 0' * v_forward_y * trace_plane_normal_z
+					+
+					'0 0 1' * -(v_forward_x * trace_plane_normal_x + v_forward_y * trace_plane_normal_y)
+					);
+			self.flags |= FL_ONGROUND;
+		}
+		else
+		{
+			// now set angles_x so that the car points forward, but is tilted in velocity direction
+			self.flags (-) FL_ONGROUND;
+		}
+
+		self.velocity = (neworigin - self.origin) * (1.0 / frametime);
+		self.movetype = MOVETYPE_NOCLIP;
+	}
+	else
+	{
+		rigvel_z -= frametime * sv_gravity; // 4x gravity plays better
+		self.velocity = rigvel;
+		self.movetype = MOVETYPE_FLY;
+	}
+
+	trace_fraction = 1;
+	tracebox(self.origin, self.mins, self.maxs, self.origin - '0 0 4', MOVE_NORMAL, self);
+	if(trace_fraction != 1)
+	{
+		self.angles = vectoangles2(
+				'1 0 0' * v_forward_x * trace_plane_normal_z
+				+
+				'0 1 0' * v_forward_y * trace_plane_normal_z
+				+
+				'0 0 1' * -(v_forward_x * trace_plane_normal_x + v_forward_y * trace_plane_normal_y),
+				trace_plane_normal
+				);
+	}
+	else
+	{
+		vector vel_local;
+
+		vel_local_x = v_forward * self.velocity;
+		vel_local_y = v_right * self.velocity;
+		vel_local_z = v_up * self.velocity;
+
+		self.angles_x = racecar_angle(vel_local_x, vel_local_z);
+		self.angles_z = racecar_angle(-vel_local_y, vel_local_z);
+	}
+
+	// smooth the angles
+	vector vf1, vu1, smoothangles;
+	makevectors(self.angles);
+	f = bound(0, frametime * g_bugrigs_angle_smoothing, 1);
+	if(f == 0)
+		f = 1;
+	vf1 = v_forward * f;
+	vu1 = v_up * f;
+	makevectors(angles_save);
+	vf1 = vf1 + v_forward * (1 - f);
+	vu1 = vu1 + v_up * (1 - f);
+	smoothangles = vectoangles2(vf1, vu1);
+	self.angles_x = -smoothangles_x;
+	self.angles_z =  smoothangles_z;
+}
+
 .vector movement_old;
 .float buttons_old;
 .vector v_angle_old;
@@ -159,7 +385,7 @@ void SV_PlayerPhysics()
 	if (clienttype(self) == CLIENTTYPE_BOT)
 		bot_think();
 
-	if (self.movetype == MOVETYPE_NONE)
+	if (self.movetype == MOVETYPE_NONE && self.disableclientprediction != 2)
 		return;
 
 	if (self.punchangle != '0 0 0')
@@ -249,7 +475,7 @@ void SV_PlayerPhysics()
 	if (self.deadflag)
 		return;
 
-	if (!self.fixangle)
+	if (!self.fixangle && !g_bugrigs)
 	{
 		self.angles_x = 0;
 		self.angles_y = self.v_angle_y;
@@ -309,6 +535,10 @@ void SV_PlayerPhysics()
 			self.flags = self.flags - (self.flags & FL_WATERJUMP);
 			self.teleport_time = 0;
 		}
+	}
+	else if (g_bugrigs && self.classname == "player")
+	{
+		RaceCarPhysics();
 	}
 	else if (self.movetype == MOVETYPE_NOCLIP || self.movetype == MOVETYPE_FLY)
 	{

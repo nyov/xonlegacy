@@ -3,7 +3,7 @@ CLASS(NexuizEffectsSettingsTab) EXTENDS(NexuizTab)
 	METHOD(NexuizEffectsSettingsTab, fill, void(entity))
 	ATTRIB(NexuizEffectsSettingsTab, title, string, "Effects")
 	ATTRIB(NexuizEffectsSettingsTab, intendedWidth, float, 0.9)
-	ATTRIB(NexuizEffectsSettingsTab, rows, float, 15)
+	ATTRIB(NexuizEffectsSettingsTab, rows, float, 17)
 	ATTRIB(NexuizEffectsSettingsTab, columns, float, 6.5)
 ENDCLASS(NexuizEffectsSettingsTab)
 entity makeNexuizEffectsSettingsTab();
@@ -17,44 +17,7 @@ entity makeNexuizEffectsSettingsTab()
 	me.configureDialog(me);
 	return me;
 }
-/*
- * cl_decals 1
- * cl_nogibs 0
- * cl_particles_quality 1
- * cl_particles_snow 1
- * r_bloom 1
- * r_coronas 1
- * r_glsl_deluxemapping 1
- * r_glsl_offsetmapping 1
- * r_glsl_offsetmapping_reliefmapping 0
- * r_hdr 0
- * r_shadow_usenormalmap 1
- * r_shadow_gloss 1
- * r_shadow_realtime_dlight 1
- * r_shadow_realtime_dlight_shadows 1
- * r_shadow_realtime_world 1
- * r_shadow_realtime_world_shadows 1
- * r_depthfirst 2
- * r_showsurfaces 0
- * r_water 1
- * r_water_resolutionmultiplier 0.5
- *
- *
- * [X] cl_decals
- * [X] !cl_nogibs
- * Particles: |--v--|
- * [X] Bloom [X] HDR
- * [X] Coronas
- * [X] Deluxemapping [X] Gloss
- * [X] Offsetmapping [X] Reliefmapping
- * [X] dlights [X] normalmaps [X] shadows
- * [X] rtworld [X] shadows
- * [X] depth first world [X] depth first models (?????)
- * [X] OMGLOLWTFBBQ (showsurfaces)
- * [X] water |----------v----|
- *
- *
- */
+
 void fillNexuizEffectsSettingsTab(entity me)
 {
 	entity e;
@@ -101,9 +64,16 @@ void fillNexuizEffectsSettingsTab(entity me)
 	me.TR(me);
 		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "cl_decals", "Decals"));
 	me.TR(me);
-		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Decals distance:"));
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Distance:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(200, 500, 20, "r_drawdecals_drawdistance"));
 			setDependent(e, "cl_decals", 1, 1);
+	me.TR(me);
+		me.TDempty(me, 0.2);
+	    me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Time:"));
+	    me.TD(me, 1, 2, e = makeNexuizSlider(1, 20, 1, "cl_decals_time"));
+	        setDependent(e, "cl_decals", 1, 1);
+
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Gibs:"));
 		me.TD(me, 1, 2, e = makeNexuizTextSlider("cl_nogibs"));
@@ -115,6 +85,7 @@ void fillNexuizEffectsSettingsTab(entity me)
 
 	me.TR(me);
 		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "r_coronas", "Coronas"));
+	me.TR(me);
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizCheckBox(0, "r_bloom", "Bloom"));
 			setDependent(e, "r_hdr", 0, 0);
@@ -130,35 +101,36 @@ void fillNexuizEffectsSettingsTab(entity me)
 			e.addValue(e, "16x", "16");
 			e.configureNexuizTextSliderValues(e);
 	me.TR(me);
-		me.TD(me, 1, 1.5, e = makeNexuizCheckBox(0, "r_glsl_deluxemapping", "Deluxe mapping"));
-			setDependent(e, "r_glsl", 1, 1);
-		me.TD(me, 1, 1.5, e = makeNexuizCheckBox(0, "r_shadow_gloss", "Gloss"));
-			setDependentAND(e, "r_glsl", 1, 1, "r_glsl_deluxemapping", 1, 1);
-
-	me.TR(me);
-
-	me.TR(me);
-		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "r_shadow_realtime_dlight", "Realtime dynamic lighting"));
-		me.TD(me, 1, 1, e = makeNexuizCheckBox(0, "r_shadow_realtime_dlight_shadows", "Shadows"));
-			setDependent(e, "r_shadow_realtime_dlight", 1, 1);
-
-	me.TR(me);
-		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "r_shadow_realtime_world", "Realtime world lighting"));
-		me.TD(me, 1, 1, e = makeNexuizCheckBox(0, "r_shadow_realtime_world_shadows", "Shadows"));
-			setDependent(e, "r_shadow_realtime_world", 1, 1);
-
-	me.TR(me);
-		me.TDempty(me, 0.2);
-		me.TD(me, 1, 2.8, e = makeNexuizCheckBox(0, "r_shadow_usenormalmap", "Use normal maps"));
-			setDependentOR(e, "r_shadow_realtime_dlight", 1, 1, "r_shadow_realtime_world", 1, 1);
-	
-	me.TR(me);
-
-	me.TR(me);
 		me.TD(me, 1, 1.5, e = makeNexuizCheckBox(0, "r_glsl_offsetmapping", "Offset mapping"));
 			setDependent(e, "r_glsl", 1, 1);
 		me.TD(me, 1, 1.5, e = makeNexuizCheckBox(0, "r_glsl_offsetmapping_reliefmapping", "Relief mapping"));
 			setDependentAND(e, "r_glsl", 1, 1, "r_glsl_offsetmapping", 1, 1);
+
+	me.TR(me);
+
+	me.TR(me);
+		me.TD(me, 1, 3, e = makeNexuizRadioButton(1, string_null, string_null, "No dynamic lighting"));
+	me.TR(me);
+		me.TD(me, 1, 3, e = makeNexuizRadioButton(1, "gl_flashblend", string_null, "Flash blend approximation"));
+	me.TR(me);
+		me.TD(me, 1, 2, e = makeNexuizRadioButton(1, "r_shadow_realtime_dlight", string_null, "Realtime dynamic lighting"));
+		me.TD(me, 1, 1, e = makeNexuizCheckBox(0, "r_shadow_realtime_dlight_shadows", "Shadows"));
+			setDependent(e, "r_shadow_realtime_dlight", 1, 1);
+	me.TR(me);
+		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "r_shadow_realtime_world", "Realtime world lighting"));
+		me.TD(me, 1, 1, e = makeNexuizCheckBox(0, "r_shadow_realtime_world_shadows", "Shadows"));
+			setDependent(e, "r_shadow_realtime_world", 1, 1);
+	me.TR(me);
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 2.8, e = makeNexuizCheckBox(0, "r_shadow_usenormalmap", "Use normal maps"));
+			setDependentOR(e, "r_shadow_realtime_dlight", 1, 1, "r_shadow_realtime_world", 1, 1);
+	me.TR(me);
+		me.TD(me, 1, 1.5, e = makeNexuizCheckBox(0, "r_glsl_deluxemapping", "Deluxe mapping"));
+			setDependent(e, "r_glsl", 1, 1);
+		me.TD(me, 1, 1.5, e = makeNexuizCheckBox(0, "r_shadow_gloss", "Gloss"));
+			setDependentAND(e, "r_glsl", 1, 1, "r_glsl_deluxemapping", 1, 1);
+	
+	me.TR(me);
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizCheckBox(0, "r_water", "Reflections"));
 			setDependent(e, "r_glsl", 1, 1);
@@ -183,12 +155,6 @@ void fillNexuizEffectsSettingsTab(entity me)
 			me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "r_showsurfaces", "Show surfaces"));
 
 	me.gotoRC(me, me.rows - 1, 0);
-		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "sendcvar cl_nogibs; gl_flashblend_update; r_restart", COMMANDBUTTON_APPLY));
+		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "sendcvar cl_nogibs; r_restart", COMMANDBUTTON_APPLY));
 }
-/*
- * [X] depth first world [X] depth first models (?????)
- * [X] OMGLOLWTFBBQ (showsurfaces)
- *
- *
- */
 #endif

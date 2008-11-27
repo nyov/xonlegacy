@@ -11,11 +11,11 @@ void Seeker_Missile_Explode ()
 
 	b = crandom();
 	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/seekerexp1.wav", 1, ATTN_NORM);
 	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp2.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/seekerexp2.wav", 1, ATTN_NORM);
 	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp3.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/seekerexp3.wav", 1, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
 	RadiusDamage (self, self.owner, cvar("g_balance_seeker_missile_damage"), cvar("g_balance_seeker_missile_edgedamage"), cvar("g_balance_seeker_missile_radius"), world, cvar("g_balance_seeker_missile_force"), self.projectiledeathtype, other);
@@ -33,7 +33,7 @@ void Seeker_Missile_Touch()
 void Seeker_Missile_Think()
 {
 	entity e;
-	vector desireddir, olddir, newdir;
+	vector desireddir, olddir, newdir, eorg;
 	float turnrate;
 	float dist;
 
@@ -56,10 +56,11 @@ void Seeker_Missile_Think()
 	if (self.enemy != world)
 	{
 		e               = self.enemy;
+		eorg            = 0.5 * (e.absmin + e.absmax);
 		turnrate        = cvar("g_balance_seeker_missile_turnrate");		    // how fast to turn
-		desireddir      = normalize(e.origin - self.origin);
+		desireddir      = normalize(eorg - self.origin);
 		olddir          = normalize(self.velocity);				            // get my current direction
-		dist            = vlen(e.origin - self.origin);
+		dist            = vlen(eorg - self.origin);
 
 		// Do evasive maneuvers for world objects? ( this should be a cpu hog. :P )
 		if (cvar("g_balance_seeker_missile_smart") && (dist > cvar("g_balance_seeker_missile_smart_mindist")))
@@ -68,7 +69,7 @@ void Seeker_Missile_Think()
 			if ( vlen(self.origin + olddir * self.wait) < dist)
 				traceline(self.origin, self.origin + olddir * self.wait, FALSE, self);
 			else
-				traceline(self.origin, self.enemy.origin, FALSE, self);
+				traceline(self.origin, eorg, FALSE, self);
 
 			// Setup adaptive tracelength
 			self.wait = vlen(self.origin - trace_endpos);
@@ -171,7 +172,7 @@ void Seeker_Fire_Missile(vector f_org)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_seeker_missile_ammo");
 
 	makevectors(self.v_angle);
-	W_SetupShot (self, f_org, FALSE, 2, "weapons/hagar_fire.wav");
+	W_SetupShot (self, f_org, FALSE, 2, "weapons/seeker_fire.wav");
 	pointparticles(particleeffectnum("seeker_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	//self.detornator         = FALSE;
@@ -279,11 +280,11 @@ void Seeker_Tag_Explode ()
 
 	b = crandom();
 	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/tagexp1.wav", 1, ATTN_NORM);
 	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp2.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/tagexp2.wav", 1, ATTN_NORM);
 	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp3.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/tagexp3.wav", 1, ATTN_NORM);
 
 	remove (self);
 }
@@ -299,7 +300,7 @@ void Seeker_Tag_Touch()
 	vector dir;
 	vector org2;
 
-	PROJECTILE_TOUCH;
+	PROJECTILE_TOUCH_NOSOUND;
 
 	dir     = normalize (self.owner.origin - self.origin);
 	org2    = findbetterlocation (self.origin, 8);
@@ -307,7 +308,7 @@ void Seeker_Tag_Touch()
 	te_knightspike(org2);
 
 	self.event_damage = SUB_Null;
-	sound (self, CHAN_PROJECTILE, "weapons/laserimpact.wav", 1, ATTN_NORM);
+	sound (self, CHAN_PROJECTILE, "weapons/tag_impact.wav", 1, ATTN_NORM);
 
 	if (other.takedamage == DAMAGE_AIM && other.deadflag == DEAD_NO)
 	{
@@ -338,7 +339,7 @@ void Seeker_Fire_Tag()
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_seeker_tag_ammo");
 
-	W_SetupShot (self, '56 13 -15', FALSE, 2, "weapons/hagar_fire.wav");
+	W_SetupShot (self, '56 13 -15', FALSE, 2, "weapons/tag_fire.wav");
 
 	missile                 = spawn();
 	missile.owner           = self;
@@ -362,6 +363,7 @@ void Seeker_Fire_Tag()
 
 	missile.effects     = EF_FULLBRIGHT | EF_NOSHADOW | EF_LOWPRECISION;
 	missile.modelflags  = MF_TRACER3;
+	sound (missile, CHAN_PROJECTILE, "weapons/tag_rocket_fly.wav", VOL_BASE, ATTN_NORM);
 	missile.flags       = FL_PROJECTILE;
 
 	missile.velocity    = w_shotdir  * cvar("g_balance_seeker_tag_speed");
@@ -380,11 +382,11 @@ void Seeker_Flac_Explode ()
 
 	b = crandom();
 	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp1.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/flacexp1.wav", 1, ATTN_NORM);
 	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp2.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/flacexp2.wav", 1, ATTN_NORM);
 	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp3.wav", 1, ATTN_NORM);
+		sound (self, CHAN_PROJECTILE, "weapons/flacexp3.wav", 1, ATTN_NORM);
 
 	self.event_damage = SUB_Null;
 
@@ -426,7 +428,7 @@ void Seeker_Fire_Flac()
 			f_org = '40 9.5 -29';
 			break;
 	}
-	W_SetupShot (self, f_org, FALSE, 2, "weapons/hagar_fire.wav");
+	W_SetupShot (self, f_org, FALSE, 2, "weapons/flac_fire.wav");
 
 		pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -494,11 +496,20 @@ float w_seeker(float req)
 		precache_model ("models/weapons/g_seeker.md3");
 		precache_model ("models/weapons/v_seeker.md3");
 		precache_model ("models/weapons/w_seeker.zym");
-		precache_sound ("weapons/hagar_fire.wav");
-		precache_sound ("weapons/hagexp1.wav");
-		precache_sound ("weapons/hagexp2.wav");
-		precache_sound ("weapons/hagexp3.wav");
-		precache_sound ("weapons/laserimpact.wav");
+		precache_sound ("weapons/tag_fire.wav");
+		precache_sound ("weapons/tag_impact.wav");
+		precache_sound ("weapons/tagexp1.wav");
+		precache_sound ("weapons/tagexp2.wav");
+		precache_sound ("weapons/tagexp3.wav");
+		precache_sound ("weapons/tag_rocket_fly.wav");
+		precache_sound ("weapons/flac_fire.wav");
+		precache_sound ("weapons/flacexp1.wav");
+		precache_sound ("weapons/flacexp2.wav");
+		precache_sound ("weapons/flacexp3.wav");
+		precache_sound ("weapons/seeker_fire.wav");
+		precache_sound ("weapons/seekerexp1.wav");
+		precache_sound ("weapons/seekerexp2.wav");
+		precache_sound ("weapons/seekerexp3.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_SEEKER);

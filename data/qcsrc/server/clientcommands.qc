@@ -325,7 +325,7 @@ void SV_ParseClientCommand(string s) {
 	} else if(argv(0) == "ready") {
 		if not(self.flags & FL_CLIENT)
 			return;
-		if((inWarmupStage && 0 < g_warmup_limit) // with unlimited warmup players have to be able to restart
+		if((inWarmupStage && 0 <= g_warmup_limit) // with unlimited warmup players have to be able to restart
 		   || cvar("sv_ready_restart"))
 		{
 			if(timeoutStatus) {
@@ -480,17 +480,13 @@ void SV_ParseClientCommand(string s) {
 	}
 }
 
-void ReadyRestart()
+void ReadyRestartForce()
 {
 	local entity e;
 
 	bprint("^1Server is restarting...\n");
 
 	VoteReset();
-
-	// no arena, assault support yet...
-	if(g_arena | g_assault | gameover | intermission_running | race_completing)
-		localcmd("restart\n");
 
 	// clear overtime
 	if(checkrules_overtimeend)
@@ -539,12 +535,21 @@ void ReadyRestart()
 	//reset map immediately if this cvar is not set
 	if (!cvar("sv_ready_restart_after_countdown"))
 		reset_map();
-
-	// reset ALL scores
-	Score_ClearAll();
 	
 	if(cvar("sv_eventlog"))
 		GameLogEcho(":restart");
+}
+
+void ReadyRestart()
+{
+	// no arena, assault support yet...
+	if(g_arena | g_assault | gameover | intermission_running | race_completing)
+		localcmd("restart\n");
+
+	// reset ALL scores
+	Score_ClearAll();
+
+	ReadyRestartForce();
 }
 
 /**
@@ -572,11 +577,11 @@ void ReadyCount()
 
 	readycount = r;
 
+	Nagger_ReadyCounted();
+
 	if(r) // at least one is ready
 	if(r == p) // and, everyone is ready
 		ReadyRestart();
-
-	Nagger_ReadyCounted();
 }
 
 /**
@@ -618,7 +623,7 @@ void restartAnnouncer_Think() {
 		}
 
 		if(f <= 3) {
-			play2all(strcat("announcer/robotic/", ftos(f), ".ogg"));
+			play2all(strcat("announcer/robotic/", ftos(f), ".wav"));
 		}
 		self.nextthink = game_starttime - (f - 1);
 	}
