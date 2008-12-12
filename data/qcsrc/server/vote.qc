@@ -15,8 +15,9 @@ entity GetKickVoteVictim(string vote, string cmd, entity caller)
 {
 	float tokens;
 	float n, t;
-	string ns;
+	string ns, s;
 	entity e;
+	string reason;
 
 	tokens = tokenize_sane(vote);
 	ns = "";
@@ -42,6 +43,20 @@ entity GetKickVoteVictim(string vote, string cmd, entity caller)
 		else
 			GetKickVoteVictim_reason = "";
 
+		if(cmd != "vdo" || GetKickVoteVictim_reason == "")
+			reason = "~"; // by convention, ~ prefixes a "unverified" kickban which will not be networked
+		else
+			reason = "";
+		if(caller)
+			reason = strcat(reason, "player ", strdecolorize(caller.netname));
+		else
+			reason = strcat(reason, "console vote");
+		if(GetKickVoteVictim_reason != "")
+			reason = strcat(reason, ": ", strdecolorize(GetKickVoteVictim_reason));
+
+		if not(cvar_value_issafe(reason))
+			reason = uri_escape(reason);
+
 		n = stof(ns);
 		if(ns == ftos(n)) if(n >= 1) if(n <= maxclients)
 		{
@@ -49,6 +64,14 @@ entity GetKickVoteVictim(string vote, string cmd, entity caller)
 			if(clienttype(e) == CLIENTTYPE_REAL)
 			{
 				GetKickVoteVictim_newcommand = strcat(argv(0), " # ", ns);
+				if(argv(0) == "kickban")
+				{
+					GetKickVoteVictim_newcommand = strcat(GetKickVoteVictim_newcommand, " ", cvar_string("g_ban_default_bantime"), " ", cvar_string("g_ban_default_masksize"), " ", reason);
+				}
+				else if(argv(0) == "kick")
+				{
+					GetKickVoteVictim_newcommand = strcat(GetKickVoteVictim_newcommand, " ", reason);
+				}
 				return e;
 			}
 		}

@@ -96,7 +96,7 @@ void SUB_UseTargets()
 			for(t = world; (t = find(t, targetname, s)); )
 			if(t.use)
 			{
-				print(stemp.classname, " ", stemp.targetname, " -> ", t.classname, " ", t.targetname, "\n");
+				//print(stemp.classname, " ", stemp.targetname, " -> ", t.classname, " ", t.targetname, "\n");
 				self = t;
 				other = stemp;
 				activator = act;
@@ -926,7 +926,12 @@ void spawnfunc_misc_laser()
 		if(self.mdl == "none")
 			self.cnt = -1;
 		else
+		{
 			self.cnt = particleeffectnum(self.mdl);
+			if(self.cnt < 0)
+				if(self.dmg)
+					self.cnt = particleeffectnum("laser_deadly");
+		}
 	}
 	else if(!self.cnt)
 	{
@@ -935,6 +940,8 @@ void spawnfunc_misc_laser()
 		else
 			self.cnt = -1;
 	}
+	if(self.cnt < 0)
+		self.cnt = -1;
 
 	if(self.colormod == '0 0 0')
 		if(!self.alpha)

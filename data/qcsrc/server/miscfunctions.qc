@@ -162,7 +162,7 @@ void GameLogEcho(string s)
 				fn = strcat(substring("00000000", 0, 8 - strlen(fn)), fn);
 			fn = strcat(cvar_string("sv_eventlog_files_nameprefix"), fn, cvar_string("sv_eventlog_files_namesuffix"));
 			logfile = fopen(fn, FILE_APPEND);
-			fputs(logfile, ":logversion:2\n");
+			fputs(logfile, ":logversion:3\n");
 		}
 		if(logfile >= 0)
 		{
@@ -911,8 +911,8 @@ void readplayerstartcvars()
 
 	if(g_grappling_hook) // offhand hook
 	{
-		start_weapons (-) WEPBIT_HOOK;
-		warmup_start_weapons (-) WEPBIT_HOOK;
+		start_weapons &~= WEPBIT_HOOK;
+		warmup_start_weapons &~= WEPBIT_HOOK;
 	}
 }
 
@@ -992,6 +992,8 @@ void readlevelcvars(void)
 	if(g_race && g_race_qualifying == 2 || g_arena || g_assault || cvar("g_campaign"))
 		inWarmupStage = 0; // these modes cannot work together, sorry
 
+	g_pickup_respawntime_weapon = cvar("g_pickup_respawntime_weapon");
+	g_pickup_respawntime_ammo = cvar("g_pickup_respawntime_ammo");
 	g_pickup_respawntime_short = cvar("g_pickup_respawntime_short");
 	g_pickup_respawntime_medium = cvar("g_pickup_respawntime_medium");
 	g_pickup_respawntime_long = cvar("g_pickup_respawntime_long");
@@ -1331,6 +1333,9 @@ void precache()
 		}
 	}
 
+#if 0
+	// Disabled this code because it simply does not work (e.g. ignores bgmvolume, overlaps with "cd loop" controlled tracks).
+
 	if (!self.noise && self.music) // quake 3 uses the music field
 		self.noise = self.music;
 
@@ -1340,6 +1345,7 @@ void precache()
 		precache_sound (self.noise);
 		ambientsound ('0 0 0', self.noise, VOL_BASE, ATTN_NONE);
 	}
+#endif
 }
 
 // sorry, but using \ in macros breaks line numbers
@@ -1656,3 +1662,82 @@ float SUB_NoImpactCheck()
 #define PROJECTILE_TOUCH do { if(SUB_OwnerCheck()) return; if(SUB_NoImpactCheck()) { remove(self); return; } } while(0)
 const string STR_MISC_NULL_WAV = "misc/null.wav";
 #define PROJECTILE_TOUCH_NOSOUND do { if(SUB_OwnerCheck()) return; if(SUB_NoImpactCheck()) { sound (self, CHAN_PROJECTILE, STR_MISC_NULL_WAV, VOL_BASE, ATTN_NORM); remove(self); return; } } while(0)
+
+void URI_Get_Callback(float id, float status, string data)
+{
+	dprint("Received HTTP request data for id ", ftos(id), "; status is ", ftos(status), "\nData is\n:");
+	dprint(data);
+	dprint("\nEnd of data.\n");
+
+	switch(id)
+	{
+		case 0:
+			// 0 is the ID for discarding
+			break;
+		case 1:
+			// 1 is the ID for online ban list
+			OnlineBanList_URI_Get_Callback(status, data);
+			break;
+		default:
+			print("Received HTTP request data for an invalid id ", ftos(id), ".\n");
+			break;
+	}
+}
+
+void print_to(entity e, string s)
+{
+	if(e)
+		sprint(e, strcat(s, "\n"));
+	else
+		print(s, "\n");
+}
+
+string getrecords()
+{
+	float rec;
+	string h;
+	float r;
+	float i;
+	string s;
+
+	rec = 0;
+	
+	s = "";
+
+	if(g_ctf)
+	{
+		for(i = 0; i < MapInfo_count; ++i)
+		{
+			if(MapInfo_Get_ByID(i))
+			{
+				r = stof(db_get(ServerProgsDB, strcat(MapInfo_Map_bspname, "/captimerecord/time")));
+				if(r == 0)
+					continue;
+				h = db_get(ServerProgsDB, strcat(MapInfo_Map_bspname, "/captimerecord/netname"));
+				s = strcat(s, strpad(32, MapInfo_Map_bspname), " ", strpad(-6, ftos_decimals(r, 2)), " ", h, "\n");
+				++rec;
+			}
+		}
+	}
+
+	if(g_race)
+	{
+		for(i = 0; i < MapInfo_count; ++i)
+		{
+			if(MapInfo_Get_ByID(i))
+			{
+				r = stof(db_get(ServerProgsDB, strcat(MapInfo_Map_bspname, "/racerecord/time")));
+				if(r == 0)
+					continue;
+				h = db_get(ServerProgsDB, strcat(MapInfo_Map_bspname, "/racerecord/netname"));
+				s = strcat(s, strpad(32, MapInfo_Map_bspname), " ", strpad(-8, mmsss(r)), " ", h, "\n");
+				++rec;
+			}
+		}
+	}
+
+	if(s == "")
+		return "No records are available on this server.\n";
+	else
+		return strcat("Records on this server:\n", s);
+}

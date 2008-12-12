@@ -424,6 +424,8 @@ void FlagTouch()
 				bprint(other.netname, "^7 captured the ", other.flagcarried.netname, " in ", s, ", failing to break ", strcat(h0, " record of ", s0, " seconds\n"));
 			}
 		}
+		else
+			bprint(other.netname, "^7 captured the ", other.flagcarried.netname, "\n");
 
 		PlayerTeamScore_Add(other, SP_CTF_CAPS, ST_CTF_CAPS, 1);
 		LogCTF("capture", other.flagcarried.team, other);
@@ -919,11 +921,11 @@ void ctf_setstatus2(entity flag, float shift)
 
 void ctf_setstatus()
 {
-	self.items (-) IT_RED_FLAG_TAKEN;
-	self.items (-) IT_RED_FLAG_LOST;
-	self.items (-) IT_BLUE_FLAG_TAKEN;
-	self.items (-) IT_BLUE_FLAG_LOST;
-	self.items (-) IT_CTF_SHIELDED;
+	self.items &~= IT_RED_FLAG_TAKEN;
+	self.items &~= IT_RED_FLAG_LOST;
+	self.items &~= IT_BLUE_FLAG_TAKEN;
+	self.items &~= IT_BLUE_FLAG_LOST;
+	self.items &~= IT_CTF_SHIELDED;
 
 	if (g_ctf) {
 		local entity flag;

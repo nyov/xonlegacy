@@ -194,13 +194,43 @@ void cvar_changes_init()
 	cvar_changes = strzone(cvar_changes);
 }
 
+void detect_maptype()
+{
+	vector o, v;
+	float i;
+
+	for(;;)
+	{
+		o = world.mins;
+		o_x += random() * (world.maxs_x - world.mins_x);
+		o_y += random() * (world.maxs_y - world.mins_y);
+		o_z += random() * (world.maxs_z - world.mins_z);
+
+		tracebox(o, PL_MIN, PL_MAX, o - '0 0 32768', MOVE_WORLDONLY, world);
+		if(trace_fraction == 1)
+			continue;
+		
+		v = trace_endpos;
+
+		for(i = 0; i < 64; i += 4)
+		{
+			tracebox(o, '-1 -1 -1' * i, '1 1 1' * i, o - '0 0 32768', MOVE_WORLDONLY, world);
+	if(trace_fraction == 1)
+		continue;
+			print(ftos(i), " -> ", vtos(trace_endpos), "\n");
+		}
+
+		break;
+	}
+}
+
 float world_already_spawned;
 void RegisterWeapons();
 void Nagger_Init();
 void spawnfunc_worldspawn (void)
 {
-	float fd, l;
-	string s;
+	float fd, l, i, j, n;
+	string s, col;
 
 	dprint_load(); // load dprint status from cvar
 
@@ -209,6 +239,12 @@ void spawnfunc_worldspawn (void)
 	world_already_spawned = TRUE;
 
 	remove = remove_safely; // during spawning, watch what you remove!
+
+	if(cvar_string("cvar_check_default") != CVAR_CHECK_DEFAULT)
+		error("Config file mismatch! Please update defaultNexuiz.cfg to match the QuakeC code!");
+
+	if(cvar_string("cvar_check_weapons") != CVAR_CHECK_WEAPONS)
+		error("Config file mismatch! Please update weapons.cfg and weaponsPro.cfg to match the QuakeC code!");
 
 	compressShortVector_init();
 
@@ -405,6 +441,42 @@ void spawnfunc_worldspawn (void)
 
 	next_pingtime = time + 5;
 	InitializeEntity(self, cvar_changes_init, INITPRIO_CVARS);
+
+	detect_maptype();
+
+	lsmaps_reply = "^7Maps available: ";
+	for(i = 0, j = 0; i < MapInfo_count; ++i)
+	{
+		if(MapInfo_Get_ByID(i))
+			if not(MapInfo_Map_flags & MAPINFO_FLAG_HIDDEN)
+			{
+				if(mod(i, 2))
+					col = "^2";
+				else
+					col = "^3";
+				++j;
+				lsmaps_reply = strcat(lsmaps_reply, col, MapInfo_Map_bspname, " ");
+			}
+	}
+	lsmaps_reply = strzone(strcat(lsmaps_reply, "\n"));
+
+	maplist_reply = "^7Maps in list: ";
+	n = tokenize_sane(cvar_string("g_maplist"));
+	for(i = 0, j = 0; i < n; ++i)
+	{
+		if(MapInfo_CheckMap(argv(i)))
+		{
+			if(mod(j, 2))
+				col = "^2";
+			else
+				col = "^3";
+			maplist_reply = strcat(maplist_reply, col, argv(i), " ");
+			++j;
+		}
+	}
+	maplist_reply = strzone(strcat(maplist_reply, "\n"));
+
+	records_reply = strzone(getrecords());
 
 	world_initialized = 1;
 }
@@ -1377,14 +1449,6 @@ float WinningCondition_LMS()
 	return WINNING_NO;
 }
 
-void print_to(entity e, string s)
-{
-	if(e)
-		sprint(e, strcat(s, "\n"));
-	else
-		print(s, "\n");
-}
-
 void ShuffleMaplist()
 {
 	string result;
@@ -1420,6 +1484,7 @@ void ShuffleMaplist()
 	cvar_set("g_maplist", result);
 }
 
+float leaderfrags;
 float WinningCondition_Scores(float limit)
 {
 	// TODO make everything use THIS winning condition (except LMS)
@@ -1443,6 +1508,22 @@ float WinningCondition_Scores(float limit)
 	{
 		WinningConditionHelper_topscore = -WinningConditionHelper_topscore;
 		limit = -limit;
+	}
+
+	if(g_dm || (g_ctf && g_ctf_win_mode != 2) || g_tdm || g_arena || (g_race && !g_race_qualifying))
+	// these modes always score in increments of 1, thus this makes sense
+	{
+		if(leaderfrags != WinningConditionHelper_topscore)
+		{
+			leaderfrags = WinningConditionHelper_topscore;
+
+			if (leaderfrags == limit - 1)
+				play2all("announcer/robotic/1fragleft.wav");
+			else if (leaderfrags == limit - 2)
+				play2all("announcer/robotic/2fragsleft.wav");
+			else if (leaderfrags == limit - 3)
+				play2all("announcer/robotic/3fragsleft.wav");
+		}
 	}
 
 	return GetWinningCode(limit && WinningConditionHelper_topscore && (WinningConditionHelper_topscore >= limit), WinningConditionHelper_equality);

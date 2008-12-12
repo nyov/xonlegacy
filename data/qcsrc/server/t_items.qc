@@ -248,7 +248,7 @@ void Item_Touch (void)
 		{
 			RandomSelection_Init();
 			for(head = world; (head = findfloat(head, team, self.team)); ) if(head.flags & FL_ITEM)
-				RandomSelection_Add(head, 0, 1, 0);
+				RandomSelection_Add(head, 0, head.cnt, 0);
 			e = RandomSelection_chosen_ent;
 		}
 		else
@@ -268,9 +268,9 @@ void Item_FindTeam()
 		dprint("Initializing item team ", ftos(self.team), "\n");
 		RandomSelection_Init();
 		for(head = world; (head = findfloat(head, team, self.team)); ) if(head.flags & FL_ITEM)
-			RandomSelection_Add(head, 0, 1, 0);
+			RandomSelection_Add(head, 0, head.cnt, 0);
 		e = RandomSelection_chosen_ent;
-		e.cnt = 0;
+		e.state = 0;
 
 		for(head = world; (head = findfloat(head, team, self.team)); ) if(head.flags & FL_ITEM)
 		{
@@ -279,7 +279,7 @@ void Item_FindTeam()
 				// make it a non-spawned item
 				head.solid = SOLID_NOT;
 				head.model = string_null;
-				head.cnt = 1; // cnt 1 = initially hidden item
+				head.state = 1; // state 1 = initially hidden item
 			}
 			head.effects = head.effects - (head.effects & EF_NODRAW);
 		}
@@ -288,7 +288,7 @@ void Item_FindTeam()
 
 // Savage: used for item garbage-collection
 // TODO: perhaps nice special effect?
-void RemoveItem(void) /*FIXDECL*/
+void RemoveItem(void)
 {
 	remove(self);
 }
@@ -506,8 +506,11 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 	if (cvar("g_fullbrightitems"))
 		self.effects = self.effects | EF_FULLBRIGHT;
 
+	self.state = 0;
 	if(self.team)
 	{
+		if(!self.cnt)
+			self.cnt = 1; // item probability weight
 		self.effects = self.effects | EF_NODRAW; // marker for item team search
 		InitializeEntity(self, Item_FindTeam, INITPRIO_FINDTARGET);
 	}
@@ -607,7 +610,7 @@ void weapon_defaultspawnfunc(float wpn)
 		if(e.items == IT_SUPERWEAPON)
 			self.respawntime = g_pickup_respawntime_powerup;
 		else
-			self.respawntime = g_pickup_respawntime_short;
+			self.respawntime = g_pickup_respawntime_weapon;
 	}
 
 	if(self.classname != "droppedweapon" && self.classname != "replacedweapon")
@@ -747,7 +750,7 @@ void spawnfunc_weapon_rocketlauncher (void)
 void spawnfunc_item_rockets (void) {
 	if(!self.ammo_rockets)
 		self.ammo_rockets = g_pickup_rockets;
-	StartItem ("models/items/a_rockets.md3", "misc/itempickup.wav", g_pickup_respawntime_short, "rockets", IT_ROCKETS, 0, 0, commodity_pickupevalfunc, 3000);
+	StartItem ("models/items/a_rockets.md3", "misc/itempickup.wav", g_pickup_respawntime_ammo, "rockets", IT_ROCKETS, 0, 0, commodity_pickupevalfunc, 3000);
 }
 
 void spawnfunc_item_shells (void);
@@ -764,13 +767,13 @@ void spawnfunc_item_bullets (void) {
 
 	if(!self.ammo_nails)
 		self.ammo_nails = g_pickup_nails;
-	StartItem ("models/items/a_bullets.mdl", "misc/itempickup.wav", g_pickup_respawntime_short, "bullets", IT_NAILS, 0, 0, commodity_pickupevalfunc, 2000);
+	StartItem ("models/items/a_bullets.mdl", "misc/itempickup.wav", g_pickup_respawntime_ammo, "bullets", IT_NAILS, 0, 0, commodity_pickupevalfunc, 2000);
 }
 
 void spawnfunc_item_cells (void) {
 	if(!self.ammo_cells)
 		self.ammo_cells = g_pickup_cells;
-	StartItem ("models/items/a_cells.md3", "misc/itempickup.wav", g_pickup_respawntime_short, "cells", IT_CELLS, 0, 0, commodity_pickupevalfunc, 2000);
+	StartItem ("models/items/a_cells.md3", "misc/itempickup.wav", g_pickup_respawntime_ammo, "cells", IT_CELLS, 0, 0, commodity_pickupevalfunc, 2000);
 }
 
 void spawnfunc_item_shells (void) {
@@ -786,7 +789,7 @@ void spawnfunc_item_shells (void) {
 
 	if(!self.ammo_shells)
 		self.ammo_shells = g_pickup_shells;
-	StartItem ("models/items/a_shells.md3", "misc/itempickup.wav", g_pickup_respawntime_short, "shells", IT_SHELLS, 0, 0, commodity_pickupevalfunc, 500);
+	StartItem ("models/items/a_shells.md3", "misc/itempickup.wav", g_pickup_respawntime_ammo, "shells", IT_SHELLS, 0, 0, commodity_pickupevalfunc, 500);
 }
 
 void spawnfunc_item_armor_small (void) {
