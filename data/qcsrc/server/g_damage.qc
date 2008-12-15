@@ -4,7 +4,9 @@ float yoda;
 float damage_goodhits;
 float damage_gooddamage;
 float headshot;
+float damage_headshotbonus; // bonus multiplier for head shots, set to 0 after use
 
+.float dmg_team;
 .float teamkill_complain;
 .float teamkill_soundtime;
 .entity teamkill_soundsource;
@@ -498,6 +500,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 {
 	float mirrordamage;
 	float mirrorforce;
+	float teamdamage0;
 	entity attacker_save;
 	mirrordamage = 0;
 	mirrorforce = 0;
@@ -574,7 +577,10 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 					{
 						if(targ.classname == "player" && targ.deadflag == DEAD_NO)
 						{
-							mirrordamage = cvar("g_mirrordamage") * damage;
+							teamdamage0 = max(attacker.dmg_team, cvar("g_teamdamage_threshold"));
+							attacker.dmg_team = attacker.dmg_team + damage;
+							if(attacker.dmg_team > teamdamage0)
+								mirrordamage = cvar("g_mirrordamage") * (attacker.dmg_team - teamdamage0);
 							mirrorforce = cvar("g_mirrordamage") * vlen(force);
 							if(g_minstagib)
 							{
@@ -717,34 +723,42 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 					damage_goodhits += 1;
 					damage_gooddamage += damage;
 
-					if(!g_minstagib)
-					if(IsFlying(targ))
-						yoda = 1;
+					if not(DEATH_ISSPECIAL(deathtype))
+					{
+						if(!g_minstagib)
+						if(IsFlying(targ))
+							yoda = 1;
 
-					if(g_minstagib)
-					if(targ.items & IT_STRENGTH)
-						yoda = 1;
+						if(g_minstagib)
+						if(targ.items & IT_STRENGTH)
+							yoda = 1;
 
-					// HEAD SHOT:
-					// find height of hit on player axis
-					// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
-					vector headmins, headmaxs, org;
-					org = antilag_takebackorigin(targ, time - ANTILAG_LATENCY(attacker));
-					headmins = org + '0.5 0 0' * targ.mins_x + '0 0.5 0' * targ.mins_y + '0 0 1' * targ.view_ofs_z;
-					headmaxs = org + '0.5 0 0' * targ.maxs_x + '0 0.5 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
-					if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
-						headshot = 1;
+						// HEAD SHOT:
+						// find height of hit on player axis
+						// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
+						vector headmins, headmaxs, org;
+						org = antilag_takebackorigin(targ, time - ANTILAG_LATENCY(attacker));
+						headmins = org + '0.5 0 0' * targ.mins_x + '0 0.5 0' * targ.mins_y + '0 0 1' * targ.view_ofs_z;
+						headmaxs = org + '0.5 0 0' * targ.maxs_x + '0 0.5 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
+						if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
+						{
+							damage *= 1 + damage_headshotbonus;
+							headshot = 1;
+							deathtype |= HITTYPE_HEADSHOT;
+						}
+					}
 				}
 			}
 			else
 			{
-				attacker.typehitsound += 1; // TODO possibly trigger teamkill complain sound!
-				if(time > attacker.teamkill_complain)
-				{
-					attacker.teamkill_complain = time + 5;
-					attacker.teamkill_soundtime = time + 0.4;
-					attacker.teamkill_soundsource = targ;
-				}
+				attacker.typehitsound += 1;
+				if(mirrordamage > 0)
+					if(time > attacker.teamkill_complain)
+					{
+						attacker.teamkill_complain = time + 5;
+						attacker.teamkill_soundtime = time + 0.4;
+						attacker.teamkill_soundsource = targ;
+					}
 			}
 		}
 	}

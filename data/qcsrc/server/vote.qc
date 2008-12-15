@@ -11,11 +11,14 @@ float VoteCheckNasty(string cmd)
 	return FALSE;
 }
 
+string GetKickVoteVictim_newcommand;
+string GetKickVoteVictim_reason;
+
 entity GetKickVoteVictim(string vote, string cmd, entity caller)
 {
 	float tokens;
 	float n, t;
-	string ns, s;
+	string ns;
 	entity e;
 	string reason;
 
@@ -43,10 +46,16 @@ entity GetKickVoteVictim(string vote, string cmd, entity caller)
 		else
 			GetKickVoteVictim_reason = "";
 
+		reason = "";
 		if(cmd != "vdo" || GetKickVoteVictim_reason == "")
 			reason = "~"; // by convention, ~ prefixes a "unverified" kickban which will not be networked
-		else
-			reason = "";
+
+		if(substring(GetKickVoteVictim_reason, 0, 1) == "~")
+		{
+			reason = "~";
+			GetKickVoteVictim_reason = substring(GetKickVoteVictim_reason, 1, strlen(GetKickVoteVictim_reason) - 1);
+		}
+
 		if(caller)
 			reason = strcat(reason, "player ", strdecolorize(caller.netname));
 		else
@@ -120,7 +129,7 @@ float RemapVote(string vote, string cmd, entity e)
 		if(!(victim = GetKickVoteVictim(vote, cmd, e)))
 			return FALSE;
 		RemapVote_vote = GetKickVoteVictim_newcommand;
-		RemapVote_display = strcat("^1", RemapVote_vote, " (^7", victim.netname, "^1): ", GetKickVoteVictim_reason);
+		RemapVote_display = strcat("^1", vote, " (^7", victim.netname, "^1): ", GetKickVoteVictim_reason);
 	}
 	else
 	{

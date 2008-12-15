@@ -2,12 +2,12 @@
  * Protocol of online ban list:
  *
  * - Reporting a ban:
- *     GET g_ban_sync_uri?action=ban&ip=xxx.xxx.xxx&duration=nnnn&why=...................
+ *     GET g_ban_sync_uri?action=ban&hostname=...&ip=xxx.xxx.xxx&duration=nnnn&why=...................
  *     (IP 1, 2, 3, or 4 octets, 3 octets for example is a /24 mask)
  * - Removing a ban:
- *     GET g_ban_sync_uri?action=unban&ip=xxx.xxx.xxx
+ *     GET g_ban_sync_uri?action=unban&hostname=...&ip=xxx.xxx.xxx
  * - Querying the ban list
- *     GET g_ban_sync_uri?action=list&servers=xxx.xxx.xxx.xxx:xxx.xxx.xxx.xxx:...
+ *     GET g_ban_sync_uri?action=list&hostname=...&servers=xxx.xxx.xxx.xxx:xxx.xxx.xxx.xxx:...
  *     
  *     shows the bans from the listed servers, and possibly others.
  *     Format of a ban is ASCII plain text, four lines per ban, delimited by
@@ -26,7 +26,8 @@ void OnlineBanList_SendBan(string ip, float bantime, string reason)
 	string uri;
 	float i, n;
 
-	uri = strcat(     "?action=ban&ip=", uri_escape(ip));
+	uri = strcat(     "?action=ban&hostname=", uri_escape(cvar_string("hostname")));
+	uri = strcat(uri, "&ip=", uri_escape(ip));
 	uri = strcat(uri, "&duration=", ftos(bantime));
 	uri = strcat(uri, "&why=", uri_escape(reason));
 
@@ -40,7 +41,8 @@ void OnlineBanList_SendUnban(string ip)
 	string uri;
 	float i, n;
 
-	uri = strcat(     "?action=unban&ip=", uri_escape(ip));
+	uri = strcat(     "?action=unban&hostname=", uri_escape(cvar_string("hostname")));
+	uri = strcat(uri, "&ip=", uri_escape(ip));
 
 	n = tokenize_sane(cvar_string("g_ban_sync_uri"));
 	for(i = 0; i < n; ++i)
@@ -156,7 +158,8 @@ void OnlineBanList_Think()
 			OnlineBanList_Servers = strcat(OnlineBanList_Servers, ":", argv(i));
 		OnlineBanList_Servers = strzone(OnlineBanList_Servers);
 		
-		uri = strcat(     "?action=list&servers=", uri_escape(OnlineBanList_Servers));
+		uri = strcat(     "?action=list&hostname=", uri_escape(cvar_string("hostname")));
+		uri = strcat(uri, "&servers=", uri_escape(OnlineBanList_Servers));
 
 		OnlineBanList_Timeout = time + 10;
 
@@ -330,11 +333,6 @@ float Ban_Insert(string ip, float bantime, string reason, float dosync)
 	entity e;
 	string s;
 
-	if(dosync)
-		if(reason != "")
-			if(substring(reason, 0, 1) != "~") // like IRC: unauthenticated banner
-				OnlineBanList_SendBan(ip, bantime, reason);
-
 	// already banned?
 	for(i = 0; i < ban_count; ++i)
 		if(ban_ip[i] == ip)
@@ -345,7 +343,13 @@ float Ban_Insert(string ip, float bantime, string reason, float dosync)
 				ban_expire[i] = time + bantime;
 				print(ip, "'s ban has been prolonged to ", ftos(bantime), " seconds from now\n");
 			}
+
 			// and abort
+			if(dosync)
+				if(reason != "")
+					if(substring(reason, 0, 1) != "~") // like IRC: unauthenticated banner
+						OnlineBanList_SendBan(ip, bantime, reason);
+
 			return FALSE;
 		}
 	// do we have a free slot?
@@ -384,10 +388,24 @@ float Ban_Insert(string ip, float bantime, string reason, float dosync)
 	FOR_EACH_REALCLIENT(e)
 		if(Ban_IsClientBanned(e, i))
 		{
+			if(reason != "")
+			{
+				if(s == "")
+					reason = strcat(reason, ": affects ");
+				else
+					reason = strcat(reason, ", ");
+				reason = strcat(reason, e.netname);
+			}
 			s = strcat(s, "^1NOTE:^7 banned client ", e.netname, "^7 has to go\n");
 			dropclient(e);
 		}
 	bprint(s);
+
+	// and abort
+	if(dosync)
+		if(reason != "")
+			if(substring(reason, 0, 1) != "~") // like IRC: unauthenticated banner
+				OnlineBanList_SendBan(ip, bantime, reason);
 
 	return TRUE;
 }
@@ -416,9 +434,12 @@ void Ban_KickBanClient(entity client, float bantime, float masksize, string reas
 			Ban_Insert(ban_ip4, bantime, reason, 1);
 			break;
 	}
+	/*
+	 * not needed, as we enforce the ban in Ban_Insert anyway
 	// and kick him
 	sprint(client, strcat("Kickbanned: ", reason, "\n"));
 	dropclient(client);
+	 */
 }
 
 float GameCommand_Ban(string command)
@@ -429,36 +450,34 @@ float GameCommand_Ban(string command)
 	float entno;
 	float masksize;
 	string reason;
+	float reasonarg;
 
 	argc = tokenize_sane(command);
 	if(argv(0) == "help")
 	{
-		print("  kickban # n m p - kickban player n for m seconds, using mask size p (1 to 4)\n");
-		print("  ban ip m - ban an IP or range (incomplete IP, like 1.2.3) for m seconds\n");
+		print("  kickban # n m p reason - kickban player n for m seconds, using mask size p (1 to 4)\n");
+		print("  ban ip m reason - ban an IP or range (incomplete IP, like 1.2.3) for m seconds\n");
 		print("  bans - list all existing bans\n");
 		print("  unban n - delete the entry #n from the bans list\n");
 		return TRUE;
 	}
 	if(argv(0) == "kickban")
 	{
+#define INITARG(c) reasonarg = c
+#define GETARG(v,d) if((argc > reasonarg) && ((v = stof(argv(reasonarg))) != 0)) ++reasonarg; else v = d
+#define RESTARG(v) if(argc > reasonarg) v = substring(command, argv_start_index(reasonarg), strlen(command) - argv_start_index(reasonarg)); else v = ""
 		if(argc >= 3)
 		{
 			entno = stof(argv(2));
 			if(entno > maxclients || entno < 1)
 				return TRUE;
 			client = edict_num(entno);
-			if(argc >= 4)
-				bantime = stof(argv(3));
-			else
-				bantime = cvar("g_ban_default_bantime");
-			if(argc >= 5)
-				masksize = stof(argv(4));
-			else
-				masksize = cvar("g_ban_default_masksize");
-			if(argc >= 6)
-				reason = substring(command, argv_start_index(5), strlen(command) - argv_start_index(5));
-			else
-				reason = "";
+
+			INITARG(3);
+			GETARG(bantime, cvar("g_ban_default_bantime"));
+			GETARG(masksize, cvar("g_ban_default_masksize"));
+			RESTARG(reason);
+
 			Ban_KickBanClient(client, bantime, masksize, reason);
 			return TRUE;
 		}
@@ -469,17 +488,17 @@ float GameCommand_Ban(string command)
 		{
 			string ip;
 			ip = argv(1);
-			if(argc >= 3)
-				bantime = stof(argv(2));
-			else
-				bantime = cvar("g_ban_default_bantime");
-			if(argc >= 4)
-				reason = substring(command, argv_start_index(3), strlen(command) - argv_start_index(3));
-			else
-				reason = "";
+
+			INITARG(2);
+			GETARG(bantime, cvar("g_ban_default_bantime"));
+			RESTARG(reason);
+
 			Ban_Insert(ip, bantime, reason, 1);
 			return TRUE;
 		}
+#undef INITARG
+#undef GETARG
+#undef RESTARG
 	}
 	else if(argv(0) == "bans")
 	{
