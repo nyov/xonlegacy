@@ -373,10 +373,17 @@ void CL_SpawnWeaponentity()
 	self.exteriorweaponentity.nextthink = time;
 };
 
+.float hasweapon_complain_spam;
+
 float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 {
 	local float weaponbit, f;
 	local entity oldself;
+
+	if(time < self.hasweapon_complain_spam)
+		complain = 0;
+	if(complain)
+		self.hasweapon_complain_spam = time + 0.2;
 
 	if (wpn < WEP_FIRST || wpn > WEP_LAST)
 	{
@@ -415,7 +422,34 @@ float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 		// DRESK - 3/16/07
 		// Report Proper Weapon Status / Modified Weapon Ownership Message
 		if(weaponsInMap & weaponbit)
+		{
 			sprint(cl, strcat("You do not have the ^2", W_Name(wpn), "\n") );
+
+			if(cvar("g_showweaponspawns"))
+			{
+				entity e;
+				string s;
+
+				e = get_weaponinfo(wpn);
+				s = e.model2;
+
+				for(e = world; (e = findfloat(e, weapons, weaponbit)); )
+				{
+					if(e.classname == "droppedweapon")
+						continue;
+					if not(e.flags & FL_ITEM)
+						continue;
+					WaypointSprite_Spawn(
+						s,
+						1, 0,
+						world, e.origin,
+						self, 0,
+						world, enemy,
+						0
+					);
+				}
+			}
+		}
 		else
 			sprint(cl, strcat("The ^2", W_Name(wpn), "^7 is ^1NOT AVAILABLE^7 in this map\n") );
 	}
@@ -482,19 +516,23 @@ float weapon_prepareattack(float secondary, float attacktime)
 		return FALSE;
 
 	// don't fire if previous attack is not finished
-	if (ATTACK_FINISHED(self) > time + frametime * 0.5)
-		return FALSE;
+	if(attacktime >= 0)
+		if (ATTACK_FINISHED(self) > time + frametime * 0.5)
+			return FALSE;
 	// don't fire while changing weapon
 	if (self.weaponentity.state != WS_READY)
 		return FALSE;
 	self.weaponentity.state = WS_INUSE;
 	// if the weapon hasn't been firing continuously, reset the timer
-	if (ATTACK_FINISHED(self) < time - frametime * 1.5)
+	if(attacktime >= 0)
 	{
-		ATTACK_FINISHED(self) = time;
-		//dprint("resetting attack finished to ", ftos(time), "\n");
+		if (ATTACK_FINISHED(self) < time - frametime * 1.5)
+		{
+			ATTACK_FINISHED(self) = time;
+			//dprint("resetting attack finished to ", ftos(time), "\n");
+		}
+		ATTACK_FINISHED(self) = ATTACK_FINISHED(self) + attacktime;
 	}
-	ATTACK_FINISHED(self) = ATTACK_FINISHED(self) + attacktime;
 	self.bulletcounter += 1;
 	//dprint("attack finished ", ftos(ATTACK_FINISHED(self)), "\n");
 	return TRUE;

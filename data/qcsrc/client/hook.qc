@@ -34,6 +34,7 @@ void Draw_GrapplingHook()
 	vector a, b;
 	string tex;
 	vector rgb;
+	float t;
 
 	if(time >= self.HookKillTime)
 		return;
@@ -42,22 +43,25 @@ void Draw_GrapplingHook()
 	else
 		a = self.HookStart;
 	b = self.HookEnd;
-	if(self.team == COLOR_TEAM1)
+
+	t = GetPlayerColorForce(self.sv_entnum);
+
+	if(t == COLOR_TEAM1)
 	{
 		tex = "particles/hook_red";
 		rgb = '1 .3 .3';
 	}
-	else if(self.team == COLOR_TEAM2)
+	else if(t == COLOR_TEAM2)
 	{
 		tex = "particles/hook_blue";
 		rgb = '.3 .3 1';
 	}
-	else if(self.team == COLOR_TEAM3)
+	else if(t == COLOR_TEAM3)
 	{
 		tex = "particles/hook_yellow";
 		rgb = '1 1 .3';
 	}
-	else if(self.team == COLOR_TEAM4)
+	else if(t == COLOR_TEAM4)
 	{
 		tex = "particles/hook_pink";
 		rgb = '1 .3 1';

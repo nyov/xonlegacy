@@ -30,17 +30,17 @@ void drawNexuizPlayerSettingsTab(entity me)
 }
 void fillNexuizPlayerSettingsTab(entity me)
 {
-	entity e, pms, sl, e0;
+	entity e, pms, sl, e0, box;
 	float i, n;
 
 	me.TR(me);
 		me.TD(me, 1, 1, me.playerNameLabel = makeNexuizTextLabel(0, "Player Name:"));
 			me.playerNameLabelAlpha = me.playerNameLabel.alpha;
-		me.TD(me, 1, 2, e = makeNexuizInputBox(1, "_cl_name"));
-			e.forbiddenCharacters = "\r\n\\\"$"; // don't care, isn't getting saved
+		me.TD(me, 1, 2, box = makeNexuizInputBox(1, "_cl_name"));
+			box.forbiddenCharacters = "\r\n\\\"$"; // don't care, isn't getting saved
 	me.TR(me);
-		me.TDempty(me, 1);
-		me.TD(me, 5, 2, e = makeNexuizCharmap(e));
+		me.TD(me, 5, 1, e = makeNexuizColorpicker(box));
+		me.TD(me, 5, 2, e = makeNexuizCharmap(box));
 	me.TR(me);
 	me.TR(me);
 	me.TR(me);
@@ -92,9 +92,12 @@ void fillNexuizPlayerSettingsTab(entity me)
 	me.TR(me);
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair:"));
-		n = 12;
-		for(i = 1; i <= n; ++i)
-			me.TDNoMargin(me, 1, 2 / n, e = makeNexuizCrosshairButton(3, i), '0 0 0');
+		for(i = 1; i <= 10; ++i)
+			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '0 0 0');
+	me.TR(me);
+		me.TDempty(me, 1);
+		for(i = 11; i <= 20; ++i)
+			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '0 0 0');
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair Size:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(0.40, 2, 0.05, "crosshair_size"));
@@ -111,6 +114,8 @@ void fillNexuizPlayerSettingsTab(entity me)
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair Blue:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(0, 1, 0.01, "crosshair_color_blue"));
 	me.TR(me);
+	/*
+	 * not supported by the current csqc code
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "HUD size:"));
 		me.TD(me, 1, 2, e = makeNexuizTextSlider("viewsize"));
@@ -118,6 +123,7 @@ void fillNexuizPlayerSettingsTab(entity me)
 			e.addValue(e, "Reduced", "110");
 			e.addValue(e, "Full", "100");
 			e.configureNexuizTextSliderValues(e);
+	*/
 	me.TR(me);
 		me.TDempty(me, 0.2);
 		me.TD(me, 1, 2.8, e = makeNexuizCheckBox(1, "sbar_hudselector", "Use old-style HUD layout"));

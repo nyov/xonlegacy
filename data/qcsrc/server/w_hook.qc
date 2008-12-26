@@ -5,6 +5,9 @@
 .float dmg_power;
 .float dmg_duration;
 .float dmg_last;
+.float hook_refire;
+.float hook_datehooked;
+.float hook_datehooked_delay;
 
 void W_Hook_ExplodeThink (void)
 {
@@ -106,6 +109,8 @@ void spawnfunc_weapon_hook (void)
 
 float w_hook(float req)
 {
+	float hooked_time_max, hooked_ammodecrease_delay;
+		
 	if (req == WR_AIM)
 	{
 		// ... sorry ...
@@ -116,12 +121,13 @@ float w_hook(float req)
 		{
 			if(!self.hook)
 			if not(self.hook_state & HOOK_WAITING_FOR_RELEASE)
-			if (weapon_prepareattack(0, cvar("g_balance_hook_primary_refire")))
+			if (time > self.hook_refire)
+			if (weapon_prepareattack(0, -1))
 			{
 				if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 					self.ammo_cells = self.ammo_cells - cvar("g_balance_hook_primary_ammo");
 				self.hook_state |= HOOK_FIRING;
-				weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_hook_primary_animtime"), w_ready);
+				weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_hook_primary_animtime"), w_ready);				
 			}
 		}
 
@@ -133,6 +139,42 @@ float w_hook(float req)
 				weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_hook_secondary_animtime"), w_ready);
 			}
 		}
+
+		if(self.hook)
+		{
+			// if hooked, no bombs, and increase the timer
+			self.hook_refire = max(self.hook_refire, time + cvar("g_balance_hook_primary_refire"));
+		}
+
+		if(self.hook && self.hook.state == 1)
+		{
+			hooked_time_max = cvar("g_balance_hook_primary_hooked_time_max");			
+			if (hooked_time_max > 0)
+			{
+				if ( time > self.hook_datehooked + hooked_time_max )
+					self.hook_state |= HOOK_REMOVING;
+			}
+			
+			hooked_ammodecrease_delay = cvar("g_balance_hook_primary_hooked_ammodecrease_delay");
+			if (hooked_ammodecrease_delay > 0)
+			{
+				if ( time > self.hook_datehooked_delay + hooked_ammodecrease_delay )
+				{
+					if ( self.ammo_cells >= 1 )
+					{
+						self.ammo_cells -= 1;
+						self.hook_datehooked_delay = time;
+					}
+					else
+					{
+						self.hook_state |= HOOK_REMOVING;
+						W_SwitchWeapon_Force(self, w_getbestweapon(self));
+					}
+				}
+			}
+		}
+		else
+			self.hook_datehooked = self.hook_datehooked_delay = time;				
 
 		if (self.BUTTON_CROUCH)
 		{
@@ -173,10 +215,11 @@ float w_hook(float req)
 	else if (req == WR_SETUP)
 	{
 		weapon_setup(WEP_HOOK);
+		self.hook_state &~= HOOK_WAITING_FOR_RELEASE;
 	}
 	else if (req == WR_CHECKAMMO1)
 	{
-		return self.ammo_cells >= cvar("g_balance_hook_primary_ammo");
+		return self.ammo_cells >= cvar("g_balance_hook_primary_ammo");			
 	}
 	else if (req == WR_CHECKAMMO2)
 	{

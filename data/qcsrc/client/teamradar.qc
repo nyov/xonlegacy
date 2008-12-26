@@ -6,6 +6,11 @@ float teamradar_size; // 2D scale factor
 float cl_teamradar_scale; // window size = ...qu
 float v_flipped;
 
+float vlen2d(vector v)
+{
+	return sqrt(v_x * v_x + v_y * v_y);
+}
+
 float vlen_maxnorm2d(vector v)
 {
 	return max4(v_x, v_y, -v_x, -v_y);
@@ -248,7 +253,7 @@ void() teamradar_view =
 	switch(cl_teamradar_rotation)
 	{
 		case 0:
-			teamradar_angle = input_angles_y - 90;
+			teamradar_angle = view_angles_y - 90;
 			break;
 		default:
 			teamradar_angle = 90 * cl_teamradar_rotation;
@@ -265,7 +270,7 @@ void() teamradar_view =
 	if(cl_teamradar_rotation == 0)
 	{
 		// max-min distance must fit the radar in any rotation
-		bigsize = vlen_minnorm2d(teamradar_size2d) * scale2d / (1.05 * vlen(mi_max - mi_min));
+		bigsize = vlen_minnorm2d(teamradar_size2d) * scale2d / (1.05 * vlen2d(mi_max - mi_min));
 	}
 	else
 	{
@@ -294,7 +299,7 @@ void() teamradar_view =
 		+ (1 - f) * normalsize;
 	teamradar_origin3d_in_texcoord = teamradar_3dcoord_to_texcoord(
 		  f * (mi_min + mi_max) * 0.5
-		+ (1 - f) * pmove_org);
+		+ (1 - f) * view_origin);
 
 	color = GetPlayerColor(player_localentnum-1);
 	rgb = GetTeamRGB(color);
@@ -340,7 +345,7 @@ void() teamradar_view =
 		//if(color == COLOR_SPECTATOR || color == color2)
 			draw_teamradar_player(tm.origin, tm.angles, GetTeamRGB(color2));
 	}
-	draw_teamradar_player(pmove_org, input_angles, '1 1 1');
+	draw_teamradar_player(view_origin, view_angles, '1 1 1');
 
 	drawresetcliparea();
 };

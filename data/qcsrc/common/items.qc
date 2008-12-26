@@ -16,6 +16,7 @@ void register_weapon_real(float id, float(float) func, float ammotype, float i, 
 	e.mdl = modelname;
 	e.model = strzone(strcat("models/weapons/g_", modelname, ".md3"));
 	e.spawnflags = 0;
+	e.model2 = strzone(strcat("wpn-", e.mdl));
 	if(normalweapon)
 		e.spawnflags |= WEPSPAWNFLAG_NORMAL;
 	if(canclimb)
@@ -43,6 +44,7 @@ void register_weapons_done()
 	dummy_weapon_info.spawnflags = 0;
 	dummy_weapon_info.impulse = -1;
 	dummy_weapon_info.bot_pickupbasevalue = 0;
+	dummy_weapon_info.model2 = "";
 
 	float i;
 	weaponpriority_hudselector_0 = "";
@@ -110,6 +112,7 @@ void RegisterWeapons()
 	register_weapon(WEP_HOOK,             w_hook,      IT_CELLS,       0, 0, 1,     0, "hookgun",   "hook",            "Grappling Hook");
 	register_weapon(WEP_SEEKER,           w_seeker,    IT_ROCKETS,     8, 1, 0,     0, "seeker",    "seeker",          "T.A.G. Seeker");
 	register_weapon(WEP_HLAC,             w_hlac,      IT_CELLS,       6, 1, 0,     0, "hlac",      "hlac",            "Heavy Laser Assault Cannon");
+	register_weapon(WEP_CAMPINGRIFLE,              w_campingrifle,       IT_NAILS,       3, 1, 0,  5000, "campingrifle",       "campingrifle",             "Camping Rifle");
 
 	register_weapons_done();
 }
