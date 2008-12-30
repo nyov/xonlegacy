@@ -25,6 +25,7 @@ CLASS(InputBox) EXTENDS(Label)
 	ATTRIB(InputBox, forbiddenCharacters, string, "")
 	ATTRIB(InputBox, color, vector, '1 1 1')
 	ATTRIB(InputBox, colorF, vector, '1 1 1')
+	ATTRIB(InputBox, maxLength, float, 255)
 ENDCLASS(InputBox)
 void InputBox_Clear_Click(entity btn, entity me);
 #endif
@@ -78,6 +79,8 @@ void enterTextInputBox(entity me, string ch)
 	for(i = 0; i < strlen(ch); ++i)
 		if(strstrofs(me.forbiddenCharacters, substring(ch, i, 1), 0) > -1)
 			return;
+	if(strlen(ch) + strlen(me.text) > me.maxLength)
+		return;
 	me.setText(me, strcat(substring(me.text, 0, me.cursorPos), ch, substring(me.text, me.cursorPos, strlen(me.text) - me.cursorPos)));
 	me.cursorPos += strlen(ch);
 }
@@ -161,7 +164,7 @@ void drawInputBox(entity me)
 	if(me.editColorCodes)
 	{
 		string ch, ch2;
-		float i;
+		float i, n;
 		vector theColor;
 		float theAlpha;    //float theVariableAlpha;
 		vector p;
@@ -172,7 +175,8 @@ void drawInputBox(entity me)
 		theColor = '1 1 1';
 		theAlpha = 1;    //theVariableAlpha = 1; // changes when ^ax found
 		
-		for(i = 0; i < strlen(me.text); ++i)
+		n = strlen(me.text);
+		for(i = 0; i < n; ++i)
 		{
 			ch = substring(me.text, i, 1);
 			if(ch == "^")
