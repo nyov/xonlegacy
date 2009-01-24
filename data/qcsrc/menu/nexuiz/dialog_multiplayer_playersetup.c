@@ -73,6 +73,7 @@ void fillNexuizPlayerSettingsTab(entity me)
 		me.TD(me, 1, 1, e = makeNexuizSliderCheckBox(0, 1, sl, "View bobbing:"));
 		me.TD(me, 1, 2, sl);
 	me.TR(me);
+	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Zoom Factor:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(2, 16, 0.5, "cl_zoomfactor"));
 	me.TR(me);
@@ -82,7 +83,7 @@ void fillNexuizPlayerSettingsTab(entity me)
 		sl = makeNexuizSlider(1, 8, 0.5, "cl_zoomspeed");
 		me.TD(me, 1, 1, e = makeNexuizSliderCheckBox(-1, 1, sl, "Zoom speed:"));
 		me.TD(me, 1, 2, sl);
-
+	me.TR(me);
 	me.TR(me);
 		me.TD(me, 1, 1.5, e = makeNexuizButton("Weapon settings...", '0 0 0'));
 			e.onClick = DialogOpenButton_Click;
@@ -92,13 +93,22 @@ void fillNexuizPlayerSettingsTab(entity me)
 			e0.allowCut = 1;
 	me.TR(me);
 	me.TR(me);
+		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "crosshair_per_weapon", "Per weapon crosshairs"));
+	me.TR(me);
+		me.TD(me, 1, 3, e = makeNexuizCheckBox(1, "crosshair_color_override", "Per weapon crosshair colors"));
+		setDependent(e, "crosshair_per_weapon", 1, 1);
+	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair:"));
-		for(i = 1; i <= 10; ++i)
+		for(i = 1; i <= 10; ++i) {
 			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '0 0 0');
+			setDependent(e, "crosshair_per_weapon", 0, 0);
+		}
 	me.TR(me);
 		me.TDempty(me, 1);
-		for(i = 11; i <= 20; ++i)
+		for(i = 11; i <= 20; ++i) {
 			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '0 0 0');
+			setDependent(e, "crosshair_per_weapon", 0, 0);
+		}
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair Size:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(0.40, 2, 0.05, "crosshair_size"));
@@ -108,12 +118,15 @@ void fillNexuizPlayerSettingsTab(entity me)
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair Red:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(0, 1, 0.01, "crosshair_color_red"));
+		setDependentOR(e, "crosshair_per_weapon", 0, 0, "crosshair_color_override", 1, 1);
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair Green:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(0, 1, 0.01, "crosshair_color_green"));
+		setDependentOR(e, "crosshair_per_weapon", 0, 0, "crosshair_color_override", 1, 1);
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair Blue:"));
 		me.TD(me, 1, 2, e = makeNexuizSlider(0, 1, 0.01, "crosshair_color_blue"));
+		setDependentOR(e, "crosshair_per_weapon", 0, 0, "crosshair_color_override", 1, 1);
 	me.TR(me);
 	/*
 	 * not supported by the current csqc code
@@ -136,20 +149,8 @@ void fillNexuizPlayerSettingsTab(entity me)
 			e.onClickEntity = main.radarDialog;
 		me.TDempty(me, 0.5);
 	me.TR(me);
-	me.TR(me);
-		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Network speed:"));
-		me.TD(me, 1, 2, e = makeNexuizTextSlider("_cl_rate"));
-			e.addValue(e, "56k", "4000");
-			e.addValue(e, "ISDN", "7000");
-			e.addValue(e, "Slow ADSL", "15000");
-			e.addValue(e, "Fast ADSL", "20000");
-			e.addValue(e, "Broadband", "25000");
-			e.configureNexuizTextSliderValues(e);
-	me.TR(me);
-		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Client UDP port:"));
-		me.TD(me, 1, 0.64, e = makeNexuizInputBox(0, "cl_port"));
 
 	me.gotoRC(me, me.rows - 1, 0);
-		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "color -1 -1;name \"$_cl_name\";sendcvar cl_weaponpriority;sendcvar cl_zoomfactor;sendcvar cl_zoomspeed;sendcvar cl_autoswitch;sendcvar cl_hidewaypoints;sendcvar cl_shownames;rate $_cl_rate", COMMANDBUTTON_APPLY));
+		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "color -1 -1;name \"$_cl_name\";sendcvar cl_weaponpriority;sendcvar cl_zoomfactor;sendcvar cl_zoomspeed;sendcvar cl_autoswitch;sendcvar cl_hidewaypoints;sendcvar cl_shownames", COMMANDBUTTON_APPLY));
 }
 #endif

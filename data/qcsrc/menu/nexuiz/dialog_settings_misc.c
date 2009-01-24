@@ -25,12 +25,12 @@ void fillNexuizMiscSettingsTab(entity me)
 	me.TR(me);
 		me.TD(me, 1, 3, e = makeNexuizTextLabel(0, "Menu skins:"));
 	me.TR(me);
-		me.TD(me, me.rows - 2, 3, sk = makeNexuizSkinList());		
+		me.TD(me, me.rows - 2, 3, sk = makeNexuizSkinList());
 	me.gotoRC(me, me.rows - 1, 0);
 		me.TD(me, 1, 3, e = makeNexuizButton("Apply immediately", '0 0 0'));
 			e.onClick = SetSkin_Click;
 			e.onClickEntity = sk;
-		
+
 	me.gotoRC(me, 0, 3.5); me.setFirstColumn(me, me.currentColumn);
 		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "showtime", "Show current time"));
 	me.TR(me);
@@ -49,5 +49,12 @@ void fillNexuizMiscSettingsTab(entity me)
 		me.TD(me, 1, 2.8/3, e = makeNexuizRadioButton(1, "showspeed", "3", "km/h"));
 		me.TD(me, 1, 2.8/3, e = makeNexuizRadioButton(1, "showspeed", "4", "mph"));
 		me.TD(me, 1, 2.8/3, e = makeNexuizRadioButton(1, "showspeed", "5", "knots"));
+	me.TR(me);
+	me.TR(me);
+		me.TDempty(me, 0.5);
+		me.TD(me, 1, 2, e = makeNexuizButton("Advanced settings...", '0 0 0'));
+			e.onClick = DialogOpenButton_Click;
+			e.onClickEntity = main.cvarsDialog;
+		me.TDempty(me, 0.5);
 }
 #endif

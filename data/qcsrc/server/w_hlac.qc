@@ -1,44 +1,22 @@
 .float HLAC_bulletcounter;
 void W_HLAC_Touch (void)
 {
-	vector	dir;
-	vector org2;
-	vector normal;
-
 	PROJECTILE_TOUCH;
-
-	normal = trace_plane_normal;
-	dir = normalize (self.owner.origin - self.origin);
-	org2 = findbetterlocation (self.origin, 8);
-
-	pointparticles(particleeffectnum("laser_impact"), org2, normal * 1000, 1);
 
 	self.event_damage = SUB_Null;
 
     RadiusDamage (self, self.owner, cvar("g_balance_hlac_primary_damage"), cvar("g_balance_hlac_primary_edgedamage"), cvar("g_balance_hlac_primary_radius"), world, cvar("g_balance_hlac_primary_force"), self.projectiledeathtype, other);
-	sound (self, CHAN_PROJECTILE, "weapons/laserimpact.wav", VOL_BASE, ATTN_NORM);
 
 	remove (self);
 }
 
 void W_HLAC_Touch2 (void)
 {
-	vector	dir;
-	vector org2;
-	vector normal;
-
 	PROJECTILE_TOUCH;
 
-	normal = trace_plane_normal;
-	dir = normalize (self.owner.origin - self.origin);
-	org2 = findbetterlocation (self.origin, 8);
-
-	pointparticles(particleeffectnum("laser_impact"), org2, normal * 1000, 1);
-
-	//self.event_damage = SUB_Null;
+	self.event_damage = SUB_Null;
 
     RadiusDamage (self, self.owner, cvar("g_balance_hlac_secondary_damage"), cvar("g_balance_hlac_secondary_edgedamage"), cvar("g_balance_hlac_secondary_radius"), world, cvar("g_balance_hlac_secondary_force"), self.projectiledeathtype, other);
-	sound (self, CHAN_PROJECTILE, "weapons/laserimpact.wav", VOL_BASE, ATTN_NORM);
 
 	remove (self);
 }
@@ -77,7 +55,7 @@ void W_HLAC_Attack (void)
 	missile.movetype = MOVETYPE_FLY;
 	missile.solid = SOLID_BBOX;
 
-	setmodel (missile, "models/hlac_bullet.md3"); // precision set below
+	setmodel (missile, "null"); // precision set below
 	setsize (missile, '0 0 0', '0 0 0');
 	setorigin (missile, w_shotorg);
 
@@ -91,9 +69,10 @@ void W_HLAC_Attack (void)
 
     missile.nextthink = time + cvar("g_balance_hlac_primary_lifetime");
 
-	missile.effects = EF_LOWPRECISION;
 	missile.flags = FL_PROJECTILE;
 	missile.projectiledeathtype = WEP_HLAC;
+
+	CSQCProjectile(missile, TRUE, PROJECTILE_HLAC);
 }
 
 void W_HLAC_Attack2f (void)
@@ -121,7 +100,7 @@ void W_HLAC_Attack2f (void)
 	missile.movetype = MOVETYPE_FLY;
 	missile.solid = SOLID_BBOX;
 
-	setmodel (missile, "models/hlac_bullet.md3"); // precision set below
+	setmodel (missile, "null"); // precision set below
 	setsize (missile, '0 0 0', '0 0 0');
 	setorigin (missile, w_shotorg);
 
@@ -135,9 +114,10 @@ void W_HLAC_Attack2f (void)
 
     missile.nextthink = time + cvar("g_balance_hlac_secondary_lifetime");
 
-	missile.effects = EF_LOWPRECISION;
 	missile.flags = FL_PROJECTILE;
 	missile.projectiledeathtype = WEP_HLAC | HITTYPE_SECONDARY;
+
+	CSQCProjectile(missile, TRUE, PROJECTILE_HLAC);
 }
 
 void W_HLAC_Attack2 (void)
@@ -220,15 +200,10 @@ float w_hlac(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-	    precache_sound ("weapons/laserimpact.wav");
-        precache_sound ("weapons/lasergun_fire.wav");
-
         precache_model ("models/weapons/g_hlac.md3");
 		precache_model ("models/weapons/v_hlac.md3");
 		precache_model ("models/weapons/w_hlac.zym");
 		precache_sound ("weapons/lasergun_fire.wav");
-
-		precache_model ("models/hlac_bullet.md3");
 
 	}
 	else if (req == WR_SETUP)

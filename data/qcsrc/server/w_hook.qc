@@ -6,8 +6,8 @@
 .float dmg_duration;
 .float dmg_last;
 .float hook_refire;
-.float hook_datehooked;
-.float hook_datehooked_delay;
+.float hook_time_hooked;
+.float hook_time_ammodecrease;
 
 void W_Hook_ExplodeThink (void)
 {
@@ -20,6 +20,7 @@ void W_Hook_ExplodeThink (void)
 	self.dmg_last = dmg_remaining_next;
 
 	RadiusDamage (self, self.owner, self.dmg * f, self.dmg_edge * f, self.dmg_radius, self.owner, self.dmg_force * f, self.projectiledeathtype, world);
+	self.projectiledeathtype |= HITTYPE_BOUNCE;
 	//RadiusDamage (self, world, self.dmg * f, self.dmg_edge * f, self.dmg_radius, world, self.dmg_force * f, self.projectiledeathtype, world);
 
 	if(dt < self.dmg_duration)
@@ -30,12 +31,6 @@ void W_Hook_ExplodeThink (void)
 
 void W_Hook_Explode2 (void)
 {
-	vector org2;
-
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("hookbomb_explode"), org2, '0 0 0', 1);
-	sound (self, CHAN_PROJECTILE, "weapons/hookbomb_impact.wav", VOL_BASE, ATTN_NORM);
-
 	self.event_damage = SUB_Null;
 	self.touch = SUB_Null;
 
@@ -73,10 +68,8 @@ void W_Hook_Attack2()
 	gren.bot_dodgerating = cvar("g_balance_hook_secondary_damage");
 	gren.movetype = MOVETYPE_TOSS;
 	gren.solid = SOLID_BBOX;
-	gren.effects = EF_LOWPRECISION;
-	gren.modelflags = MF_TRACER2;
 	gren.projectiledeathtype = WEP_HOOK | HITTYPE_SECONDARY;
-	setmodel(gren, "models/grenademodel.md3"); // precision set above // FIXME replace
+	setmodel(gren, "null"); // precision set above // FIXME replace
 	setsize(gren, '0 0 0', '0 0 0');
 	setorigin(gren, w_shotorg);
 
@@ -94,6 +87,8 @@ void W_Hook_Attack2()
 
 	gren.angles = '0 0 0';
 	gren.flags = FL_PROJECTILE;
+
+	CSQCProjectile(gren, TRUE, PROJECTILE_HOOKBOMB);
 }
 
 void spawnfunc_weapon_hook (void)
@@ -151,19 +146,19 @@ float w_hook(float req)
 			hooked_time_max = cvar("g_balance_hook_primary_hooked_time_max");			
 			if (hooked_time_max > 0)
 			{
-				if ( time > self.hook_datehooked + hooked_time_max )
+				if ( time > self.hook_time_hooked + hooked_time_max )
 					self.hook_state |= HOOK_REMOVING;
 			}
 			
 			hooked_ammodecrease_delay = cvar("g_balance_hook_primary_hooked_ammodecrease_delay");
 			if (hooked_ammodecrease_delay > 0)
 			{
-				if ( time > self.hook_datehooked_delay + hooked_ammodecrease_delay )
+				if ( time > self.hook_time_ammodecrease )
 				{
 					if ( self.ammo_cells >= 1 )
 					{
 						self.ammo_cells -= 1;
-						self.hook_datehooked_delay = time;
+						self.hook_time_ammodecrease = time + hooked_ammodecrease_delay;
 					}
 					else
 					{
@@ -174,7 +169,10 @@ float w_hook(float req)
 			}
 		}
 		else
-			self.hook_datehooked = self.hook_datehooked_delay = time;				
+		{
+			self.hook_time_hooked = time;				
+			self.hook_time_ammodecrease = time + cvar("g_balance_hook_primary_hooked_time_free");
+		}
 
 		if (self.BUTTON_CROUCH)
 		{
@@ -207,10 +205,9 @@ float w_hook(float req)
 		precache_model ("models/weapons/g_hookgun.md3");
 		precache_model ("models/weapons/v_hookgun.md3");
 		precache_model ("models/weapons/w_hookgun.zym");
+		precache_sound ("weapons/hook_impact.wav"); // done by g_hook.qc
 		precache_sound ("weapons/hook_fire.wav");
-		precache_sound ("weapons/hook_impact.wav");
 		precache_sound ("weapons/hookbomb_fire.wav");
-		precache_sound ("weapons/hookbomb_impact.wav");
 	}
 	else if (req == WR_SETUP)
 	{

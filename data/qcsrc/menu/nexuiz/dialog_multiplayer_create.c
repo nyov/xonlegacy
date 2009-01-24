@@ -108,6 +108,7 @@ void fillNexuizServerCreateTab(entity me)
 	me.TR(me);
 		me.TDempty(me, 0.2);
 		me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Bot skill:"));
+			setDependent(e, "bot_number", 0, -1);
 		me.TD(me, 1, 2, e = makeNexuizTextSlider("skill"));
 			e.addValue(e, "Botlike", "0");
 			e.addValue(e, "Beginner", "1");
@@ -145,6 +146,8 @@ void fillNexuizServerCreateTab(entity me)
 			e.addValue(e, "5 choices", "5");
 			e.addValue(e, "6 choices", "6");
 			e.addValue(e, "7 choices", "7");
+			e.addValue(e, "8 choices", "8");
+			e.addValue(e, "9 choices", "9");
 			e.configureNexuizTextSliderValues(e);
 	me.TR(me);
 		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "sv_vote_simple_majority", "Simple majority wins vcall"));
@@ -159,7 +162,7 @@ void fillNexuizServerCreateTab(entity me)
 			e0.allowCut = 1;
 
 	me.gotoRC(me, me.rows - 1, 0);
-		me.TD(me, 1, me.columns, e = makeNexuizButton("Start!", '0 0 0'));
+		me.TD(me, 1, me.columns, e = makeNexuizButton("Start Multiplayer!", '0 0 0'));
 			e.onClick = MapList_LoadMap;
 			e.onClickEntity = me.mapListBox;
 			me.mapListBox.startButton = e;

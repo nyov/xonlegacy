@@ -13,7 +13,6 @@ float warmup;
 void PutObserverInServer();
 void PutClientInServer();
 void(entity e) ReturnFlag;
-void(entity e) removedecor;
 void dom_controlpoint_setup();
 void onslaught_generator_reset();
 void onslaught_controlpoint_reset();
@@ -25,7 +24,7 @@ void target_assault_roundend_reset();
  * Resets the state of all clients, items, flags, runes, keys, weapons, waypoints, ... of the map.
  * Sets the 'warmup' global variable.
  */
-void reset_map()
+void reset_map(float norespawn)
 {
 	entity oldself;
 	oldself = self;
@@ -42,89 +41,19 @@ void reset_map()
 	for(self = world; (self = nextent(self)); )
 	if(clienttype(self) == CLIENTTYPE_NOTACLIENT)
 	{
-		if(self.classname == STR_ITEM_KH_KEY)
+		if(self.reset)
 		{
-			kh_Key_AssignTo(self, world);
-			//if(self.owner)
-			//	kh_Key_DropAll(self.owner, TRUE);
-			kh_Key_Remove(self);
+			self.reset();
+			continue;
 		}
-		else if(self.classname == "droppedweapon"		// cleanup
-				|| self.classname == "gib"
-				|| self.classname == "body")
-		{
-			remove(self);
-		}
-		else if(self.items & (IT_KEY1 | IT_KEY2))
-		{
-			DropFlag(self, world, world);
-			ReturnFlag(self);
-		}
-		else if(self.classname == "rune")
-		{
-			if(self.owner)
-			if(self.owner.classname != "runematch_spawn_point")
-				DropAllRunes(self.owner);
-			rune_respawn();
-		}
-		else if(self.classname == "dom_controlpoint")
-		{
-			dom_controlpoint_setup();
-		}
-		else if(self.flags & FL_ITEM)			// reset items
-		{
-			if(self.state == 1)
-			{
-				self.model = string_null;
-				self.solid = SOLID_NOT;
-			}
-			else
-			{
-				self.model = self.mdl;
-				self.solid = SOLID_TRIGGER;
-			}
-			setorigin (self, self.origin);
-			self.think = SUB_Null;
-			self.nextthink = 0;
-		}
-		else if(self.flags & FL_PROJECTILE)		// remove any projectiles left
-		{
-			sound(self, CHAN_PROJECTILE, "misc/null.wav", VOL_BASE, ATTN_NORM);
-			remove(self);
-		}
-		else if(self.isdecor)
-		{
-			removedecor(self);
-		}
-		else if(self.classname == "onslaught_generator")
-		{
-			onslaught_generator_reset();
-		}
-		else if(self.classname == "onslaught_controlpoint")
-		{
-			onslaught_controlpoint_reset();
-		}
-		// TODO properly reset Assault
-		// General teambased game modes
-		else if(self.classname == "info_player_deathmatch")
-		{
+
+		if(self.team_saved)
 			self.team = self.team_saved;
-		}
-		else if(self.classname == "func_breakable")
+
+		if(self.flags & FL_PROJECTILE) // remove any projectiles left
 		{
-			func_breakable_reset();
-		}
-		else if(self.classname == "func_assault_destructible")
-		{
-			func_breakable_reset();
-		}
-		else if(self.classname == "target_objective")
-		{
-			assault_objective_reset();
-		}
-		else if(self.classname == "target_assault_roundend")
-		{
-			target_assault_roundend_reset();
+			stopsound(self, CHAN_PAIN);
+			remove(self);
 		}
 	}
 
@@ -132,19 +61,16 @@ void reset_map()
 	for(self = world; (self = nextent(self)); )
 	if(clienttype(self) == CLIENTTYPE_NOTACLIENT)
 	{
-		if(self.classname == "sprite_waypoint")
+		if(self.reset2)
 		{
-			if(self.health | g_keyhunt)
-				WaypointSprite_Kill(self);
-		}
-		else if(self.classname == "target_assault_roundstart")
-		{
-			self.use();
+			self.reset2();
+			continue;
 		}
 	}
 
 	// Moving the player reset code here since the player-reset depends
 	// on spawnpoint entities which have to be reset first --blub
+	if(!norespawn)
 	FOR_EACH_CLIENT(self) {
 		if(self.flags & FL_CLIENT)				// reset all players
 		{
@@ -319,7 +245,7 @@ void Spawnqueue_Check()
 			champion = find(world, classname, "player");
 			while(champion && champion.deadflag)
 				champion = find(champion, classname, "player");
-			reset_map();
+			reset_map(TRUE);
 		}
 
 		while(numspawned < maxspawned && spawnqueue_first)

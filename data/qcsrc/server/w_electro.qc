@@ -1,9 +1,6 @@
 
 void W_Plasma_Explode (void)
 {
-	vector org2;
-	org2 = findbetterlocation (self.origin, 8);
-
 	if(other.takedamage == DAMAGE_AIM)
 		if(other.classname == "player")
 			if(IsDifferentTeam(self.owner, other))
@@ -13,28 +10,17 @@ void W_Plasma_Explode (void)
 	self.event_damage = SUB_Null;
 	if (self.movetype == MOVETYPE_BOUNCE)
 	{
-		pointparticles(particleeffectnum("electro_ballexplode"), org2, '0 0 0', 1);
 		RadiusDamage (self, self.owner, cvar("g_balance_electro_secondary_damage"), cvar("g_balance_electro_secondary_edgedamage"), cvar("g_balance_electro_secondary_radius"), world, cvar("g_balance_electro_secondary_force"), self.projectiledeathtype, other);
 	}
 	else
 	{
-		pointparticles(particleeffectnum("electro_impact"), org2, '0 0 0', 1);
 		RadiusDamage (self, self.owner, cvar("g_balance_electro_primary_damage"), cvar("g_balance_electro_primary_edgedamage"), cvar("g_balance_electro_primary_radius"), world, cvar("g_balance_electro_primary_force"), self.projectiledeathtype, other);
 	}
-
-	sound (self, CHAN_PROJECTILE, "weapons/electro_impact.wav", VOL_BASE, ATTN_NORM);
 
 	remove (self);
 }
 
 void W_Plasma_Explode_Combo (void) {
-	vector org2;
-
-	org2 = findbetterlocation (self.origin, 8);
-	pointparticles(particleeffectnum("electro_combo"), org2, '0 0 0', 1);
-
-	sound (self, CHAN_PROJECTILE, "weapons/electro_impact_combo.wav", VOL_BASE, ATTN_NORM);
-
 	self.event_damage = SUB_Null;
 	RadiusDamage (self, self.owner, cvar("g_balance_electro_combo_damage"), cvar("g_balance_electro_combo_edgedamage"), cvar("g_balance_electro_combo_radius"), world, cvar("g_balance_electro_combo_force"), WEP_ELECTRO | HITTYPE_BOUNCE, other); // use THIS type for a combo because primary can't bounce
 	remove (self);
@@ -42,18 +28,21 @@ void W_Plasma_Explode_Combo (void) {
 
 void W_Plasma_Touch (void)
 {
-	PROJECTILE_TOUCH_NOSOUND;
+	PROJECTILE_TOUCH;
 	if (other.takedamage == DAMAGE_AIM) {
 		W_Plasma_Explode ();
 	} else {
 		sound (self, CHAN_PROJECTILE, "weapons/electro_bounce.wav", VOL_BASE, ATTN_NORM);
 		self.projectiledeathtype |= HITTYPE_BOUNCE;
 	}
+
+	if(trace_ent && trace_ent.solid > SOLID_TRIGGER) // CSQC doesn't know about these entities well enough
+		UpdateCSQCProjectile(self);
 }
 
 void W_Plasma_TouchExplode (void)
 {
-	PROJECTILE_TOUCH_NOSOUND;
+	PROJECTILE_TOUCH;
 	W_Plasma_Explode ();
 }
 
@@ -101,18 +90,19 @@ void W_Electro_Attack()
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_electro_primary_ammo");
-	proj.effects = EF_BRIGHTFIELD | EF_LOWPRECISION;
 	proj.movetype = MOVETYPE_FLY;
 	proj.velocity = w_shotdir * cvar("g_balance_electro_primary_speed");
 	W_SetupProjectileVelocity(proj);
 	proj.angles = vectoangles(proj.velocity);
 	proj.touch = W_Plasma_TouchExplode;
 	proj.flags = FL_PROJECTILE;
-	setmodel(proj, "models/elaser.mdl"); // precision set above
+	setmodel(proj, "null"); // precision set above
 	setsize(proj, '0 0 0', '0 0 0');
 
-	// LordHavoc: disabled because no one likes this sound and it sometimes never stops due to packet loss
-	//sound (proj, CHAN_PROJECTILE, "weapons/electro_fly.wav", VOL_BASE, ATTN_NORM);
+	//sound (proj, CHAN_PAIN, "weapons/electro_fly.wav", VOL_BASE, ATTN_NORM);
+	//sounds bad
+
+	CSQCProjectile(proj, TRUE, PROJECTILE_ELECTRO_BEAM);
 }
 
 void W_Electro_Attack2()
@@ -137,14 +127,13 @@ void W_Electro_Attack2()
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_electro_secondary_ammo");
-	proj.effects = EF_LOWPRECISION;
 	//proj.glow_size = 50;
 	//proj.glow_color = 45;
 	proj.movetype = MOVETYPE_BOUNCE;
 	proj.velocity = (w_shotdir + randomvec() * cvar("g_balance_electro_secondary_spread")) * cvar("g_balance_electro_secondary_speed") + v_up * cvar("g_balance_electro_secondary_speed_up");
 	W_SetupProjectileVelocity(proj);
 	proj.touch = W_Plasma_Touch;
-	setmodel(proj, "models/ebomb.mdl"); // precision set above
+	setmodel(proj, "null"); // precision set above
 	setsize(proj, '0 0 -3', '0 0 -3');
 	proj.takedamage = DAMAGE_YES;
 	proj.damageforcescale = 4;
@@ -152,8 +141,8 @@ void W_Electro_Attack2()
 	proj.event_damage = W_Plasma_Damage;
 	proj.flags = FL_PROJECTILE;
 
-	// LordHavoc: disabled because no one likes this sound and it sometimes never stops due to packet loss
-	//sound (proj, CHAN_PROJECTILE, "weapons/electro_fly.wav", VOL_BASE, ATTN_NORM);
+	CSQCProjectile(proj, TRUE, PROJECTILE_ELECTRO);
+	proj.effects = EF_NODEPTHTEST;
 }
 
 void spawnfunc_weapon_electro (void)
@@ -204,16 +193,12 @@ float w_electro(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/ebomb.mdl");
-		precache_model ("models/elaser.mdl");
 		precache_model ("models/weapons/g_electro.md3");
 		precache_model ("models/weapons/v_electro.md3");
 		precache_model ("models/weapons/w_electro.zym");
 		precache_sound ("weapons/electro_bounce.wav");
 		precache_sound ("weapons/electro_fire.wav");
 		precache_sound ("weapons/electro_fire2.wav");
-		precache_sound ("weapons/electro_fly.wav");
-		precache_sound ("weapons/electro_impact.wav");
 		precache_sound ("weapons/electro_impact_combo.wav");
 	}
 	else if (req == WR_SETUP)

@@ -85,13 +85,12 @@ void turret_hk_attack()
     local entity missile;
     //local entity flash2;
 
-    sound (self, CHAN_WEAPON, "weapons/rocket_fire.wav", 1, ATTN_NORM);
+    sound (self, CHAN_WEAPON, "weapons/rocket_fire.wav", VOL_BASE, ATTN_NORM);
 
     missile                    = spawn ();
     missile.solid            = SOLID_BBOX;
     setmodel (missile, "models/turrets/hunter2.md3"); // precision set below
-    setsize (missile, missile.mins,missile.maxs); // give it some size so it can be shot
-    sound    (missile, CHAN_PROJECTILE, "weapons/rocket_fly.wav", 0.4, ATTN_NORM);
+    setsize (missile, '-3 -3 -3', '3 3 3'); // give it some size so it can be shot
     setorigin(missile, self.tur_shotorg_updated);
 
     missile.scale            = 1;
@@ -115,6 +114,9 @@ void turret_hk_attack()
     missile.team             = self.team;
     missile.cnt              = time + 30;
     missile.ticrate          = max(cvar("sys_ticrate"),0.05);
+
+	CSQCProjectile(missile, FALSE, PROJECTILE_ROCKET);
+	missile.effects |= EF_NODEPTHTEST; // projectile has a fly sound
 
     te_explosion (missile.origin);
 
@@ -304,7 +306,7 @@ void turret_hk_missile_think()
         self.cnt = time + 0.25;
         self.nextthink = 0;
         self.movetype         = MOVETYPE_BOUNCE;
-        sound    (self, CHAN_VOICE, "", 0.4, ATTN_NORM);
+        sound    (self, CHAN_VOICE, "", 0.4 * VOL_BASE, ATTN_NORM);
         return;
     }
 
@@ -344,6 +346,8 @@ void turret_hk_missile_think()
     self.atime = time + 0.2;
     //}
 #endif
+
+	UpdateCSQCProjectile(self);
 }
 
 void turret_hk_missile_explode()
@@ -363,7 +367,7 @@ void turret_hk_missile_explode()
         return;
 
     //vector	org2;
-    sound (self, CHAN_PROJECTILE, "weapons/rocket_impact.wav", 1, ATTN_NORM);
+    sound (self, CHAN_PROJECTILE, "weapons/rocket_impact.wav", VOL_BASE, ATTN_NORM);
     org2 = findbetterlocation (self.origin, 16);
 
     // LordHavoc: TE_TEI_BIGEXPLOSION

@@ -1,10 +1,5 @@
 void W_Grenade_Explode (void)
 {
-	vector	org2;
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("grenade_explode"), org2, '0 0 0', 1);
-	sound (self, CHAN_PROJECTILE, "weapons/grenade_impact.wav", VOL_BASE, ATTN_NORM);
-
 	if(other.takedamage == DAMAGE_AIM)
 		if(other.classname == "player")
 			if(IsDifferentTeam(self.owner, other))
@@ -19,19 +14,14 @@ void W_Grenade_Explode (void)
 
 void W_Grenade_Explode2 (void)
 {
-	vector	org2;
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("grenade_explode"), org2, '0 0 0', 1);
-	sound (self, CHAN_PROJECTILE, "weapons/grenade_impact.wav", VOL_BASE, ATTN_NORM);
-
-	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_grenadelauncher_secondary_damage"), cvar("g_balance_grenadelauncher_secondary_edgedamage"), cvar("g_balance_grenadelauncher_secondary_radius"), world, cvar("g_balance_grenadelauncher_secondary_force"), self.projectiledeathtype, other);
-
 	if(other.takedamage == DAMAGE_AIM)
 		if(other.classname == "player")
 			if(IsDifferentTeam(self.owner, other))
 				if(IsFlying(other))
 					announce(self.owner, "announcer/male/airshot.wav");
+
+	self.event_damage = SUB_Null;
+	RadiusDamage (self, self.owner, cvar("g_balance_grenadelauncher_secondary_damage"), cvar("g_balance_grenadelauncher_secondary_edgedamage"), cvar("g_balance_grenadelauncher_secondary_radius"), world, cvar("g_balance_grenadelauncher_secondary_force"), self.projectiledeathtype, other);
 
 	remove (self);
 }
@@ -67,6 +57,9 @@ void W_Grenade_Touch2 (void)
 			sound (self, CHAN_PROJECTILE, "weapons/grenade_bounce6.wav", VOL_BASE, ATTN_NORM);
 		self.projectiledeathtype |= HITTYPE_BOUNCE;
 	}
+
+	if(trace_ent && trace_ent.solid > SOLID_TRIGGER) // CSQC doesn't know about these entities well enough
+		UpdateCSQCProjectile(self);
 }
 
 void W_Grenade_Damage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
@@ -96,10 +89,8 @@ void W_Grenade_Attack (void)
 	gren.bot_dodgerating = cvar("g_balance_grenadelauncher_primary_damage");
 	gren.movetype = MOVETYPE_BOUNCE;
 	gren.solid = SOLID_BBOX;
-	gren.effects = EF_LOWPRECISION;
-	gren.modelflags = MF_TRACER2;
 	gren.projectiledeathtype = WEP_GRENADE_LAUNCHER;
-	setmodel(gren, "models/grenademodel.md3"); // precision set above
+	setmodel(gren, "null"); // precision set above
 	setsize(gren, '0 0 0', '0 0 0');
 	setorigin(gren, w_shotorg);
 
@@ -109,10 +100,11 @@ void W_Grenade_Attack (void)
 	gren.touch = W_Grenade_Touch1;
 	gren.velocity = w_shotdir * cvar("g_balance_grenadelauncher_primary_speed") + v_up * cvar("g_balance_grenadelauncher_primary_speed_up");
 	W_SetupProjectileVelocity(gren);
-	gren.avelocity_x = random () * -500 - 500;
 
 	gren.angles = vectoangles (gren.velocity);
 	gren.flags = FL_PROJECTILE;
+
+	CSQCProjectile(gren, TRUE, PROJECTILE_GRENADE);	
 }
 
 void W_Grenade_Attack2 (void)
@@ -133,10 +125,8 @@ void W_Grenade_Attack2 (void)
 	gren.bot_dodgerating = cvar("g_balance_grenadelauncher_secondary_damage");
 	gren.movetype = MOVETYPE_BOUNCE;
 	gren.solid = SOLID_BBOX;
-	gren.effects = EF_LOWPRECISION;
-	gren.modelflags = MF_TRACER2;
 	gren.projectiledeathtype = WEP_GRENADE_LAUNCHER | HITTYPE_SECONDARY;
-	setmodel(gren, "models/grenademodel.md3"); // precision set above
+	setmodel(gren, "null"); // precision set above
 	setsize(gren, '0 0 -3', '0 0 -3');
 	setorigin(gren, w_shotorg);
 
@@ -150,10 +140,11 @@ void W_Grenade_Attack2 (void)
 	gren.event_damage = W_Grenade_Damage;
 	gren.velocity = w_shotdir * cvar("g_balance_grenadelauncher_secondary_speed") + v_up * cvar("g_balance_grenadelauncher_secondary_speed_up");
 	W_SetupProjectileVelocity(gren);
-	gren.avelocity = '100 150 100';
 
 	gren.angles = vectoangles (gren.velocity);
 	gren.flags = FL_PROJECTILE;
+
+	CSQCProjectile(gren, TRUE, PROJECTILE_GRENADE_BOUNCING);	
 }
 
 void spawnfunc_weapon_grenadelauncher (void)
@@ -202,7 +193,6 @@ float w_glauncher(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/grenademodel.md3");
 		precache_model ("models/weapons/g_gl.md3");
 		precache_model ("models/weapons/v_gl.md3");
 		precache_model ("models/weapons/w_gl.zym");
@@ -213,7 +203,6 @@ float w_glauncher(float req)
 		precache_sound ("weapons/grenade_bounce5.wav");
 		precache_sound ("weapons/grenade_bounce6.wav");
 		precache_sound ("weapons/grenade_fire.wav");
-		precache_sound ("weapons/grenade_impact.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_GRENADE_LAUNCHER);

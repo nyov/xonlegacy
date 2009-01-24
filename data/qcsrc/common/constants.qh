@@ -54,6 +54,10 @@ const float ENT_CLIENT_LASER = 8;
 const float ENT_CLIENT_NAGGER = 9; // flags [votecalledvote]
 const float ENT_CLIENT_WAYPOINT = 10; // flags origin [team displayrule] [spritename] [spritename2] [spritename3] [lifetime maxdistance hideable]
 const float ENT_CLIENT_RADARLINK = 11; // flags [startorigin] [endorigin] [startcolor+16*endcolor]
+const float ENT_CLIENT_PROJECTILE = 12;
+const float ENT_CLIENT_GIBSPLASH = 13;
+const float ENT_CLIENT_DAMAGEINFO = 14;
+const float ENT_CLIENT_CASING = 15;
 
 const float SPRITERULE_DEFAULT = 0;
 const float SPRITERULE_TEAMPLAY = 1;
@@ -299,3 +303,115 @@ const float RACE_NET_CHECKPOINT_NEXT_SPEC_QUALIFYING = 5; // byte nextcheckpoint
 #define SP_SUICIDES 2
 #define SP_SCORE 3
 // game mode specific indices are not in common/, but in server/scores_rules.qc!
+
+// this assignment must match menu/nexuiz/dialog_settings_misc.c!
+float	CHAN_AUTO				= 0;
+	// on world: announcers, ...                     INFO
+	// on players: item pickup                       ITEMS
+	// on entities: UNUSED
+	// on csqc: UNUSED
+float	CHAN_WEAPON				= 1; // Weapon fire
+	// on world: UNUSED
+	// on players: weapon firing                     WEAPONS
+	// on entities: turret firing                    WEAPONS
+	// on csqc: UNUSED
+float	CHAN_VOICE				= 2; // Voice/Radio
+	// on world: UNUSED
+	// on players: voice                             VOICE
+	// on entities: ambient                          AMBIENT
+	// on csqc: UNUSED
+float	CHAN_TRIGGER			= 3; // Triggers/Items
+	// on world: UNUSED
+	// on players: item pickup                       ITEMS
+	// on entities: platforms moving etc.            ITEMS
+	// on csqc: UNUSED
+float	CHAN_PROJECTILE			= 4; // Projectiles
+	// on world: UNUSED
+	// on players: projectiles hitting player        SHOTS
+	// on entities: projectiles                      SHOTS
+	// on csqc: projectile sounds                    SHOTS
+float	CHAN_WEAPON2			= 5; // Nex fire (separated as it is a very long sound)
+	// on world: UNUSED
+	// on players: weapon firing                     WEAPONS
+	// on entities: turret firing                    WEAPONS
+	// on csqc: UNUSED
+float	CHAN_PAIN				= 6; // Pain
+	// on world: UNUSED
+	// on players: pain                              PAIN
+	// on entities: projectiles flying               SHOTS
+	// on csqc: player pain                          PAIN
+float	CHAN_PLAYER				= 7; // Player body
+	// on world: UNUSED
+	// on players: player sounds                     PLAYER
+	// on entities: player sounds                    PLAYER
+	// on csqc: UNUSED
+
+float	ATTN_NONE				= 0;
+float	ATTN_MIN				= 0.015625;
+float	ATTN_NORM				= 0.5;
+float	ATTN_IDLE				= 2;
+float	ATTN_STATIC				= 3;
+float	ATTN_MAX   				= 3.984375;
+
+#define VOL_BASE 0.7
+#define VOL_BASEVOICE 1.0
+
+// this sets sounds and other properties of the projectiles in csqc
+float PROJECTILE_ELECTRO = 1;
+float PROJECTILE_ROCKET = 2;
+float PROJECTILE_TAG = 3;
+float PROJECTILE_BULLET = 4;
+float PROJECTILE_CRYLINK = 5;
+float PROJECTILE_ELECTRO_BEAM = 6;
+float PROJECTILE_GRENADE = 7;
+float PROJECTILE_GRENADE_BOUNCING = 8;
+float PROJECTILE_LASER = 9;
+float PROJECTILE_HLAC = 10;
+float PROJECTILE_SEEKER = 11;
+float PROJECTILE_FLAC = 12;
+float PROJECTILE_PORTO_RED = 13;
+float PROJECTILE_PORTO_BLUE = 14;
+float PROJECTILE_HOOKBOMB = 15;
+float PROJECTILE_HAGAR = 16;
+float PROJECTILE_HAGAR_BOUNCING = 17;
+float PROJECTILE_BULLET_GLOWING = 18;
+
+// Deathtypes (weapon deathtypes are the IT_* constants below)
+// NOTE: when adding death types, please add an explanation to Docs/spamlog.txt too.
+float	DEATH_SPECIAL_START     = 10000;
+float	DEATH_FALL				= 10000;
+float	DEATH_TELEFRAG				= 10001;
+float	DEATH_DROWN				= 10002;
+float	DEATH_HURTTRIGGER			= 10003;
+float	DEATH_LAVA				= 10004;
+float	DEATH_SLIME				= 10005;
+float	DEATH_KILL				= 10006;
+float	DEATH_NOAMMO				= 10007;
+float	DEATH_SWAMP				= 10008;
+float	DEATH_TEAMCHANGE			= 10009;
+float	DEATH_AUTOTEAMCHANGE			= 10010;
+float	DEATH_CAMP				= 10011;
+float	DEATH_SHOOTING_STAR			= 10012;
+float	DEATH_ROT				= 10013;
+float	DEATH_MIRRORDAMAGE		= 10014;
+float	DEATH_TOUCHEXPLODE      = 10015;
+float   DEATH_TURRET            = 10100;
+
+float	DEATH_WEAPONMASK        = 0xFF;
+float	DEATH_HITTYPEMASK		= 0x1F00; // which is WAY below 10000 used for normal deaths
+float	HITTYPE_SECONDARY = 0x100;
+float	HITTYPE_SPLASH = 0x200;
+float	HITTYPE_BOUNCE = 0x400;
+float	HITTYPE_HEADSHOT = 0x800;
+float	HITTYPE_RESERVED = 0x1000; // unused yet
+
+// macros to access these
+#define DEATH_ISSPECIAL(t)            ((t) >= DEATH_SPECIAL_START)
+#define DEATH_WEAPONOFWEAPONDEATH(t)  ((t) & DEATH_WEAPONMASK)
+#define DEATH_ISWEAPON(t,w)           (!DEATH_ISSPECIAL(t) && DEATH_WEAPONOFWEAPONDEATH(t) == (w))
+#define DEATH_WEAPONOF(t)             (DEATH_ISSPECIAL(t) ? 0 : DEATH_WEAPONOFWEAPONDEATH(t))
+#define WEP_VALID(w)                  ((w) >= WEP_FIRST && (w) <= WEP_LAST)
+
+#define FRAGS_PLAYER 0
+#define FRAGS_SPECTATOR -666
+#define FRAGS_PLAYER_NONSOLID -616

@@ -13,6 +13,7 @@ csqc_builtins.qc
 interpolate.qh
 teamradar.qh
 waypointsprites.qh
+movetypes.qh
 
 main.qh
 
@@ -28,12 +29,17 @@ mapvoting.qc
 hook.qc
 particles.qc
 laser.qc
+projectile.qc
+gibs.qc
+damage.qc
+casings.qc
 
 Main.qc
 View.qc
 interpolate.qc
 teamradar.qc
 waypointsprites.qc
+movetypes.qc
 
 ../common/util.qc
 ../common/gamecommand.qc

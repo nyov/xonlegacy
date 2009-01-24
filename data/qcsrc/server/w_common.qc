@@ -118,17 +118,13 @@ void W_BallisticBullet_Hit (void)
 {
 	float f;
 
-	if (DEATH_ISWEAPON(self.projectiledeathtype, WEP_SHOTGUN))
-		pointparticles(particleeffectnum("shotgun_impact"), self.origin, normalize(self.velocity) * 1000, 1);
-	else
-		pointparticles(particleeffectnum("machinegun_impact"), self.origin, normalize(self.velocity) * 1000, 1);
+	f = pow(bound(0, vlen(self.velocity) / vlen(self.oldvelocity), 1), 2); // energy multiplier
+
+	if(other.solid == SOLID_BSP)
+		Damage_DamageInfo(self.origin, self.dmg * f, 0, 0, self.dmg_force * normalize(self.velocity) * f, self.projectiledeathtype);
 
 	if(other && other != self.enemy)
 	{
-		self.enemy = other; // don't hit the same player twice with the same bullet
-
-		f = pow(bound(0, vlen(self.velocity) / vlen(self.oldvelocity), 1), 2); // energy multiplier
-
 		headshot = 0;
 		yoda = 0;
 		damage_headshotbonus = self.dmg_edge;
@@ -147,6 +143,8 @@ void W_BallisticBullet_Hit (void)
 
 		//sound (self, CHAN_PROJECTILE, "weapons/electro_impact.wav", VOL_BASE, ATTN_NORM);
 	}
+
+	self.enemy = other; // don't hit the same player twice with the same bullet
 }
 
 .void(void) W_BallisticBullet_LeaveSolid_think_save;
@@ -164,12 +162,15 @@ void W_BallisticBullet_LeaveSolid_think()
 	self.W_BallisticBullet_LeaveSolid_think_save = SUB_Null;
 
 	self.flags &~= FL_ONGROUND;
-	self.effects &~= EF_NODRAW;
 
-	if (DEATH_ISWEAPON(self.projectiledeathtype, WEP_SHOTGUN))
-		pointparticles(particleeffectnum("shotgun_impact"), self.origin, normalize(self.velocity) * 1000, 1);
-	else
-		pointparticles(particleeffectnum("machinegun_impact"), self.origin, normalize(self.velocity) * 1000, 1);
+	if(self.enemy.solid == SOLID_BSP)
+	{
+		float f;
+		f = pow(bound(0, vlen(self.velocity) / vlen(self.oldvelocity), 1), 2); // energy multiplier
+		Damage_DamageInfo(self.origin, 0, 0, 0, self.dmg_force * normalize(self.velocity) * f, self.projectiledeathtype);
+	}
+	
+	UpdateCSQCProjectile(self);
 }
 
 // a fake logarithm function
@@ -233,7 +234,6 @@ float W_BallisticBullet_LeaveSolid(entity e, vector vel, float constant)
 
 	self.velocity = '0 0 0';
 	self.flags |= FL_ONGROUND; // prevent moving
-	self.effects |= EF_NODRAW;
 	self.W_BallisticBullet_LeaveSolid_velocity = vel;
 
 	return 1;
@@ -261,6 +261,7 @@ void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, f
 {
 	entity proj;
 	proj = spawn();
+	proj.classname = "bullet";
 	proj.owner = self;
 	proj.solid = SOLID_BBOX;
 	if(gravityfactor > 0)
@@ -277,10 +278,9 @@ void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, f
 	proj.angles = vectoangles(proj.velocity);
 	proj.dmg_radius = cvar("g_ballistics_materialconstant") / bulletconstant;
 	// so: bulletconstant = bullet mass / area of bullet circle
-	setmodel(proj, "models/tracer.mdl");
+	setmodel(proj, "null");
 	setsize(proj, '0 0 0', '0 0 0');
 	setorigin(proj, start);
-	proj.effects = EF_LOWPRECISION | tracereffects;
 	proj.flags = FL_PROJECTILE;
 
 	proj.touch = W_BallisticBullet_Touch;
@@ -290,6 +290,11 @@ void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, f
 	proj.projectiledeathtype = dtype;
 
 	proj.oldvelocity = proj.velocity;
+
+	if(tracereffects & EF_RED)
+		CSQCProjectile(proj, TRUE, PROJECTILE_BULLET_GLOWING);
+	else
+		CSQCProjectile(proj, TRUE, PROJECTILE_BULLET);
 }
 
 void fireBullet (vector start, vector dir, float spread, float damage, float force, float dtype, float tracer)
@@ -323,22 +328,18 @@ void fireBullet (vector start, vector dir, float spread, float damage, float for
 		e.nextthink = time + vlen(trace_endpos - start) / 6000;
 		e.velocity = dir * 6000;
 		e.angles = vectoangles(e.velocity);
-		setmodel (e, "models/tracer.mdl"); // precision set below
+		setmodel (e, "null"); // precision set below
 		setsize (e, '0 0 0', '0 0 0');
 		setorigin (e, start);
-		e.effects = EF_LOWPRECISION;
 		e.flags = FL_PROJECTILE;
+
+		CSQCProjectile(e, TRUE, PROJECTILE_BULLET);
 	}
 
 	if ((trace_fraction != 1.0) && (pointcontents (trace_endpos) != CONTENT_SKY))
 	{
 		if (trace_ent.solid == SOLID_BSP && !(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
-		{
-			if (DEATH_ISWEAPON(dtype, WEP_SHOTGUN))
-				pointparticles(particleeffectnum("shotgun_impact"), trace_endpos, trace_plane_normal * 1000, 1);
-			else
-				pointparticles(particleeffectnum("machinegun_impact"), trace_endpos, trace_plane_normal * 1000, 1);
-		}
+			Damage_DamageInfo(trace_endpos, damage, 0, 0, dir * force, dtype);
 		Damage (trace_ent, self, self, damage, dtype, trace_endpos, dir * force);
 	}
 }

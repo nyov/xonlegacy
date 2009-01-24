@@ -49,9 +49,10 @@ float Spawn_Score(entity spot, entity playerlist, float teamcheck)
 	// filter out spots for assault
 	if(spot.target != "") {
 		local entity ent;
-		float good;
+		float good, found;
 		ent = find(world, targetname, spot.target);
 		while(ent) {
+			found = 1;
 			if(ent.classname == "target_objective")
 			{
 				if(ent.health < 0 || ent.health >= ASSAULT_VALUE_INACTIVE)
@@ -90,7 +91,7 @@ float Spawn_Score(entity spot, entity playerlist, float teamcheck)
 			ent = find(ent, targetname, spot.target);
 		}
 
-		if(!good)
+		if(found && !good)
 			return -1;
 	}
 
@@ -507,12 +508,12 @@ void PutObserverInServer (void)
 	{
 		// Only if the player cannot play at all
 		if(PlayerScore_Add(self, SP_LMS_RANK, 0) == 666)
-			self.frags = -666;
+			self.frags = FRAGS_SPECTATOR;
 		else
-			self.frags = -667;
+			self.frags = FRAGS_SPECTATOR; // this was -667 before, is this okay?
 	}
 	else
-		self.frags = -666;
+		self.frags = FRAGS_SPECTATOR;
 }
 
 float RestrictSkin(float s)
@@ -653,6 +654,7 @@ void PutClientInServer (void)
 		self.movetype = MOVETYPE_WALK;
 		self.solid = SOLID_SLIDEBOX;
 		self.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_PLAYERCLIP;
+		self.frags = FRAGS_PLAYER;
 		if(independent_players)
 			MAKE_INDEPENDENT_PLAYER(self);
 		self.flags = FL_CLIENT;
@@ -769,7 +771,6 @@ void PutClientInServer (void)
 		if(self.killcount == -666) {
 			PlayerScore_Clear(self);
 			self.killcount = 0;
-			self.frags = 0;
 		}
 
 		self.cnt = WEP_LASER;
@@ -1292,7 +1293,7 @@ void ClientConnect (void)
 		if(PlayerScore_Add(self, SP_LMS_LIVES, LMS_NewPlayerLives()) <= 0)
 		{
 			PlayerScore_Add(self, SP_LMS_RANK, 666);
-			self.frags = -666; // FIXME do we still need this?
+			self.frags = FRAGS_SPECTATOR; // FIXME do we still need this?
 		}
 	}
 
@@ -2298,10 +2299,17 @@ void PlayerPreThink (void)
 		oldself = self; self = self.teamkill_soundsource;
 		oldpusher = self.pusher; self.pusher = oldself;
 
-		VoiceMessage("teamshoot_auto");
+		PlayerSound(playersound_teamshoot, CHAN_VOICE, VOICETYPE_LASTATTACKER_ONLY);
 
 		self.pusher = oldpusher;
 		self = oldself;
+	}
+
+	if(self.taunt_soundtime)
+	if(time > self.taunt_soundtime)
+	{
+		self.taunt_soundtime = 0;
+		PlayerSound(playersound_taunt, CHAN_VOICE, VOICETYPE_AUTOTAUNT);
 	}
 
 	target_voicescript_next(self);

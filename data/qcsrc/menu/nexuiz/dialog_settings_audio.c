@@ -20,7 +20,7 @@ entity makeNexuizAudioSettingsTab()
 
 void fillNexuizAudioSettingsTab(entity me)
 {
-	entity e, s;
+	entity e, s, sl;
 
 	me.TR(me);
 		s = makeNexuizDecibelsSlider(-20, 0, 0.5, "bgmvolume");
@@ -57,6 +57,7 @@ void fillNexuizAudioSettingsTab(entity me)
 	me.TR(me);
 		me.TDempty(me, 0.2);
 		s = makeNexuizDecibelsSlider(-20, 0, 0.5, "snd_playerchannel6volume");
+		makeMulti(s, "snd_csqcchannel6volume");
 		me.TD(me, 1, 0.8, e = makeNexuizSliderCheckBox(-1000000, 1, s, "Pain:"));
 		me.TD(me, 1, 2, s);
 		setDependentStringNotEqual(e, "volume", "0");
@@ -72,7 +73,7 @@ void fillNexuizAudioSettingsTab(entity me)
 	me.TR(me);
 		me.TDempty(me, 0.2);
 		s = makeNexuizDecibelsSlider(-20, 0, 0.5, "snd_entchannel4volume");
-		makeMulti(s, "snd_playerchannel4volume");
+		makeMulti(s, "snd_playerchannel4volume snd_entchannel6volume snd_csqcchannel4volume");
 		me.TD(me, 1, 0.8, e = makeNexuizSliderCheckBox(-1000000, 1, s, "Shots:"));
 		me.TD(me, 1, 2, s);
 		setDependentStringNotEqual(e, "volume", "0");
@@ -120,10 +121,43 @@ void fillNexuizAudioSettingsTab(entity me)
 	me.TR(me);
 		me.TDempty(me, 0.2);
 		me.TD(me, 1, 2.8, e = makeNexuizCheckBox(0, "snd_swapstereo", "Swap Stereo"));
+		setDependent(e, "snd_channels", 1.5, 0.5);
 	me.TR(me);
-	
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 2.8, e = makeNexuizCheckBox(0, "snd_spatialization_control", "Headphone friendly mode"));
+		setDependent(e, "snd_channels", 1.5, 0.5);
+	me.TR(me);
+	me.TR(me);
+		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Directional voices:"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "cl_voice_directional", "0", "None"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "cl_voice_directional", "2", "Taunts"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "cl_voice_directional", "1", "All"));
+	me.TR(me);
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Taunt range:"));
+		setDependent(e, "cl_voice_directional", 0.5, -0.5);
+		me.TD(me, 1, 1.8, e = makeNexuizTextSlider("cl_voice_directional_taunt_attenuation"));
+			e.addValue(e, "Very short", "3");
+			e.addValue(e, "Short", "2");
+			e.addValue(e, "Normal", "0.5");
+			e.addValue(e, "Long", "0.25");
+			e.addValue(e, "Full", "0.015625");
+			e.configureNexuizTextSliderValues(e);
+		setDependent(e, "cl_voice_directional", 0.5, -0.5);
+	me.TR(me);
+		sl = makeNexuizSlider(0.15, 1, 0.05, "cl_autotaunt");
+			sl.valueDisplayMultiplier = 100;
+		me.TD(me, 1, 1, e = makeNexuizSliderCheckBox(0, 1, sl, "Automatic taunts"));
+		if(sl.value != e.savedValue)
+			e.savedValue = 0.65; // default
+	me.TR(me);
+		me.TD(me, 1, 3, e = makeNexuizTextLabel(0.1, "Frequency:"));
+		me.TD(me, 1, 2, sl);
+	me.TR(me);
+	me.TR(me);
+		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "cl_hitsound", "Hit indicator"));
 
 	me.gotoRC(me, me.rows - 1, 0);
-		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "snd_restart", COMMANDBUTTON_APPLY));
+		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "snd_restart; sendcvar cl_hitsound; sendcvar cl_autotaunt; sendcvar cl_voice_directional; sendcvar cl_voice_directional_taunt_attenuation", COMMANDBUTTON_APPLY));
 }
 #endif

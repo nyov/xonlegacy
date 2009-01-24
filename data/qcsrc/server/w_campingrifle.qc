@@ -6,13 +6,17 @@
 
 void W_Campingrifle_ReloadedAndReady()
 {
+	float t;
 	self.campingrifle_bulletcounter = 0;
-	ATTACK_FINISHED(self) = time;
+	t = ATTACK_FINISHED(self) - cvar("g_balance_campingrifle_reloadtime") + 1;
+	ATTACK_FINISHED(self) = t;
 	w_ready();
 }
 
 void W_Campingrifle_Reload()
 {
+	float t;
+
 	if (self.campingrifle_bulletcounter == 0)
 		return;
 	
@@ -27,7 +31,8 @@ void W_Campingrifle_Reload()
 
 	sound (self, CHAN_WEAPON2, "weapons/campingrifle_reload.wav", VOL_BASE, ATTN_NORM);
 
-	ATTACK_FINISHED(self) = time + cvar("g_balance_campingrifle_reloadtime") + 1;
+	t = max(time, ATTACK_FINISHED(self)) + cvar("g_balance_campingrifle_reloadtime") + 1;
+	ATTACK_FINISHED(self) = t;
 
 	weapon_thinkf(WFRAME_RELOAD, cvar("g_balance_campingrifle_reloadtime"), W_Campingrifle_ReloadedAndReady);
 }
@@ -46,7 +51,7 @@ void W_CampingRifle_FireBullet(float pSpread, float pDamage, float pHeadshotAdde
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_nails -= pAmmo;
 
-	W_SetupShot (self, '32 8 -8', FALSE, 2, "weapons/campingrifle_fire.wav");
+	W_SetupShot (self, '32 8 -4', FALSE, 2, "weapons/campingrifle_fire.wav");
 	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 2000, 1);
 
 	if(self.BUTTON_ZOOM) // if zoomed, shoot from the eye
@@ -58,7 +63,7 @@ void W_CampingRifle_FireBullet(float pSpread, float pDamage, float pHeadshotAdde
 	fireBallisticBullet(w_shotorg, w_shotdir, pSpread, pSpeed, pLifetime, pDamage, pHeadshotAddedDamage / pDamage, pForce, deathtype, EF_RED, 1, pBulletConstant);
 
 	if (cvar("g_casings") >= 2)
-		SpawnCasing (w_shotorg + v_forward * 10, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3);
+		SpawnCasing (w_shotorg - v_forward * 15, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3);
 	
 	self.campingrifle_bulletcounter = self.campingrifle_bulletcounter + 1;
 }
@@ -130,22 +135,11 @@ float w_campingrifle(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{		
-		precache_model ("models/tracer.mdl");
 		precache_model ("models/weapons/g_campingrifle.md3");
 		precache_model ("models/weapons/v_campingrifle.md3");
 		precache_model ("models/weapons/w_campingrifle.zym");
 		precache_sound ("weapons/campingrifle_reload.wav");
-		precache_sound ("weapons/ric1.wav");
-		precache_sound ("weapons/ric2.wav");
-		precache_sound ("weapons/ric3.wav");
 		precache_sound ("weapons/campingrifle_fire.wav");
-		if (cvar("g_casings") >= 2)
-		{
-			precache_sound ("weapons/brass1.wav");
-			precache_sound ("weapons/brass2.wav");
-			precache_sound ("weapons/brass3.wav");
-			precache_model ("models/casing_bronze.mdl");
-		}
 	}
 	else if (req == WR_SETUP)
 	{
@@ -188,6 +182,10 @@ float w_campingrifle(float req)
 					w_deathtypestring = "was sniped by #";
 			}
 		}
+	}
+	else if (req == WR_RELOAD)
+	{
+		W_Campingrifle_Reload();
 	}
 	return TRUE;
 };

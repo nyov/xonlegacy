@@ -54,6 +54,7 @@ void spawnfunc_target_objective() {
 	self.classname = "target_objective";
 	self.use = assault_objective_use;
 	assault_objective_reset();
+	self.reset = assault_objective_reset;
 }
 
 
@@ -212,6 +213,7 @@ void spawnfunc_target_assault_roundend() {
 	self.classname = "target_assault_roundend";
 	self.use = target_assault_roundend_use;
 	self.cnt = 0; // first round
+	self.reset = target_assault_roundend_reset;
 }
 
 void assault_roundstart_use() {
@@ -251,6 +253,7 @@ void spawnfunc_target_assault_roundstart() {
 	assault_attacker_team = COLOR_TEAM1;
 	self.classname = "target_assault_roundstart";
 	self.use = assault_roundstart_use;
+	self.reset2 = assault_roundstart_use;
 	InitializeEntity(self, assault_roundstart_use, INITPRIO_FINDTARGET);
 }
 
@@ -269,28 +272,17 @@ void assault_new_round() {
 		assault_attacker_team = COLOR_TEAM1;
 	}
 
-	// swap spawn point teams
-	local entity ent;
-	ent = find(world, classname, "info_player_deathmatch");
-	while (ent)
-	{
-		if(ent.team == COLOR_TEAM1) {
-			ent.team = COLOR_TEAM2;
-		} else {
-			ent.team = COLOR_TEAM1;
-		}
-		ent = find(ent, classname, "info_player_deathmatch");
-	}
 
-	// swap all destructibles
-	ent = find(world, classname, "func_assault_destructible");
-	while (ent)
+	local entity ent;
+	for(ent = world; (ent = nextent(ent)); )
 	{
-		if(ent.team == COLOR_TEAM1)
-			ent.team = COLOR_TEAM2;
-		else
-			ent.team = COLOR_TEAM1;
-		ent = find(ent, classname, "func_assault_destructible");
+		if(clienttype(ent) == CLIENTTYPE_NOTACLIENT)
+		{
+			if(ent.team_saved == COLOR_TEAM1)
+				ent.team_saved = COLOR_TEAM2;
+			else if(ent.team_saved == COLOR_TEAM2)
+				ent.team_saved = COLOR_TEAM1;
+		}
 	}
 
 	// reset the level with a countdown

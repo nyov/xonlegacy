@@ -70,7 +70,7 @@ void W_Uzi_Attack (float deathtype)
 
 	// casing code
 	if (cvar("g_casings") >= 2)
-		SpawnCasing (w_shotorg + v_forward * 10, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3);
+		SpawnCasing (w_shotorg - v_forward * 10, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3);
 }
 
 // weapon frames
@@ -127,22 +127,11 @@ float w_uzi(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/tracer.mdl");
 		precache_model ("models/uziflash.md3");
 		precache_model ("models/weapons/g_uzi.md3");
 		precache_model ("models/weapons/v_uzi.md3");
 		precache_model ("models/weapons/w_uzi.zym");
-		precache_sound ("weapons/ric1.wav");
-		precache_sound ("weapons/ric2.wav");
-		precache_sound ("weapons/ric3.wav");
 		precache_sound ("weapons/uzi_fire.wav");
-		if (cvar("g_casings") >= 2)
-		{
-			precache_sound ("weapons/brass1.wav");
-			precache_sound ("weapons/brass2.wav");
-			precache_sound ("weapons/brass3.wav");
-			precache_model ("models/casing_bronze.mdl");
-		}
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_UZI);

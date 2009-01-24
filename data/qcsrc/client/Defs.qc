@@ -151,6 +151,7 @@ void		end_sys_fields;			// flag for structure dumping
 float		intermission;
 float		sb_showscores;
 .string		message;
+.float renderflags;
 // float		coop;
 // float		deathmatch;
 
@@ -209,3 +210,14 @@ string shortmapname;
 // database for misc stuff
 float tempdb;
 vector hook_shotorigin;
+
+#ifdef BLURTEST
+float blurtest_time0, blurtest_time1, blurtest_radius, blurtest_power;
+#endif
+
+float servertime, serverprevtime, serverdeltatime;
+
+float ticrate;
+
+.float damageforcescale;
+.void(float thisdmg, float hittype, vector org, vector thisforce) event_damage;

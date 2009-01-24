@@ -559,6 +559,14 @@ string(string s) cvar_defstring = #482;
 //description:
 //returns the default value of a cvar, as a tempstring.
 
+//DP_QC_CVAR_DESCRIPTION
+//idea: div0
+//DarkPlaces implementation: div0
+//builtin definitions:
+string(string name) cvar_description = #518;
+//description:
+//returns the description of a cvar
+
 //DP_QC_CVAR_STRING
 //idea: VorteX
 //DarkPlaces implementation: VorteX, LordHavoc
@@ -566,6 +574,18 @@ string(string s) cvar_defstring = #482;
 string(string s) cvar_string = #448;
 //description:
 //returns the value of a cvar, as a tempstring.
+
+//DP_QC_CVAR_TYPE
+//idea: div0
+//DarkPlaces implementation: div0
+//builtin definitions:
+float(string name) cvar_type = #495;
+float CVAR_TYPEFLAG_EXISTS = 1;
+float CVAR_TYPEFLAG_SAVED = 2;
+float CVAR_TYPEFLAG_PRIVATE = 4;
+float CVAR_TYPEFLAG_ENGINE = 8;
+float CVAR_TYPEFLAG_HASDESCRIPTION = 16;
+float CVAR_TYPEFLAG_READONLY = 32;
 
 //DP_QC_EDICT_NUM
 //idea: 515
@@ -1174,6 +1194,18 @@ void(vector origin, string sample, float volume, float attenuation) pointsound =
 // You may as such dictate the behavior as to what happens to the entity.
 // To mimic the engine's default behavior, simply call remove(self).
 
+//DP_SV_ONENTITYPREPOSTSPAWNFUNCTION
+//idea: div0
+//darkplaces implementation: div0
+//engine-called QC prototypes:
+//void() SV_OnEntityPreSpawnFunction;
+//void() SV_OnEntityPostSpawnFunction;
+//description:
+// These functions are called BEFORE or AFTER an entity is spawned the regular way.
+// You may as such dictate the behavior as to what happens to the entity.
+// SV_OnEntityPreSpawnFunction is called before even looking for the spawn function, so you can even change its classname in there. If it remove()s the entity, the spawn function will not be looked for.
+// SV_OnEntityPostSpawnFunction is called ONLY after its spawn function or SV_OnEntityNoSpawnFunction was called, and skipped if the entity got removed by either.
+
 //DP_SV_MODELFLAGS_AS_EFFECTS
 //idea: LordHavoc, Dresk
 //darkplaces implementation: LordHavoc
@@ -1274,10 +1306,15 @@ void(string s, ...) print = #339; // same number as in EXT_CSQC
 //DP_SV_QCSTATUS
 //idea: div0
 //darkplaces implementation: div0
-//Fields whose contents are used instead of frags, or set as "qcstatus" field
-//in the getstatus/getinfo response.
+//1. A global variable
 string worldstatus;
+//Its content is set as "qcstatus" field in the rules.
+//It may be at most 255 characters, and must not contain newlines or backslashes.
+//2. A per-client field
 .string clientstatus;
+//It is sent instead of the "frags" in status responses.
+//It should always be set in a way so that stof(player.clientstatus) is a meaningful score value. Other info may be appended. If used this way, the cvar sv_status_use_qcstatus may be set to 1, and then this value will replace the frags in "status".
+//Currently, qstat does not support this and will not show player info if used and set to anything other than ftos(some integer).
 
 //DP_SV_ROTATINGBMODEL
 //idea: id Software
@@ -1776,6 +1813,13 @@ string(float bufhandle, float string_index) bufstr_get = #466;
 void(float bufhandle, float string_index, string str) bufstr_set = #467;
 float(float bufhandle, string str, float order) bufstr_add = #468;
 void(float bufhandle, float string_index) bufstr_free = #469;
+
+//DP_QC_STRINGBUFFERS_CVARLIST
+//idea: div0
+//darkplaces implementation: div0
+//functions to list cvars and store their names into a stringbuffer
+//cvars that start with pattern but not with antipattern will be stored into the buffer
+void(float bufhandle, string pattern, string antipattern) buf_cvarlist = #517;
 
 //DP_QC_STRREPLACE
 //idea: Sajt

@@ -128,7 +128,7 @@ menu: demo browser
 menu: game type in server browser
 menu: input box margin now in chars, not percent
 menu: more settings
-menu: mouse fixed in -game pro
+menu: mouse fixed in -game pro (now havoc)
 menu: multicampaign
 menu: new playermodel previews (sev)
 menu: new skin "wickedz"
@@ -147,3 +147,6 @@ models: specop now knows that she is female
 models: new flag model
 rcon2irc: disconnect fix
 rcon2irc: irc_trigger
+game: custom weapon priorities for bots
+game: improved bot ai: teamworking, items rating and weapon combos
+game: free camera for demo playback

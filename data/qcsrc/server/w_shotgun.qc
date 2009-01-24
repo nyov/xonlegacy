@@ -23,7 +23,7 @@ void W_Shotgun_Attack (void)
 
 	// casing code
 	if (cvar("g_casings") >= 1)
-		SpawnCasing (w_shotorg, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
+		SpawnCasing (w_shotorg - v_forward * 10, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
 
 	// muzzle flash for 1st person view
 	flash = spawn();
@@ -66,7 +66,7 @@ void W_Shotgun_Attack2 (void)
 
 	// casing code
 	if (cvar("g_casings") >= 1)
-		SpawnCasing (w_shotorg, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
+		SpawnCasing (w_shotorg - v_forward * 10, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
 
 	flash = spawn();
 	setorigin(flash, '53 5 0');
@@ -122,22 +122,11 @@ float w_shotgun(float req)
 	else if (req == WR_PRECACHE)
 	{
 		precache_model ("models/uziflash.md3");
-		precache_model ("models/tracer.mdl");
 		precache_model ("models/weapons/g_shotgun.md3");
 		precache_model ("models/weapons/v_shotgun.md3");
 		precache_model ("models/weapons/w_shotgun.zym");
 		precache_sound ("misc/itempickup.wav");
-		precache_sound ("weapons/ric1.wav");
-		precache_sound ("weapons/ric2.wav");
-		precache_sound ("weapons/ric3.wav");
 		precache_sound ("weapons/shotgun_fire.wav");
-		if (cvar("g_casings") >= 1)
-		{
-			precache_sound ("weapons/casings1.wav");
-			precache_sound ("weapons/casings2.wav");
-			precache_sound ("weapons/casings3.wav");
-			precache_model ("models/casing_shell.mdl");
-		}
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_SHOTGUN);

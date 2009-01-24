@@ -533,7 +533,6 @@ void GetCvars(float f)
 		s = strcat1(argv(f));
 	GetCvars_handleFloat(s, f, autoswitch, "cl_autoswitch");
 	GetCvars_handleFloat(s, f, cvar_cl_playerdetailreduction, "cl_playerdetailreduction");
-	GetCvars_handleFloat(s, f, cvar_cl_nogibs, "cl_nogibs");
 	GetCvars_handleFloat(s, f, cvar_scr_centertime, "scr_centertime");
 	GetCvars_handleFloat(s, f, cvar_cl_shownames, "cl_shownames");
 	GetCvars_handleString(s, f, cvar_g_nexuizversion, "g_nexuizversion");
@@ -549,6 +548,10 @@ void GetCvars(float f)
 	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[7], "cl_weaponpriority7", W_FixWeaponOrder_AllowIncomplete);
 	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[8], "cl_weaponpriority8", W_FixWeaponOrder_AllowIncomplete);
 	GetCvars_handleString_Fixup(s, f, cvar_cl_weaponpriorities[9], "cl_weaponpriority9", W_FixWeaponOrder_AllowIncomplete);
+	GetCvars_handleFloat(s, f, cvar_cl_autotaunt, "cl_autotaunt");
+	GetCvars_handleFloat(s, f, cvar_cl_voice_directional, "cl_voice_directional");
+	GetCvars_handleFloat(s, f, cvar_cl_voice_directional_taunt_attenuation, "cl_voice_directional_taunt_attenuation");
+	GetCvars_handleFloat(s, f, cvar_cl_hitsound, "cl_hitsound");
 
 	// fixup of switchweapon (needed for LMS or when spectating is disabled, as PutClientInServer comes too early)
 	if(f > 0)
@@ -624,7 +627,6 @@ string Team_ColorNameLowerCase(float t)
 
 #define CENTERPRIO_POINT 1
 #define CENTERPRIO_SPAM 2
-#define CENTERPRIO_REBALANCE 2
 #define CENTERPRIO_VOTE 4
 #define CENTERPRIO_NORMAL 5
 #define CENTERPRIO_SHIELDING 7
@@ -686,12 +688,6 @@ vector randompos(vector m1, vector m2)
 	return  v;
 };
 
-// requires that m2>m1 in all coordinates, and that m4>m3
-float boxesoverlap(vector m1, vector m2, vector m3, vector m4) {return m2_x >= m3_x && m1_x <= m4_x && m2_y >= m3_y && m1_y <= m4_y && m2_z >= m3_z && m1_z <= m4_z;};
-
-// requires the same, but is a stronger condition
-float boxinsidebox(vector smins, vector smaxs, vector bmins, vector bmaxs) {return smins_x >= bmins_x && smaxs_x <= bmaxs_x && smins_y >= bmins_y && smaxs_y <= bmaxs_y && smins_z >= bmins_z && smaxs_z <= bmaxs_z;};
-
 float g_pickup_shells;
 float g_pickup_shells_max;
 float g_pickup_nails;
@@ -732,6 +728,7 @@ float warmup_start_ammo_rockets;
 float warmup_start_ammo_cells;
 float warmup_start_health;
 float warmup_start_armorvalue;
+float g_weapon_stay;
 
 entity get_weaponinfo(float w);
 
@@ -914,6 +911,28 @@ void readplayerstartcvars()
 		start_weapons &~= WEPBIT_HOOK;
 		warmup_start_weapons &~= WEPBIT_HOOK;
 	}
+
+	if(g_weapon_stay == 2)
+	{
+		if(!start_ammo_shells) start_ammo_shells = g_pickup_shells;
+		if(!start_ammo_nails) start_ammo_shells = g_pickup_nails;
+		if(!start_ammo_cells) start_ammo_shells = g_pickup_cells;
+		if(!start_ammo_rockets) start_ammo_shells = g_pickup_rockets;
+		if(!warmup_start_ammo_shells) warmup_start_ammo_shells = g_pickup_shells;
+		if(!warmup_start_ammo_nails) warmup_start_ammo_shells = g_pickup_nails;
+		if(!warmup_start_ammo_cells) warmup_start_ammo_shells = g_pickup_cells;
+		if(!warmup_start_ammo_rockets) warmup_start_ammo_shells = g_pickup_rockets;
+	}
+
+	start_ammo_shells = max(0, start_ammo_shells);
+	start_ammo_nails = max(0, start_ammo_nails);
+	start_ammo_cells = max(0, start_ammo_cells);
+	start_ammo_rockets = max(0, start_ammo_rockets);
+
+	warmup_start_ammo_shells = max(0, warmup_start_ammo_shells);
+	warmup_start_ammo_nails = max(0, warmup_start_ammo_nails);
+	warmup_start_ammo_cells = max(0, warmup_start_ammo_cells);
+	warmup_start_ammo_rockets = max(0, warmup_start_ammo_rockets);
 }
 
 float g_bugrigs;
@@ -1026,6 +1045,10 @@ void readlevelcvars(void)
 	g_pickup_healthmega                = cvar("g_pickup_healthmega");
 	g_pickup_healthmega_max            = cvar("g_pickup_healthmega_max");
 
+	g_weapon_stay = cvar("g_weapon_stay");
+	if(!g_weapon_stay && (cvar("deathmatch") == 2))
+		g_weapon_stay = 1;
+
 	if not(inWarmupStage)
 	{
 		game_starttime                 = cvar("g_start_delay");
@@ -1066,15 +1089,52 @@ string precache_sound (string s) = #19;
 void(entity e, float chan, string samp, float vol, float atten) sound = #8;
 float precache_sound_index (string s) = #19;
 
+#define SND_VOLUME      1
+#define SND_ATTENUATION 2
+#define SND_LARGEENTITY 8
+#define SND_LARGESOUND  16
+
 void soundtoat(float dest, entity e, vector o, float chan, string samp, float vol, float atten)
 {
-	WriteByte(dest, 6);
-	WriteByte(dest, 27); // all bits except SND_LOOPING
-	WriteByte(dest, vol * 255);
-	WriteByte(dest, atten * 64);
-	WriteEntity(dest, e);
-	WriteByte(dest, chan);
-	WriteShort(dest, precache_sound_index(samp));
+	float entno, idx;
+	entno = num_for_edict(e);
+	idx = precache_sound_index(samp);
+
+	float sflags;
+	sflags = 0;
+
+	atten = floor(atten * 64);
+	vol = floor(vol * 255);
+
+	if(vol != 255)
+		sflags |= SND_VOLUME;
+	if(atten != 64)
+		sflags |= SND_ATTENUATION;
+	if(entno >= 8192)
+		sflags |= SND_LARGEENTITY;
+	if(idx >= 256)
+		sflags |= SND_LARGESOUND;
+
+	WriteByte(dest, SVC_SOUND);
+	WriteByte(dest, sflags);
+	if(sflags & SND_VOLUME)
+		WriteByte(dest, vol * 255);
+	if(sflags & SND_ATTENUATION)
+		WriteByte(dest, atten);
+	if(sflags & SND_LARGEENTITY)
+	{
+		WriteShort(dest, entno);
+		WriteByte(dest, chan);
+	}
+	else
+	{
+		WriteShort(dest, entno * 8 + chan);
+	}
+	if(sflags & SND_LARGESOUND)
+		WriteShort(dest, idx);
+	else
+		WriteByte(dest, idx);
+
 	WriteCoord(dest, o_x);
 	WriteCoord(dest, o_y);
 	WriteCoord(dest, o_z);
@@ -1088,6 +1148,41 @@ void soundto(float dest, entity e, float chan, string samp, float vol, float att
 void soundat(entity e, vector o, float chan, string samp, float vol, float atten)
 {
 	soundtoat(MSG_BROADCAST, e, o, chan, samp, vol, atten);
+}
+void stopsoundto(float dest, entity e, float chan)
+{
+	float entno;
+	entno = num_for_edict(e);
+
+	if(entno >= 8192)
+	{
+		float idx, sflags;
+		idx = precache_sound_index("misc/null.wav");
+		sflags = SND_LARGEENTITY;
+		if(idx >= 256)
+			sflags |= SND_LARGESOUND;
+		WriteByte(dest, SVC_SOUND);
+		WriteByte(dest, sflags);
+		WriteShort(dest, entno);
+		WriteByte(dest, chan);
+		if(sflags & SND_LARGESOUND)
+			WriteShort(dest, idx);
+		else
+			WriteByte(dest, idx);
+		WriteCoord(dest, e.origin_x);
+		WriteCoord(dest, e.origin_y);
+		WriteCoord(dest, e.origin_z);
+	}
+	else
+	{
+		WriteByte(dest, SVC_STOPSOUND);
+		WriteShort(dest, entno * 8 + chan);
+	}
+}
+void stopsound(entity e, float chan)
+{
+	stopsoundto(MSG_BROADCAST, e, chan); // unreliable, gets there fast
+	stopsoundto(MSG_ALL, e, chan); // in case of packet loss
 }
 
 void play2(entity e, string filename)
@@ -1103,7 +1198,7 @@ float announce(entity player, string msg)
 	if(time > player.announcetime)
 	if(clienttype(player) == CLIENTTYPE_REAL)
 	{
-		player.announcetime = time + 0.3;
+		player.announcetime = time + 0.8;
 		play2(player, msg);
 		return TRUE;
 	}
@@ -1230,20 +1325,6 @@ void precache()
 
 	// gore and miscellaneous sounds
 	//precache_sound ("misc/h2ohit.wav");
-	precache_model ("models/gibs/bloodyskull.md3");
-	precache_model ("models/gibs/chunk.mdl");
-	precache_model ("models/gibs/eye.md3");
-	precache_model ("models/gibs/gib1.md3");
-	precache_model ("models/gibs/gib2.md3");
-	precache_model ("models/gibs/gib3.md3");
-	precache_model ("models/gibs/gib4.md3");
-	precache_model ("models/gibs/gib5.md3");
-	precache_model ("models/gibs/gib6.md3");
-	precache_model ("models/gibs/smallchest.md3");
-	precache_model ("models/gibs/chest.md3");
-	precache_model ("models/gibs/arm.md3");
-	precache_model ("models/gibs/leg1.md3");
-	precache_model ("models/gibs/leg2.md3");
 	precache_model ("models/hook.md3");
 	precache_sound ("misc/armorimpact.wav");
 	precache_sound ("misc/bodyimpact1.wav");
@@ -1333,6 +1414,10 @@ void precache()
 			wep = wep + 1;
 		}
 	}
+
+	precache_model("models/elaser.mdl");
+	precache_model("models/laser.mdl");
+	precache_model("models/ebomb.mdl");
 
 #if 0
 	// Disabled this code because it simply does not work (e.g. ignores bgmvolume, overlaps with "cd loop" controlled tracks).
@@ -1660,8 +1745,7 @@ float SUB_NoImpactCheck()
 #define SUB_OwnerCheck() (other && (other == self.owner))
 
 #define PROJECTILE_TOUCH do { if(SUB_OwnerCheck()) return; if(SUB_NoImpactCheck()) { remove(self); return; } } while(0)
-const string STR_MISC_NULL_WAV = "misc/null.wav";
-#define PROJECTILE_TOUCH_NOSOUND do { if(SUB_OwnerCheck()) return; if(SUB_NoImpactCheck()) { sound (self, CHAN_PROJECTILE, STR_MISC_NULL_WAV, VOL_BASE, ATTN_NORM); remove(self); return; } } while(0)
+#define PROJECTILE_TOUCH_NOSOUND do { if(SUB_OwnerCheck()) return; if(SUB_NoImpactCheck()) { stopsound(self, CHAN_PAIN); remove(self); return; } } while(0)
 
 float MAX_IPBAN_URIS = 16;
 

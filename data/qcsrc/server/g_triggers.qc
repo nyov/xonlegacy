@@ -1,3 +1,7 @@
+void SUB_DontUseTargets()
+{
+}
+
 
 void() SUB_UseTargets;
 
@@ -165,9 +169,6 @@ void multi_trigger()
 	{	// we can't just remove (self) here, because this is a touch function
 		// called wheil C code is looping through area links...
 		self.touch = SUB_Null;
-
-		self.nextthink = time + 0.1;
-		self.think = SUB_Remove;
 	}
 };
 
@@ -215,6 +216,16 @@ void multi_eventdamage (vector hitloc, float damage, entity inflictor, entity at
 	}
 }
 
+void multi_reset()
+{
+	self.touch = multi_touch;
+	self.health = self.max_health;
+	self.takedamage = DAMAGE_YES;
+	self.solid = SOLID_BBOX;
+	self.think = SUB_Null;
+	self.team = self.team_saved;
+}
+
 /*QUAKED spawnfunc_trigger_multiple (.5 .5 .5) ? notouch
 Variable sized repeatable trigger.  Must be targeted at one or more entities.  If "health" is set, the trigger must be killed to activate each time.
 If "delay" is set, the trigger waits some time after activating before firing.
@@ -230,6 +241,7 @@ set "message" to text string
 */
 void spawnfunc_trigger_multiple()
 {
+	self.reset = multi_reset;
 	if (self.sounds == 1)
 	{
 		precache_sound ("misc/secret.wav");
@@ -251,6 +263,8 @@ void spawnfunc_trigger_multiple()
 	self.use = multi_use;
 
 	EXACTTRIGGER_INIT;
+
+	self.team_saved = self.team;
 
 	if (self.health)
 	{
@@ -300,6 +314,7 @@ This fixed size trigger cannot be touched, it can only be fired by other events.
 void spawnfunc_trigger_relay()
 {
 	self.use = SUB_UseTargets;
+	self.reset = spawnfunc_trigger_relay; // this spawnfunc resets fully
 };
 
 void delay_use()
@@ -308,12 +323,18 @@ void delay_use()
     self.nextthink = self.wait;
 }
 
+void delay_reset()
+{
+	self.think = SUB_Null;
+}
+
 void spawnfunc_trigger_delay()
 {
     if(!self.wait)
         self.wait = 1;
 
     self.use = delay_use;
+    self.reset = delay_reset;
 }
 
 //=============================================================================
@@ -349,6 +370,12 @@ void counter_use()
 	multi_trigger ();
 };
 
+void counter_reset()
+{
+	self.count = self.cnt;
+	multi_reset();
+}
+
 /*QUAKED spawnfunc_trigger_counter (.5 .5 .5) ? nomessage
 Acts as an intermediary for an action that takes multiple inputs.
 
@@ -361,8 +388,10 @@ void spawnfunc_trigger_counter()
 	self.wait = -1;
 	if (!self.count)
 		self.count = 2;
+	self.cnt = self.count;
 
 	self.use = counter_use;
+	self.reset = counter_reset;
 };
 
 .float triggerhurttime;
@@ -588,6 +617,14 @@ void pointparticles_think()
 	self.nextthink = time;
 }
 
+void pointparticles_reset()
+{
+	if(self.spawnflags & 1)
+		self.state = 1;
+	else
+		self.state = 0;
+}
+
 void spawnfunc_func_pointparticles()
 {
 	if(self.model != "")
@@ -597,7 +634,6 @@ void spawnfunc_func_pointparticles()
 
 	self.effects = EF_NODEPTHTEST;
 	self.SendEntity = pointparticles_SendEntity;
-	self.SendFlags = 7;
 	if(!self.modelindex)
 	{
 		vector misave, masave;
@@ -612,10 +648,8 @@ void spawnfunc_func_pointparticles()
 	IFTARGETED
 	{
 		self.use = pointparticles_use;
-		if(self.spawnflags & 1)
-			self.state = 1;
-		else
-			self.state = 0;
+		self.reset = pointparticles_reset;
+		self.reset();
 	}
 	else
 		self.state = 1;
@@ -760,6 +794,7 @@ void spawnfunc_func_snow()
 
 void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, float deathtype);
 
+.float modelscale;
 void misc_laser_aim()
 {
 	vector a;
@@ -874,11 +909,13 @@ void misc_laser_think()
 float laser_SendEntity(entity to, float fl)
 {
 	WriteByte(MSG_ENTITY, ENT_CLIENT_LASER);
-	fl = fl - (fl & 0xC0); // use that bit to indicate finite length laser
+	fl = fl - (fl & 0xE0); // use that bit to indicate finite length laser
 	if(self.spawnflags & 2)
 		fl |= 0x80;
 	if(self.alpha)
 		fl |= 0x40;
+	if(self.scale != 1 || self.modelscale != 1)
+		fl |= 0x20;
 	WriteByte(MSG_ENTITY, fl);
 	if(fl & 1)
 	{
@@ -893,6 +930,11 @@ float laser_SendEntity(entity to, float fl)
 		WriteByte(MSG_ENTITY, self.colormod_z * 255.0);
 		if(fl & 0x40)
 			WriteByte(MSG_ENTITY, self.alpha * 255.0);
+		if(fl & 0x20)
+		{
+			WriteByte(MSG_ENTITY, bound(0, self.scale * 16.0, 255));
+			WriteByte(MSG_ENTITY, bound(0, self.modelscale * 16.0, 255));
+		}
 		WriteShort(MSG_ENTITY, self.cnt + 1);
 	}
 	if(fl & 2)
@@ -905,8 +947,8 @@ float laser_SendEntity(entity to, float fl)
 		}
 		else
 		{
-			WriteCoord(MSG_ENTITY, self.mangle_x);
-			WriteCoord(MSG_ENTITY, self.mangle_y);
+			WriteAngle(MSG_ENTITY, self.mangle_x);
+			WriteAngle(MSG_ENTITY, self.mangle_y);
 		}
 	}
 	if(fl & 4)
@@ -931,6 +973,14 @@ void laser_use()
 	self.state = !self.state;
 	self.SendFlags |= 4;
 	misc_laser_aim();
+}
+
+void laser_reset()
+{
+	if(self.spawnflags & 1)
+		self.state = 1;
+	else
+		self.state = 0;
 }
 
 void spawnfunc_misc_laser()
@@ -964,23 +1014,24 @@ void spawnfunc_misc_laser()
 		self.message = "saw the light";
 	if (!self.message2)
 		self.message2 = "was pushed into a laser by";
+	if(!self.scale)
+		self.scale = 1;
+	if(!self.modelscale)
+		self.modelscale = 1;
 	self.think = misc_laser_think;
 	self.nextthink = time;
 	InitializeEntity(self, misc_laser_init, INITPRIO_FINDTARGET);
 
 	self.effects = EF_NODEPTHTEST;
 	self.SendEntity = laser_SendEntity;
-	self.SendFlags = 15;
 	setmodel(self, "null");
 	self.mangle = self.angles;
 
 	IFTARGETED
 	{
+		self.reset = laser_reset;
+		laser_reset();
 		self.use = laser_use;
-		if(self.spawnflags & 1)
-			self.state = 1;
-		else
-			self.state = 0;
 	}
 	else
 		self.state = 1;
@@ -1040,6 +1091,7 @@ void trigger_impulse_touch1()
     if(!pushdeltatime) return;
 
     other.velocity = other.velocity + normalize(targ.origin - self.origin) * self.strength * pushdeltatime;
+	other.flags &~= FL_ONGROUND;
 }
 
 // Directionless (accelerator/decelerator) mode
@@ -1180,7 +1232,8 @@ void spawnfunc_trigger_flipflop()
 {
 	if(self.spawnflags & 1)
 		self.state = 1;
-    self.use = flipflop_use;
+	self.use = flipflop_use;
+	self.reset = spawnfunc_trigger_flipflop; // perfect resetter
 }
 
 /*QUAKED spawnfunc_trigger_monoflop (.5 .5 .5) (-8 -8 -8) (8 8 8)
@@ -1212,6 +1265,12 @@ void monoflop_think()
 	SUB_UseTargets();
 }
 
+void monoflop_reset()
+{
+	self.state = 0;
+	self.nextthink = 0;
+}
+
 void spawnfunc_trigger_monoflop()
 {
 	if(!self.wait)
@@ -1222,6 +1281,7 @@ void spawnfunc_trigger_monoflop()
 		self.use = monoflop_use;
 	self.think = monoflop_think;
 	self.state = 0;
+	self.reset = monoflop_reset;
 }
 
 void multivibrator_send()
@@ -1261,6 +1321,14 @@ void multivibrator_toggle()
 	}
 }
 
+void multivibrator_reset()
+{
+	if(!(self.spawnflags & 1))
+		self.nextthink = 0; // wait for a trigger event
+	else
+		self.nextthink = max(1, time);
+}
+
 /*QUAKED trigger_multivibrator (.5 .5 .5) (-8 -8 -8) (8 8 8) START_ON
 "Multivibrator" trigger gate... repeatedly sends trigger events. When triggered, turns on or off.
 -------- KEYS --------
@@ -1285,12 +1353,7 @@ void spawnfunc_trigger_multivibrator()
 	self.nextthink = time;
 
 	IFTARGETED
-	{
-		if(!(self.spawnflags & 1))
-			self.nextthink = 0; // wait for a trigger event
-	}
-	else
-		self.nextthink = time;
+		multivibrator_reset();
 }
 
 
@@ -1318,6 +1381,27 @@ void follow_init()
 void spawnfunc_misc_follow()
 {
 	InitializeEntity(self, follow_init, INITPRIO_FINDTARGET);
+}
+
+
+
+void gamestart_use() {
+	activator = self;
+	SUB_UseTargets();
+	remove(self);
+}
+
+void spawnfunc_trigger_gamestart() {
+	self.use = gamestart_use;
+	self.reset2 = spawnfunc_trigger_gamestart;
+
+	if(self.wait)
+	{
+		self.think = self.use;
+		self.nextthink = game_starttime + self.wait;
+	}
+	else
+		InitializeEntity(self, gamestart_use, INITPRIO_FINDTARGET);
 }
 
 
@@ -1408,4 +1492,72 @@ void spawnfunc_target_voicescript()
 		}
 		precache_sound(strcat(self.netname, "/", argv(i), ".wav"));
 	}
+}
+
+
+
+void trigger_relay_teamcheck_use()
+{
+	if(activator.team)
+	{
+		if(self.spawnflags & 2)
+		{
+			if(activator.team != self.team)
+				SUB_UseTargets();
+		}
+		else
+		{
+			if(activator.team == self.team)
+				SUB_UseTargets();
+		}
+	}
+	else
+	{
+		if(self.spawnflags & 1)
+			SUB_UseTargets();
+	}
+}
+
+void trigger_relay_teamcheck_reset()
+{
+	self.team = self.team_saved;
+}
+
+void spawnfunc_trigger_relay_teamcheck()
+{
+	self.team_saved = self.team;
+	self.use = trigger_relay_teamcheck_use;
+	self.reset = trigger_relay_teamcheck_reset;
+}
+
+
+
+void trigger_disablerelay_use()
+{
+	entity e;
+
+	float a, b;
+	a = b = 0;
+
+	for(e = world; (e = find(e, targetname, self.target)); )
+	{
+		if(e.use == SUB_UseTargets)
+		{
+			e.use = SUB_DontUseTargets;
+			++a;
+		}
+		else if(e.use == SUB_DontUseTargets)
+		{
+			e.use = SUB_UseTargets;
+			++b;
+		}
+	}
+
+	if(!a == !b)
+		print("Invalid use of trigger_disablerelay: ", ftos(a), " relays were on, ", ftos(b), " relays were off!\n");
+}
+
+void spawnfunc_trigger_disablerelay()
+{
+	self.use = trigger_disablerelay_use;
 }

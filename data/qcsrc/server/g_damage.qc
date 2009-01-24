@@ -1,3 +1,50 @@
+.float dmg;
+.float dmg_edge;
+.float dmg_force;
+.float dmg_radius;
+
+float Damage_DamageInfo_SendEntity(entity to, float sf)
+{
+	WriteByte(MSG_ENTITY, ENT_CLIENT_DAMAGEINFO);
+	WriteShort(MSG_ENTITY, self.projectiledeathtype);
+	WriteCoord(MSG_ENTITY, floor(self.origin_x));
+	WriteCoord(MSG_ENTITY, floor(self.origin_y));
+	WriteCoord(MSG_ENTITY, floor(self.origin_z));
+	WriteByte(MSG_ENTITY, bound(1, self.dmg, 255));
+	WriteByte(MSG_ENTITY, bound(0, self.dmg_radius, 255));
+	WriteByte(MSG_ENTITY, bound(1, self.dmg_edge, 255));
+	WriteShort(MSG_ENTITY, self.oldorigin_x);
+	return TRUE;
+}
+
+void Damage_DamageInfo(vector org, float coredamage, float edgedamage, float rad, vector force, float deathtype)
+{
+	// TODO maybe call this from non-edgedamage too?
+	// TODO maybe make the client do the particle effects for the weapons and the impact sounds using this info?
+
+	entity e;
+
+	e = spawn();
+	e.classname = "damageinfo";
+	setorigin(e, org);
+	setmodel(e, "null");
+	e.think = SUB_Remove;
+	e.nextthink = time + 0.2;
+	e.projectiledeathtype = deathtype;
+	e.dmg = coredamage;
+	e.dmg_edge = edgedamage;
+	e.dmg_radius = rad;
+	e.dmg_force = vlen(force);
+	e.velocity = force;
+	e.effects = EF_NODEPTHTEST; // needs to be, sorry
+
+	e.oldorigin_x = compressShortVector(e.velocity);
+
+	e.SendEntity = Damage_DamageInfo_SendEntity;
+}
+
+#define DAMAGE_CENTERPRINT_SPACER NEWLINES
+
 float checkrules_firstblood;
 
 float yoda;
@@ -11,6 +58,7 @@ float damage_headshotbonus; // bonus multiplier for head shots, set to 0 after u
 .float teamkill_soundtime;
 .entity teamkill_soundsource;
 .entity pusher;
+.float taunt_soundtime;
 
 
 float IsDifferentTeam(entity a, entity b)
@@ -172,35 +220,35 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 		if (targ == attacker)
 		{
 			if (deathtype == DEATH_TEAMCHANGE) {
-				centerprint(targ, strcat("You are now on: ", ColoredTeamName(targ.team)));
+				centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "You are now on: ", ColoredTeamName(targ.team)));
 			} else if (deathtype == DEATH_AUTOTEAMCHANGE) {
-				centerprint(targ, strcat("You have been moved into a different team to improve team balance\nYou are now on: ", ColoredTeamName(targ.team)));
+				centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "You have been moved into a different team to improve team balance\nYou are now on: ", ColoredTeamName(targ.team)));
 				return;
 			} else if (deathtype == DEATH_CAMP) {
 				if(sv_gentle)
-					centerprint(targ, "^1Reconsider your tactics, camper!\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1Reconsider your tactics, camper!"));
 				else
-					centerprint(targ, "^1Die camper!\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1Die camper!"));
 			} else if (deathtype == DEATH_NOAMMO) {
 				if(sv_gentle)
-					centerprint(targ, "^1You are reinserted into the game for running out of ammo...\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1You are reinserted into the game for running out of ammo..."));
 				else
-					centerprint(targ, "^1You were killed for running out of ammo...\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1You were killed for running out of ammo..."));
 			} else if (deathtype == DEATH_ROT) {
 				if(sv_gentle)
-					centerprint(targ, "^1You need to preserve your health\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1You need to preserve your health"));
 				else
-					centerprint(targ, "^1You grew too old without taking your medicine\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1You grew too old without taking your medicine"));
 			} else if (deathtype == DEATH_MIRRORDAMAGE) {
 				if(sv_gentle)
-					centerprint(targ, "^1Don't go against team mates!\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1Don't go against team mates!"));
 				else
-					centerprint(targ, "^1Don't shoot your team mates!\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1Don't shoot your team mates!"));
 			} else {
 				if(sv_gentle)
-					centerprint(targ, "^1You need to be more careful!\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1You need to be more careful!"));
 				else
-					centerprint(targ, "^1You killed your own dumb self!\n\n\n");
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1You killed your own dumb self!"));
 			}
 
 			if(sv_gentle) {
@@ -217,7 +265,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					GiveFrags(attacker, targ, -1);
 				}
 				if (targ.killcount > 2)
-					bprint ("^1",s,"^1 ended it all with a ",ftos(targ.killcount)," scoring spree\n");
+					bprint ("^1",s,"^1 faded after a ",ftos(targ.killcount)," point spree\n");
 			} else {
 				w = DEATH_WEAPONOF(deathtype);
 				if(WEP_VALID(w))
@@ -225,16 +273,14 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					w_deathtypestring = "couldn't resist the urge to self-destruct";
 					w_deathtype = deathtype;
 					weapon_action(w, WR_SUICIDEMESSAGE);
-					bprint("^1", s, "^1 ", w_deathtypestring, "\n");
+ 					bprint("^1", s, "^1 ", w_deathtypestring, "\n");
 				}
 				else if (deathtype == DEATH_KILL)
 					bprint ("^1",s, "^1 couldn't take it anymore\n");
 				else if (deathtype == DEATH_ROT)
 					bprint ("^1",s, "^1 died\n");
 				else if (deathtype == DEATH_NOAMMO)
-				{
-					bprint ("^7",s, " ^7committed suicide. What's the point of living without ammo?\n");
-				}
+					bprint ("^7",s, "^7 committed suicide. What's the point of living without ammo?\n");
 				else if (deathtype == DEATH_CAMP)
 					bprint ("^1",s, "^1 thought he found a nice camping ground\n");
 				else if (deathtype == DEATH_MIRRORDAMAGE)
@@ -248,7 +294,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					GiveFrags(attacker, targ, -1);
 				}
 				if (targ.killcount > 2)
-					bprint ("^1",s,"^1 ended it all with a ",ftos(targ.killcount)," kill spree\n");
+					bprint ("^1",s,"^1 ended it all after a ",ftos(targ.killcount)," kill spree\n");
 			}
 		}
 		else if (attacker.classname == "player" || attacker.classname == "gib")
@@ -256,24 +302,24 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 			if(teamplay && attacker.team == targ.team)
 			{
 				if(sv_gentle) {
-					centerprint(attacker, "^1Moron! You went against a teammate!\n\n\n");
-					bprint ("^1", a, "^1 took action against a teammate\n");
+					centerprint(attacker, strcat(DAMAGE_CENTERPRINT_SPACER, "^1Moron! You went against a team mate!"));
+					bprint ("^1", a, "^1 took action against a team mate\n");
 				} else {
-					centerprint(attacker, "^1Moron! You fragged a teammate!\n\n\n");
-					bprint ("^1", a, "^1 mows down a teammate\n");
+					centerprint(attacker, strcat(DAMAGE_CENTERPRINT_SPACER, "^1Moron! You fragged ", s, ", a team mate!"));
+					bprint ("^1", a, "^1 mows down a team mate\n");
 				}
 				GiveFrags(attacker, targ, -1);
 				if (targ.killcount > 2) {
 					if(sv_gentle)
-						bprint ("^1",s,"'s ^1",ftos(targ.killcount)," scoring spree was ended by a teammate!\n");
+						bprint ("^1",s,"'s ^1",ftos(targ.killcount)," scoring spree was ended by a team mate!\n");
 					else
-						bprint ("^1",s,"'s ^1",ftos(targ.killcount)," kill spree was ended by a teammate!\n");
+						bprint ("^1",s,"'s ^1",ftos(targ.killcount)," kill spree was ended by a team mate!\n");
 				}
 				if (attacker.killcount > 2) {
 					if(sv_gentle)
-						bprint ("^1",a,"^1 ended a ",ftos(attacker.killcount)," scoring spree by going against a teammate\n");
+						bprint ("^1",a,"^1 ended a ",ftos(attacker.killcount)," scoring spree by going against a team mate\n");
 					else
-						bprint ("^1",a,"^1 ended a ",ftos(attacker.killcount)," kill spree by killing a teammate\n");
+						bprint ("^1",a,"^1 ended a ",ftos(attacker.killcount)," kill spree by killing a team mate\n");
 				}
 				attacker.killcount = 0;
 
@@ -281,21 +327,31 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 			}
 			else
 			{
+				string blood_message, victim_message;
 				if (!checkrules_firstblood)
 				{
 					checkrules_firstblood = TRUE;
 					if(sv_gentle)
+					{
 						bprint("^1",a, "^1 was the first to score", "\n");
+						blood_message = "^1First point\n";
+						//victim_message = "^1First victim\n";  // or First casualty
+					}
 					else
+					{
 						bprint("^1",a, "^1 drew first blood", "\n");
+						blood_message = "^1First blood\n";
+						victim_message = "^1First victim\n";  // or First casualty
+					}
 				}
 
 				if(sv_gentle > 0) {
-					centerprint(attacker, strcat("^4You scored against ^7", s, "\n\n\n"));
-					centerprint(targ, strcat(a,"^1 scored against you ^7\n\n\n"));
+					centerprint(attacker, strcat(DAMAGE_CENTERPRINT_SPACER, "^4You scored against ^7", s));
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, a,"^1 scored against you ^7"));
 				} else {
-					centerprint(attacker, strcat("^4You fragged ^7", s, "\n\n\n"));
-					centerprint(targ, strcat("^1You were fragged by ^7", a, "\n\n\n"));
+					centerprint(attacker, strcat(DAMAGE_CENTERPRINT_SPACER, blood_message, "^4You fragged ^7", s));
+					centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, victim_message, "^1You were fragged by ^7", a));
+					attacker.taunt_soundtime = time + 1;
 				}
 
 				if(sv_gentle) {
@@ -335,13 +391,14 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						else
 							bprint("^1", s, "^1 ", substring(inflictor.message2, 0, p), a, "^1", substring(inflictor.message2, p+1, strlen(inflictor.message2) - (p+1)), "\n");
 					}
-                    else if(deathtype == DEATH_TURRET)
-                        bprint ("^1",s, "^1 was pushed into the line of fire by ^1", a, "\n");
-                    else if(deathtype == DEATH_TOUCHEXPLODE)
-                        bprint ("^1",s, "^1 was pushed into an accident by ^1", a, "\n");
+					else if(deathtype == DEATH_TURRET)
+						bprint ("^1",s, "^1 was pushed into the line of fire by ^1", a, "\n");
+					else if(deathtype == DEATH_TOUCHEXPLODE)
+						bprint ("^1",s, "^1 was pushed into an accident by ^1", a, "\n");
 					else
 						bprint ("^1",s, "^1 was fragged by ", a, "\n");
 				}
+
 				if(g_ctf && targ.flagcarried)
 				{
 					UpdateFrags(attacker, ctf_score_value("score_kill"));
@@ -350,13 +407,16 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 				}
 				else
 					GiveFrags(attacker, targ, 1);
+
 				if (targ.killcount > 2) {
 					if(sv_gentle)
 						bprint ("^1",s,"'s ^1", ftos(targ.killcount), " scoring spree was ended by ", a, "\n");
 					else
 						bprint ("^1",s,"'s ^1", ftos(targ.killcount), " kill spree was ended by ", a, "\n");
 				}
+
 				attacker.killcount = attacker.killcount + 1;
+
 				if (attacker.killcount > 2) {
 					if(sv_gentle)
 						bprint ("^1",a,"^1 made ",ftos(attacker.killcount)," scores in a row\n");
@@ -433,7 +493,7 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 		}
 		else
 		{
-			centerprint(targ, "^1Watch your step!\n\n\n");
+			centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^1Watch your step!"));
 			if (deathtype == DEATH_HURTTRIGGER && inflictor.message != "")
 				bprint ("^1",s, "^1 ", inflictor.message, "\n");
 			else if (deathtype == DEATH_DROWN)
@@ -460,8 +520,8 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					bprint ("^1",s, "^1 discovered a swamp\n");
 				else
 					bprint ("^1",s, "^1 is now conserved for centuries to come\n");
-            else if(deathtype == DEATH_TURRET)
-                    bprint ("^1",s, "^1 was mowed down by a turret \n");
+			else if(deathtype == DEATH_TURRET)
+				bprint ("^1",s, "^1 was mowed down by a turret \n");
 			else if(deathtype == DEATH_TOUCHEXPLODE)
 				bprint ("^1",s, "^1 died in an accident\n");
 			else
@@ -619,7 +679,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 			if (targ.armorvalue && (deathtype == WEP_MINSTANEX) && damage)
 			{
 				targ.armorvalue -= 1;
-				centerprint(targ, strcat("^3Remaining extra lives: ",ftos(targ.armorvalue),"\n"));
+				centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^3Remaining extra lives: ",ftos(targ.armorvalue)));
 				damage = 0;
 				targ.hitsound += 1;
 			}
@@ -629,7 +689,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				if (targ != attacker)
 				{
 					if (targ.classname == "player")
-						centerprint(attacker, "Secondary fire inflicts no damage!\n");
+						centerprint(attacker, strcat(DAMAGE_CENTERPRINT_SPACER, "Secondary fire inflicts no damage!"));
 					damage = 0;
 					mirrordamage = 0;
 					force = '0 0 0';
@@ -769,6 +829,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 	{
 		self.velocity = self.velocity + self.damageforcescale * force;
 		self.flags = self.flags - (self.flags & FL_ONGROUND);
+		UpdateCSQCProjectile(self);
 	}
 	// apply damage
 	if (damage != 0)
@@ -830,7 +891,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				if(attacker.armorvalue > 0)
 				{
 					attacker.armorvalue = attacker.armorvalue - 1;
-					centerprint(attacker, strcat("^3Remaining extra lives: ",ftos(attacker.armorvalue),"\n"));
+					centerprint(attacker, strcat(DAMAGE_CENTERPRINT_SPACER, "^3Remaining extra lives: ",ftos(attacker.armorvalue)));
 					attacker.hitsound += 1;
 				}
 				mirrordamage = 0;
@@ -882,10 +943,21 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 		return 0;
 	}
 
+
 	RadiusDamage_running = 1;
 
 	blastorigin = (inflictor.origin + (inflictor.mins + inflictor.maxs) * 0.5);
 	total_damage_to_creatures = 0;
+
+	if(deathtype != (WEP_HOOK | HITTYPE_SECONDARY | HITTYPE_BOUNCE)) // only send gravity bomb damage once
+	{
+		force = inflictor.velocity;
+		if(vlen(force) == 0)
+			force = '0 0 -1';
+		else
+			force = normalize(force);
+		Damage_DamageInfo(blastorigin, coredamage, edgedamage, rad, forceintensity * force, deathtype);
+	}
 
 	targ = findradius (blastorigin, rad);
 	while (targ)

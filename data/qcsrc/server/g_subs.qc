@@ -291,8 +291,75 @@ void traceline_antilag (entity source, vector v1, vector v2, float nomonst, enti
 	traceline_antilag_force(source, v1, v2, nomonst, forent, lag);
 }
 
+float tracebox_inverted (vector v1, vector mi, vector ma, vector v2, float nomonsters, entity forent) // returns the number of traces done, for benchmarking
+{
+	vector pos, dir, t;
+	float nudge;
+
+	//nudge = 2 * cvar("collision_impactnudge"); // why not?
+	nudge = 0.5;
+
+	dir = normalize(v2 - v1);
+
+	pos = v1 + dir * nudge;
+
+	float c;
+	c = 0;
+
+	for(;;)
+	{
+		if((pos - v1) * dir >= (v2 - v1) * dir)
+		{
+			// went too far
+			trace_fraction = 1;
+			trace_endpos = v2;
+			return c;
+		}
+
+		tracebox(pos, mi, ma, v2, nomonsters, forent);
+		++c;
+
+		if(c == 50)
+		{
+			dprint("HOLY SHIT! When tracing from ", vtos(v1), " to ", vtos(v2), "\n");
+			dprint("  Nudging gets us nowhere at ", vtos(pos), "\n");
+			dprint("  trace_endpos is ", vtos(trace_endpos), "\n");
+			dprint("  trace distance is ", ftos(vlen(pos - trace_endpos)), "\n");
+		}
+
+		if(trace_startsolid)
+		{
+			// we started inside solid.
+			// then trace from endpos to pos
+			t = trace_endpos;
+			tracebox(t, mi, ma, pos, nomonsters, forent);
+			++c;
+			if(trace_startsolid)
+			{
+				// t is still inside solid? bad
+				// force advance, then, and retry
+				pos = t + dir * nudge;
+			}
+			else
+			{
+				// we actually LEFT solid!
+				trace_fraction = ((trace_endpos - v1) * dir) / ((v2 - v1) * dir);
+				return c;
+			}
+		}
+		else
+		{
+			// pos is outside solid?!? but why?!? never mind, just return it.
+			trace_endpos = pos;
+			trace_fraction = ((trace_endpos - v1) * dir) / ((v2 - v1) * dir);
+			return c;
+		}
+	}
+}
+
 void traceline_inverted (vector v1, vector v2, float nomonsters, entity forent)
 {
+#if 0
 	vector pos, dir, t;
 	float nudge;
 
@@ -341,6 +408,8 @@ void traceline_inverted (vector v1, vector v2, float nomonsters, entity forent)
 			return;
 		}
 	}
+#else
+	tracebox_inverted(v1, '0 0 0', '0 0 0', v2, nomonsters, forent);
 }
 
 /*
@@ -356,7 +425,7 @@ vector findbetterlocation (vector org, float mindist)
 {
 	vector	loc;
 	vector vec;
-	float c;
+	float c, h;
 
 	vec = mindist * '1 0 0';
 	c = 0;
@@ -373,9 +442,10 @@ vector findbetterlocation (vector org, float mindist)
 		}
 		if (c & 1)
 		{
-			vec_z = vec_y;
+			h = vec_y;
 			vec_y = vec_x;
 			vec_x = vec_z;
+			vec_z = h;
 		}
 		c = c + 1;
 	}
@@ -587,16 +657,22 @@ void InitSolidBSPTrigger()
 		SetMovedir ();
 	self.solid = SOLID_BSP;
 	SetBrushEntityModel();
-	self.movetype = MOVETYPE_PUSH;
+	self.movetype = MOVETYPE_NONE; // why was this PUSH? -div0
 //	self.modelindex = 0;
 	self.model = "";
 };
 
-void InitMovingBrushTrigger()
+float InitMovingBrushTrigger()
 {
 // trigger angles are used for one-way touches.  An angle of 0 is assumed
 // to mean no restrictions, so use a yaw of 360 instead.
 	self.solid = SOLID_BSP;
 	SetBrushEntityModel();
 	self.movetype = MOVETYPE_PUSH;
+	if(self.modelindex == 0)
+	{
+		objerror("InitMovingBrushTrigger: no brushes found!");
+		return 0;
+	}
+	return 1;
 };

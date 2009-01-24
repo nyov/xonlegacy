@@ -1,3 +1,18 @@
+.float dmgtime2;
+void generic_plat_blocked()
+{
+    if(self.dmg && other.takedamage != DAMAGE_NO) {
+        if(self.dmgtime2 < time) {
+            Damage (other, self, self, self.dmg, DEATH_HURTTRIGGER, other.origin, '0 0 0');
+            self.dmgtime2 = time + self.dmgtime;
+        }
+
+        // Gib dead/dying stuff
+        if(other.deadflag != DEAD_NO)
+            Damage (other, self, self, 10000, DEATH_HURTTRIGGER, other.origin, '0 0 0');
+    }
+}
+
 
 float	STATE_TOP		= 0;
 float	STATE_BOTTOM	= 1;
@@ -5,8 +20,6 @@ float	STATE_UP		= 2;
 float	STATE_DOWN		= 3;
 
 .entity trigger_field;
-//.float dmgtime;
-.float dmgtime2;
 
 void() plat_center_touch;
 void() plat_outside_touch;
@@ -140,13 +153,23 @@ void plat_use()
 	plat_go_down();
 };
 
-void plat_init_movedown()
-{
-	setorigin (self, self.pos2);
-	self.state = 2;
-}
-
 .string sound1, sound2;
+
+void plat_reset()
+{
+	IFTARGETED
+	{
+		setorigin (self, self.pos1);
+		self.state = 4;
+		self.use = plat_use;
+	}
+	else
+	{
+		setorigin (self, self.pos2);
+		self.state = 2;
+		self.use = plat_trigger_use;
+	}
+}
 
 void spawnfunc_path_corner() { };
 void spawnfunc_func_plat()
@@ -198,7 +221,8 @@ void spawnfunc_func_plat()
 	self.angles = '0 0 0';
 
 	self.classname = "plat";
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 	self.effects |= EF_LOWPRECISION;
 	setsize (self, self.mins , self.maxs);
 
@@ -211,17 +235,10 @@ void spawnfunc_func_plat()
 	self.pos2 = self.origin;
 	self.pos2_z = self.origin_z - self.size_z + 8;
 
-	self.use = plat_trigger_use;
-
 	plat_spawn_inside_trigger ();	// the "start moving" trigger
 
-	IFTARGETED
-	{
-		self.state = 4;
-		self.use = plat_use;
-	}
-	else
-		InitializeEntity(self, plat_init_movedown, INITPRIO_SETLOCATION);
+	self.reset = plat_reset;
+	plat_reset();
 };
 
 
@@ -230,6 +247,9 @@ void train_wait()
 {
 	self.think = train_next;
 	self.nextthink = self.ltime + self.wait;
+
+	if(self.noise != "")
+		stopsoundto(MSG_BROADCAST, self, CHAN_TRIGGER); // send this as unreliable only, as the train will resume operation shortly anyway
 };
 
 void train_next()
@@ -256,6 +276,9 @@ void train_next()
 		else
 			SUB_CalcMove(targ.origin - self.mins, self.speed, train_wait);
 	}
+
+	if(self.noise != "")
+		sound(self, CHAN_TRIGGER, self.noise, VOL_BASE, ATTN_IDLE);
 };
 
 void func_train_find()
@@ -277,36 +300,32 @@ target : targetname of first spawnfunc_path_corner (starts here)
 */
 void spawnfunc_func_train()
 {
+	if (self.noise != "")
+		precache_sound(self.noise);
+
 	if (!self.target)
 		objerror("func_train without a target");
 	if (!self.speed)
 		self.speed = 100;
 
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 	self.effects |= EF_LOWPRECISION;
 
 	// wait for targets to spawn
 	InitializeEntity(self, func_train_find, INITPRIO_SETLOCATION);
+
+	self.blocked = generic_plat_blocked;
+	if(self.dmg & (!self.message))
+		self.message = " was squished";
+    if(self.dmg && (!self.message2))
+		self.message2 = "was squished by";
+	if(self.dmg && (!self.dmgtime))
+		self.dmgtime = 0.25;
+	self.dmgtime2 = time;
+
+	// TODO make a reset function for this one
 };
-
-
-
-void rotating_blocked()
-{
-
-    if(self.dmg && other.takedamage != DAMAGE_NO) {
-        if(self.dmgtime2 < time) {
-            Damage (other, self, self, self.dmg, DEATH_HURTTRIGGER, other.origin, '0 0 0');
-            self.dmgtime2 = time + self.dmgtime;
-        }
-
-        // Gib dead/dying stuff
-        if(other.deadflag != DEAD_NO)
-            Damage (other, self, self, 10000, DEATH_HURTTRIGGER, other.origin, '0 0 0');
-    }
-
-
-}
 
 /*QUAKED spawnfunc_func_rotating (0 .5 .8) ? - - X_AXIS Y_AXIS
 Brush model that spins in place on one axis (default Z).
@@ -318,7 +337,7 @@ dmgtime : See above.
 
 void spawnfunc_func_rotating()
 {
-	if (self.noise)
+	if (self.noise != "")
 	{
 		precache_sound(self.noise);
 		ambientsound(self.origin, self.noise, VOL_BASE, ATTN_IDLE);
@@ -346,14 +365,17 @@ void spawnfunc_func_rotating()
 
     self.dmgtime2 = time;
 
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 	// no EF_LOWPRECISION here, as rounding angles is bad
 
-    self.blocked = rotating_blocked;
+    self.blocked = generic_plat_blocked;
 
 	// wait for targets to spawn
 	self.nextthink = self.ltime + 999999999;
 	self.think = SUB_Null;
+
+	// TODO make a reset function for this one
 };
 
 .float height;
@@ -362,7 +384,7 @@ void func_bobbing_controller_think()
 	local vector v;
 	self.nextthink = time + 0.1;
 	// calculate sinewave using makevectors
-	makevectors((time * self.owner.cnt + self.owner.phase * 360) * '0 1 0');
+	makevectors((self.nextthink * self.owner.cnt + self.owner.phase * 360) * '0 1 0');
 	v = self.owner.destvec + self.owner.movedir * v_forward_y;
 	// * 10 so it will arrive in 0.1 sec
 	self.owner.velocity = (v - self.owner.origin) * 10;
@@ -371,7 +393,7 @@ void func_bobbing_controller_think()
 void bobbing_blocked()
 {
 	// no need to duplicate code
-	rotating_blocked();
+	generic_plat_blocked();
 }
 
 /*QUAKED spawnfunc_func_bobbing (0 .5 .8) ? X_AXIS Y_AXIS
@@ -386,10 +408,10 @@ dmgtime : See above.
 void spawnfunc_func_bobbing()
 {
 	local entity controller;
-	if (self.noise)
+	if (self.noise != "")
 	{
 		precache_sound(self.noise);
-		ambientsound(self.origin, self.noise, VOL_BASE, ATTN_IDLE);
+		soundto(MSG_INIT, self, CHAN_TRIGGER, self.noise, VOL_BASE, ATTN_IDLE);
 	}
 	if (!self.speed)
 		self.speed = 4;
@@ -418,7 +440,8 @@ void spawnfunc_func_bobbing()
 	else // Z
 		self.movedir = '0 0 1' * self.height;
 
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 
 	// wait for targets to spawn
 	controller = spawn();
@@ -431,6 +454,8 @@ void spawnfunc_func_bobbing()
 
 	// Savage: Reduce bandwith, critical on e.g. nexdm02
 	self.effects |= EF_LOWPRECISION;
+
+	// TODO make a reset function for this one
 };
 
 // button and multiple button
@@ -484,6 +509,15 @@ void button_fire()
 	SUB_CalcMove (self.pos2, self.speed, button_wait);
 };
 
+void button_reset()
+{
+	self.health = self.max_health;
+	setorigin(self, self.pos1);
+	self.frame = 0;			// use normal textures
+	self.state = STATE_BOTTOM;
+	if (self.health)
+		self.takedamage = DAMAGE_YES;	// can be shot again
+}
 
 void button_use()
 {
@@ -550,7 +584,8 @@ void spawnfunc_func_button()
 {
 	SetMovedir ();
 
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 	self.effects |= EF_LOWPRECISION;
 
 	self.blocked = button_blocked;
@@ -577,10 +612,10 @@ void spawnfunc_func_button()
     if(self.noise != "")
         precache_sound(self.noise);
 
-	self.state = STATE_BOTTOM;
-
 	self.pos1 = self.origin;
 	self.pos2 = self.pos1 + self.movedir*(fabs(self.movedir*self.size) - self.lip);
+
+	button_reset();
 };
 
 
@@ -869,7 +904,7 @@ void door_touch()
 };
 
 
-void door_rotating_blocked()
+void door_generic_plat_blocked()
 {
 
     if((self.spawnflags & 8) && (other.takedamage != DAMAGE_NO)) { // KIll Kill Kill!!
@@ -1143,6 +1178,13 @@ void door_init_startopen()
 	self.pos1 = self.origin;
 }
 
+void door_reset()
+{
+	setorigin(self, self.pos1);
+	self.state = STATE_BOTTOM;
+	self.think = SUB_Null;
+}
+
 void spawnfunc_func_door()
 {
 	//if (!self.deathtype) // map makers can override this
@@ -1150,7 +1192,8 @@ void spawnfunc_func_door()
 	SetMovedir ();
 
 	self.max_health = self.health;
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 	self.effects |= EF_LOWPRECISION;
 	self.classname = "door";
 
@@ -1204,6 +1247,8 @@ void spawnfunc_func_door()
 // LinkDoors can't be done until all of the doors have been spawned, so
 // the sizes can be detected properly.
 	InitializeEntity(self, LinkDoors, INITPRIO_LINKDOORS);
+
+	self.reset = door_reset;
 };
 
 /*QUAKED spawnfunc_func_door_rotating (0 .5 .8) ? START_OPEN BIDIR DOOR_DONT_LINK BIDIR_IN_DOWN x TOGGLE X_AXIS Y_AXIS
@@ -1234,6 +1279,13 @@ START_OPEN causes the door to move to its destination when spawned, and operate 
 FIXME: only one sound set available at the time being
 */
 
+void door_rotating_reset()
+{
+	self.angles = self.pos1;
+	self.state = STATE_BOTTOM;
+	self.think = SUB_Null;
+}
+
 void door_rotating_init_startopen()
 {
 	self.angles = self.movedir;
@@ -1262,7 +1314,8 @@ void spawnfunc_func_door_rotating()
 	self.angles = '0 0 0';
 
 	self.max_health = self.health;
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 	//self.effects |= EF_LOWPRECISION;
 	self.classname = "door_rotating";
 
@@ -1315,6 +1368,8 @@ void spawnfunc_func_door_rotating()
 // LinkDoors can't be done until all of the doors have been spawned, so
 // the sizes can be detected properly.
 	InitializeEntity(self, LinkDoors, INITPRIO_LINKDOORS);
+
+	self.reset = door_rotating_reset;
 };
 
 /*
@@ -1487,6 +1542,16 @@ void secret_touch()
 	}
 };
 
+void secret_reset()
+{
+	if (self.spawnflags&SECRET_YES_SHOOT)
+	{
+		self.health = 10000;
+		self.takedamage = DAMAGE_YES;
+	}
+	setorigin(self, self.oldorigin);
+	self.think = SUB_Null;
+}
 
 /*QUAKED spawnfunc_func_door_secret (0 .5 .8) ? open_once 1st_left 1st_down no_shoot always_shoot
 Basic secret door. Slides back, then to the side. Angle determines direction.
@@ -1517,7 +1582,8 @@ void spawnfunc_func_door_secret()
 	self.mangle = self.angles;
 	self.angles = '0 0 0';
 	self.classname = "door";
-	InitMovingBrushTrigger();
+	if not(InitMovingBrushTrigger())
+		return;
 	self.effects |= EF_LOWPRECISION;
 
 	self.touch = secret_touch;
@@ -1539,5 +1605,234 @@ void spawnfunc_func_door_secret()
 	self.oldorigin = self.origin;
 	if (!self.wait)
 		self.wait = 5;		// 5 seconds before closing
+
+	self.reset = secret_reset;
+	secret_reset();
 };
 
+/*QUAKED spawnfunc_func_fourier (0 .5 .8) ?
+Brush model that moves in a pattern of added up sine waves, can be used e.g. for circular motions.
+netname: list of <frequencymultiplier> <phase> <x> <y> <z> quadruples, separated by spaces; note that phase 0 represents a sine wave, and phase 0.25 a cosine wave (by default, it uses 1 0 0 0 1, to match func_bobbing's defaults
+speed: how long one cycle of frequency multiplier 1 in seconds (default 4)
+height: amplitude modifier (default 32)
+phase: cycle timing adjustment (0-1 as a fraction of the cycle, default 0)
+noise: path/name of looping .wav file to play.
+dmg: Do this mutch dmg every .dmgtime intervall when blocked
+dmgtime: See above.
+*/
+
+void func_fourier_controller_think()
+{
+	local vector v;
+	float n, i, t;
+
+	self.nextthink = time + 0.1;
+
+	n = floor((tokenize_sane(self.owner.netname)) / 5);
+	t = self.nextthink * self.owner.cnt + self.owner.phase * 360;
+
+	v = self.owner.destvec;
+
+	for(i = 0; i < n; ++i)
+	{
+		makevectors((t * stof(argv(i*5)) + stof(argv(i*5+1)) * 360) * '0 1 0');
+		v = v + ('1 0 0' * stof(argv(i*5+2)) + '0 1 0' * stof(argv(i*5+3)) + '0 0 1' * stof(argv(i*5+4))) * self.owner.height * v_forward_y;
+	}
+
+	// * 10 so it will arrive in 0.1 sec
+	self.owner.velocity = (v - self.owner.origin) * 10;
+};
+
+void spawnfunc_func_fourier()
+{
+	local entity controller;
+	if (self.noise != "")
+	{
+		precache_sound(self.noise);
+		soundto(MSG_INIT, self, CHAN_TRIGGER, self.noise, VOL_BASE, ATTN_IDLE);
+	}
+
+	if (!self.speed)
+		self.speed = 4;
+	if (!self.height)
+		self.height = 32;
+	self.destvec = self.origin;
+	self.cnt = 360 / self.speed;
+
+	self.blocked = generic_plat_blocked;
+	if(self.dmg & (!self.message))
+		self.message = " was squished";
+    if(self.dmg && (!self.message2))
+		self.message2 = "was squished by";
+	if(self.dmg && (!self.dmgtime))
+		self.dmgtime = 0.25;
+	self.dmgtime2 = time;
+
+	if(self.netname == "")
+		self.netname = "1 0 0 0 1";
+
+	if not(InitMovingBrushTrigger())
+		return;
+
+	// wait for targets to spawn
+	controller = spawn();
+	controller.classname = "func_fourier_controller";
+	controller.owner = self;
+	controller.nextthink = time + 1;
+	controller.think = func_fourier_controller_think;
+	self.nextthink = self.ltime + 999999999;
+	self.think = SUB_Null;
+
+	// Savage: Reduce bandwith, critical on e.g. nexdm02
+	self.effects |= EF_LOWPRECISION;
+
+	// TODO make a reset function for this one
+};
+
+// reusing some fields havocbots declared
+.entity wp00, wp01, wp02, wp03;
+
+.float targetfactor, target2factor, target3factor, target4factor;
+.vector targetnormal, target2normal, target3normal, target4normal;
+
+vector func_vectormamamam_origin(entity o, float t)
+{
+	vector v, p;
+	float f;
+	entity e;
+
+	f = o.spawnflags;
+	v = '0 0 0';
+
+	e = o.wp00;
+	if(e)
+	{
+		p = e.origin + t * e.velocity;
+		if(f & 1)
+			v = v + (p * o.targetnormal) * o.targetnormal * o.targetfactor;
+		else
+			v = v + (p - (p * o.targetnormal) * o.targetnormal) * o.targetfactor;
+	}
+
+	e = o.wp01;
+	if(e)
+	{
+		p = e.origin + t * e.velocity;
+		if(f & 2)
+			v = v + (p * o.target2normal) * o.target2normal * o.target2factor;
+		else
+			v = v + (p - (p * o.target2normal) * o.target2normal) * o.target2factor;
+	}
+
+	e = o.wp02;
+	if(e)
+	{
+		p = e.origin + t * e.velocity;
+		if(f & 4)
+			v = v + (p * o.target3normal) * o.target3normal * o.target3factor;
+		else
+			v = v + (p - (p * o.target3normal) * o.target3normal) * o.target3factor;
+	}
+
+	e = o.wp03;
+	if(e)
+	{
+		p = e.origin + t * e.velocity;
+		if(f & 8)
+			v = v + (p * o.target4normal) * o.target4normal * o.target4factor;
+		else
+			v = v + (p - (p * o.target4normal) * o.target4normal) * o.target4factor;
+	}
+
+	return v;
+}
+
+void func_vectormamamam_controller_think()
+{
+	self.nextthink = time + 0.1;
+	self.owner.velocity = (self.owner.destvec + func_vectormamamam_origin(self.owner, 0.1) - self.owner.origin) * 10;
+}
+
+void func_vectormamamam_findtarget()
+{
+	if(self.target != "")
+		self.wp00 = find(world, targetname, self.target);
+
+	if(self.target2 != "")
+		self.wp01 = find(world, targetname, self.target2);
+
+	if(self.target3 != "")
+		self.wp02 = find(world, targetname, self.target3);
+
+	if(self.target4 != "")
+		self.wp03 = find(world, targetname, self.target4);
+
+	if(!self.wp00 && !self.wp01 && !self.wp02 && !self.wp03)
+		objerror("No reference entity found, so there is nothing to move. Aborting.");
+
+	self.destvec = self.origin - func_vectormamamam_origin(self.owner, 0);
+
+	local entity controller;
+	controller = spawn();
+	controller.classname = "func_vectormamamam_controller";
+	controller.owner = self;
+	controller.nextthink = time + 1;
+	controller.think = func_vectormamamam_controller_think;
+}
+
+void spawnfunc_func_vectormamamam()
+{
+	if (self.noise != "")
+	{
+		precache_sound(self.noise);
+		soundto(MSG_INIT, self, CHAN_TRIGGER, self.noise, VOL_BASE, ATTN_IDLE);
+	}
+
+	if(!self.targetfactor)
+		self.targetfactor = 1;
+
+	if(!self.target2factor)
+		self.target2factor = 1;
+
+	if(!self.target3factor)
+		self.target3factor = 1;
+
+	if(!self.target4factor)
+		self.target4factor = 1;
+
+	if(vlen(self.targetnormal))
+		self.targetnormal = normalize(self.targetnormal);
+
+	if(vlen(self.target2normal))
+		self.target2normal = normalize(self.target2normal);
+
+	if(vlen(self.target3normal))
+		self.target3normal = normalize(self.target3normal);
+
+	if(vlen(self.target4normal))
+		self.target4normal = normalize(self.target4normal);
+
+	self.blocked = generic_plat_blocked;
+	if(self.dmg & (!self.message))
+		self.message = " was squished";
+    if(self.dmg && (!self.message2))
+		self.message2 = "was squished by";
+	if(self.dmg && (!self.dmgtime))
+		self.dmgtime = 0.25;
+	self.dmgtime2 = time;
+
+	if(self.netname == "")
+		self.netname = "1 0 0 0 1";
+
+	if not(InitMovingBrushTrigger())
+		return;
+
+	// wait for targets to spawn
+	self.nextthink = self.ltime + 999999999;
+	self.think = SUB_Null;
+
+	// Savage: Reduce bandwith, critical on e.g. nexdm02
+	self.effects |= EF_LOWPRECISION;
+
+	InitializeEntity(self, func_vectormamamam_findtarget, INITPRIO_FINDTARGET);
+}

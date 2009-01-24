@@ -123,6 +123,7 @@ void W_Porto_Touch (void)
 			trace_plane_normal = norm;
 			W_Porto_Fail(0);
 		}
+		CSQCProjectile(self, TRUE, PROJECTILE_PORTO_BLUE); // change type
 	}
 	else
 	{
@@ -147,7 +148,6 @@ void W_Porto_Touch (void)
 			W_Porto_Fail(0);
 		}
 	}
-
 }
 
 void W_Porto_Attack (void)
@@ -168,10 +168,9 @@ void W_Porto_Attack (void)
 	gren.bot_dodgerating = 200;
 	gren.movetype = MOVETYPE_BOUNCEMISSILE;
 	gren.solid = SOLID_BBOX;
-	gren.effects = EF_LOWPRECISION | EF_RED | EF_ADDITIVE;
+	gren.effects = EF_RED;
 	gren.scale = 4;
-	gren.modelflags = MF_TRACER;
-	setmodel(gren, "models/grenademodel.md3"); // precision set above
+	setmodel(gren, "null"); // precision set above
 	setsize(gren, '0 0 0', '0 0 0');
 	setorigin(gren, w_shotorg);
 
@@ -193,6 +192,8 @@ void W_Porto_Attack (void)
 	gren.right_vector = v_right;
 
 	gren.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_PLAYERCLIP;
+
+	CSQCProjectile(gren, TRUE, PROJECTILE_PORTO_RED);
 }
 
 void spawnfunc_weapon_porto (void)
@@ -238,8 +239,8 @@ float w_porto(float req)
 					WriteByte(MSG_ONE, TE_CSQC_HOLDANGLES);
 					WriteByte(MSG_ONE, WEP_PORTO);
 					WriteByte(MSG_ONE, 1);
-					WriteCoord(MSG_ONE, self.v_angle_x);
-					WriteCoord(MSG_ONE, self.v_angle_y);
+					WriteAngle(MSG_ONE, self.v_angle_x);
+					WriteAngle(MSG_ONE, self.v_angle_y);
 				});
 				self.porto_v_angle_held = 1;
 			}
@@ -259,7 +260,6 @@ float w_porto(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/grenademodel.md3");
 		precache_model ("models/weapons/g_porto.md3");
 		precache_model ("models/weapons/v_porto.md3");
 		precache_model ("models/weapons/w_porto.zym");

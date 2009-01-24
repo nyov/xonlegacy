@@ -4,19 +4,6 @@
 
 void Seeker_Missile_Explode ()
 {
-	vector	org2;
-	float b;
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("hagar_explode"), org2, '0 0 0', 1);
-
-	b = crandom();
-	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/seekerexp1.wav", 1, ATTN_NORM);
-	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/seekerexp2.wav", 1, ATTN_NORM);
-	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/seekerexp3.wav", 1, ATTN_NORM);
-
 	self.event_damage = SUB_Null;
 	RadiusDamage (self, self.owner, cvar("g_balance_seeker_missile_damage"), cvar("g_balance_seeker_missile_edgedamage"), cvar("g_balance_seeker_missile_radius"), world, cvar("g_balance_seeker_missile_force"), self.projectiledeathtype, other);
 
@@ -123,6 +110,7 @@ void Seeker_Missile_Think()
 	self.angles = vectoangles(self.velocity);			// turn model in the new flight direction
 	self.nextthink = time + 0.05;
 
+	UpdateCSQCProjectile(self);
 }
 
 
@@ -141,7 +129,6 @@ void Seeker_Missile_Damage (entity inflictor, entity attacker, float damage, flo
 		W_PrepareExplosionByDamage(attacker, Seeker_Missile_Explode);
 }
 
-#define EF_ROCKET				16777216
 void Seeker_Missile_Animate()
 {
 	self.frame = self.frame +1;
@@ -155,13 +142,14 @@ void Seeker_Missile_Animate()
 	{
 		self.think           = Seeker_Missile_Think;
 		self.nextthink       = time + cvar("g_balance_seeker_missile_activate_delay");
-		self.effects         = EF_LOWPRECISION | EF_NOSHADOW | EF_ROCKET;
 
 		if (cvar("g_balance_seeker_guided_proxy"))
 			self.movetype    = MOVETYPE_BOUNCEMISSILE;
 		else
 			self.movetype    = MOVETYPE_FLYMISSILE;
 	}
+
+	UpdateCSQCProjectile(self);
 }
 
 void Seeker_Fire_Missile(vector f_org)
@@ -193,7 +181,6 @@ void Seeker_Fire_Missile(vector f_org)
 	missile.cnt             = time + cvar("g_balance_seeker_missile_lifetime");
 	missile.enemy           = self.enemy;
 	missile.switchweapon           = cvar("g_balance_seeker_missile_speed");
-	missile.effects         = EF_LOWPRECISION | EF_NOSHADOW;// | EF_ROCKET;
 	missile.solid           = SOLID_BBOX;
 	missile.scale           = 2;
 	missile.takedamage          = DAMAGE_YES;
@@ -202,7 +189,7 @@ void Seeker_Fire_Missile(vector f_org)
 	missile.projectiledeathtype = WEP_SEEKER;
 
 	setorigin (missile, w_shotorg);
-	setmodel  (missile, "models/tagrocket.md3");
+	setmodel  (missile, "null");
 	setsize (missile, '-2 -2 -2', '2 2 2');
 
 
@@ -216,6 +203,7 @@ void Seeker_Fire_Missile(vector f_org)
 	missile.switchweapon = vlen(missile.velocity);
 	missile.angles = vectoangles (missile.velocity);
 
+	CSQCProjectile(missile, FALSE, PROJECTILE_SEEKER);
 }
 
 void Seeker_Vollycontroler_Think()
@@ -269,22 +257,9 @@ void Seeker_Tag_Damage (entity inflictor, entity attacker, float damage, float d
 
 void Seeker_Tag_Explode ()
 {
-	vector	org2;
-	float b;
-
 	//if(other==self.owner)
 	//    return;
-
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("hagar_explode"), org2, '0 0 0', 1);
-
-	b = crandom();
-	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/tagexp1.wav", 1, ATTN_NORM);
-	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/tagexp2.wav", 1, ATTN_NORM);
-	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/tagexp3.wav", 1, ATTN_NORM);
+	Damage_DamageInfo(self.origin, 0, 0, 0, self.velocity, WEP_SEEKER | HITTYPE_BOUNCE);
 
 	remove (self);
 }
@@ -300,15 +275,13 @@ void Seeker_Tag_Touch()
 	vector dir;
 	vector org2;
 
-	PROJECTILE_TOUCH_NOSOUND;
-
 	dir     = normalize (self.owner.origin - self.origin);
 	org2    = findbetterlocation (self.origin, 8);
 
 	te_knightspike(org2);
 
 	self.event_damage = SUB_Null;
-	sound (self, CHAN_PROJECTILE, "weapons/tag_impact.wav", 1, ATTN_NORM);
+	Damage_DamageInfo(self.origin, 0, 0, 0, self.velocity, WEP_SEEKER | HITTYPE_HEADSHOT);
 
 	if (other.takedamage == DAMAGE_AIM && other.deadflag == DEAD_NO)
 	{
@@ -357,37 +330,24 @@ void Seeker_Fire_Tag()
 	missile.event_damage    = Seeker_Tag_Explode;
 	missile.health          = 5;
 
-	setmodel (missile, "models/laser.mdl"); // TODO make this seeker specific
+	setmodel (missile, "null");
 	setorigin (missile, w_shotorg);
 	setsize (missile, '0 0 0', '0 0 0');
 
-	missile.effects     = EF_FULLBRIGHT | EF_NOSHADOW | EF_LOWPRECISION;
-	missile.modelflags  = MF_TRACER3;
-	sound (missile, CHAN_PROJECTILE, "weapons/tag_rocket_fly.wav", VOL_BASE, ATTN_NORM);
 	missile.flags       = FL_PROJECTILE;
 
 	missile.velocity    = w_shotdir  * cvar("g_balance_seeker_tag_speed");
 	missile.movetype    = MOVETYPE_BOUNCEMISSILE;
 	W_SetupProjectileVelocity(missile);
 	missile.angles = vectoangles (missile.velocity);
+
+	CSQCProjectile(missile, TRUE, PROJECTILE_TAG);
+	missile.effects = EF_NODEPTHTEST;
 }
 
 
 void Seeker_Flac_Explode ()
 {
-	vector	org2;
-	float b;
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("flac_explode"), org2, '0 0 0', 1);
-
-	b = crandom();
-	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/flacexp1.wav", 1, ATTN_NORM);
-	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/flacexp2.wav", 1, ATTN_NORM);
-	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/flacexp3.wav", 1, ATTN_NORM);
-
 	self.event_damage = SUB_Null;
 
 	RadiusDamage (self, self.owner, cvar("g_balance_seeker_flac_damage"), cvar("g_balance_seeker_flac_edgedamage"), cvar("g_balance_seeker_flac_radius"), world, cvar("g_balance_seeker_flac_force"), self.projectiledeathtype, other);
@@ -430,7 +390,7 @@ void Seeker_Fire_Flac()
 	}
 	W_SetupShot (self, f_org, FALSE, 2, "weapons/flac_fire.wav");
 
-		pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
+	pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
 	missile.owner = missile.realowner = self;
@@ -445,12 +405,9 @@ void Seeker_Fire_Flac()
 	missile.scale = 0.4; // BUG: the model is too big
 	missile.projectiledeathtype = WEP_SEEKER;
 	setorigin (missile, w_shotorg);
-	setmodel (missile, "models/hagarmissile.mdl"); // precision set below
+	setmodel (missile, "null"); // precision set below
 	setsize (missile, '0 0 0', '0 0 0');
 	missile.projectiledeathtype = WEP_SEEKER | HITTYPE_SECONDARY;
-
-	missile.effects = EF_LOWPRECISION;
-	missile.modelflags = MF_TRACER3;
 
 	missile.movetype = MOVETYPE_FLY;
 	w_shotdir = w_shotdir + '0 0 0.3';
@@ -460,6 +417,8 @@ void Seeker_Fire_Flac()
 
 	missile.angles = vectoangles (missile.velocity);
 	missile.flags = FL_PROJECTILE;
+
+	CSQCProjectile(missile, TRUE, PROJECTILE_FLAC);
 }
 
 void spawnfunc_weapon_seeker (void)
@@ -491,25 +450,12 @@ float w_seeker(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/hagarmissile.mdl");
-		precache_model ("models/tagrocket.md3");
 		precache_model ("models/weapons/g_seeker.md3");
 		precache_model ("models/weapons/v_seeker.md3");
 		precache_model ("models/weapons/w_seeker.zym");
 		precache_sound ("weapons/tag_fire.wav");
-		precache_sound ("weapons/tag_impact.wav");
-		precache_sound ("weapons/tagexp1.wav");
-		precache_sound ("weapons/tagexp2.wav");
-		precache_sound ("weapons/tagexp3.wav");
-		precache_sound ("weapons/tag_rocket_fly.wav");
 		precache_sound ("weapons/flac_fire.wav");
-		precache_sound ("weapons/flacexp1.wav");
-		precache_sound ("weapons/flacexp2.wav");
-		precache_sound ("weapons/flacexp3.wav");
 		precache_sound ("weapons/seeker_fire.wav");
-		precache_sound ("weapons/seekerexp1.wav");
-		precache_sound ("weapons/seekerexp2.wav");
-		precache_sound ("weapons/seekerexp3.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_SEEKER);

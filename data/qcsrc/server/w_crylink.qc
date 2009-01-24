@@ -1,5 +1,4 @@
 .float gravity;
-const vector proj_color = '1 1 1';
 
 .entity realowner;
 
@@ -8,8 +7,6 @@ void W_Crylink_Touch (void)
 	float finalhit;
 	float f;
 	PROJECTILE_TOUCH;
-	sound (self, CHAN_PROJECTILE, "weapons/crylink_impact.wav", VOL_BASE, ATTN_NORM);
-	pointparticles(particleeffectnum("crylink_impactbig"), self.origin, '0 0 0', 1);
 	finalhit = ((self.cnt <= 0) || (other.takedamage != DAMAGE_NO));
 	if(finalhit)
 		f = 1;
@@ -28,6 +25,8 @@ void W_Crylink_Touch (void)
 	self.owner = world;
 	self.projectiledeathtype |= HITTYPE_BOUNCE;
 	//self.scale = 1 + self.cnt;
+
+	UpdateCSQCProjectile(self);
 }
 
 void W_Crylink_Touch2 (void)
@@ -35,8 +34,6 @@ void W_Crylink_Touch2 (void)
 	float finalhit;
 	float f;
 	PROJECTILE_TOUCH;
-	sound (self, CHAN_PROJECTILE, "weapons/crylink_impact2.wav", VOL_BASE, ATTN_NORM);
-	pointparticles(particleeffectnum("crylink_impact"), self.origin, '0 0 0', 1);
 	finalhit = ((self.cnt <= 0) || (other.takedamage != DAMAGE_NO));
 	if(finalhit)
 		f = 1;
@@ -55,6 +52,8 @@ void W_Crylink_Touch2 (void)
 	self.owner = world;
 	self.projectiledeathtype |= HITTYPE_BOUNCE;
 //	self.scale = 1 + 1 * self.cnt;
+
+	UpdateCSQCProjectile(self);
 }
 
 void W_Crylink_Attack (void)
@@ -62,11 +61,15 @@ void W_Crylink_Attack (void)
 	local float counter, shots;
 	local entity proj;
 	local vector s;
+	vector forward, right, up;
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_crylink_primary_ammo");
 
 	W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/crylink_fire.wav");
+	forward = v_forward;
+	right = v_right;
+	up = v_up;
 
 	shots = cvar("g_balance_crylink_primary_shots");
 	pointparticles(particleeffectnum("crylink_muzzleflash"), w_shotorg, w_shotdir * 1000, shots);
@@ -83,23 +86,22 @@ void W_Crylink_Attack (void)
 		proj.projectiledeathtype = WEP_CRYLINK;
 		//proj.gravity = 0.001;
 
-		setmodel (proj, "models/plasmatrail.mdl"); // precision set below
+		setmodel (proj, "null"); // precision set below
 		setsize (proj, '0 0 0', '0 0 0');
 		setorigin (proj, w_shotorg);
+
 
 		s = '0 0 0';
 		if (counter == 0)
 			s = '0 0 0';
-		else if (counter == 1)
-			s = '0 0 1';
-		else if (counter == 2)
-			s = '0 -0.71 -0.71';
-		else if (counter == 3)
-			s = '0 0.71 -0.71';
 		else
-			s = randomvec();
+		{
+			makevectors('0 360 0' * (0.75 + (counter - 0.5) / (shots - 1)));
+			s_y = v_forward_x;
+			s_z = v_forward_y;
+		}
 		s = s * cvar("g_balance_crylink_primary_spread");
-		proj.velocity = (w_shotdir + v_right * s_y + v_up * s_z) * cvar("g_balance_crylink_primary_speed");
+		proj.velocity = (w_shotdir + right * s_y + up * s_z) * cvar("g_balance_crylink_primary_speed");
 //		proj.velocity = (w_shotdir + randomvec() * cvar("g_balance_crylink_primary_spread")) * cvar("g_balance_crylink_primary_speed");
 		W_SetupProjectileVelocity(proj);
 		proj.touch = W_Crylink_Touch;
@@ -110,15 +112,16 @@ void W_Crylink_Attack (void)
 		else
 			SUB_SetFade(proj, time + cvar("g_balance_crylink_primary_other_lifetime"), cvar("g_balance_crylink_primary_other_fadetime"));
 		proj.cnt = cvar("g_balance_crylink_primary_bounces");
-		proj.scale = 1 + 1 * proj.cnt;
+		//proj.scale = 1 + 1 * proj.cnt;
 
 		proj.angles = vectoangles (proj.velocity);
 
 		//proj.glow_size = 20;
 
-		proj.effects = EF_LOWPRECISION;
 		proj.flags = FL_PROJECTILE;
-		proj.colormod = proj_color;
+
+		CSQCProjectile(proj, TRUE, PROJECTILE_CRYLINK);
+
 		counter = counter + 1;
 	}
 }
@@ -148,7 +151,7 @@ void W_Crylink_Attack2 (void)
 		proj.projectiledeathtype = WEP_CRYLINK | HITTYPE_SECONDARY;
 		//proj.gravity = 0.001;
 
-		setmodel (proj, "models/plasmatrail.mdl"); // precision set below
+		setmodel (proj, "null"); // precision set below
 		setsize (proj, '0 0 0', '0 0 0');
 		setorigin (proj, w_shotorg);
 
@@ -160,15 +163,16 @@ void W_Crylink_Attack2 (void)
 		else
 			SUB_SetFade(proj, time + cvar("g_balance_crylink_secondary_line_lifetime"), cvar("g_balance_crylink_secondary_line_fadetime"));
 		proj.cnt = cvar("g_balance_crylink_secondary_bounces");
-		proj.scale = 1 + 1 * proj.cnt;
+		//proj.scale = 1 + 1 * proj.cnt;
 
 		proj.angles = vectoangles (proj.velocity);
 
 		//proj.glow_size = 20;
 
-		proj.effects = EF_LOWPRECISION;
 		proj.flags = FL_PROJECTILE;
-		proj.colormod = proj_color;
+
+		CSQCProjectile(proj, TRUE, PROJECTILE_CRYLINK);
+
 		counter = counter + 1;
 	}
 }
@@ -224,15 +228,11 @@ float w_crylink(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/plasma.mdl");
-		precache_model ("models/plasmatrail.mdl");
 		precache_model ("models/weapons/g_crylink.md3");
 		precache_model ("models/weapons/v_crylink.md3");
 		precache_model ("models/weapons/w_crylink.zym");
 		precache_sound ("weapons/crylink_fire.wav");
 		precache_sound ("weapons/crylink_fire2.wav");
-		precache_sound ("weapons/crylink_impact.wav");
-		precache_sound ("weapons/crylink_impact2.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_CRYLINK);

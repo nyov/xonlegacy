@@ -2,25 +2,13 @@ void(float imp) W_SwitchWeapon;
 
 void W_Laser_Touch (void)
 {
-	vector	dir;
-	vector org2;
-	vector normal;
-
 	PROJECTILE_TOUCH;
-
-	normal = trace_plane_normal;
-	dir = normalize (self.owner.origin - self.origin);
-	org2 = findbetterlocation (self.origin, 8);
-
-	pointparticles(particleeffectnum("laser_impact"), org2, normal * 1000, 1);
-
 
 	self.event_damage = SUB_Null;
 	if (self.dmg)
 		RadiusDamage (self, self.owner, cvar("g_balance_laser_secondary_damage"), cvar("g_balance_laser_secondary_edgedamage"), cvar("g_balance_laser_secondary_radius"), world, cvar("g_balance_laser_secondary_force"), self.projectiledeathtype, other);
 	else
 		RadiusDamage (self, self.owner, cvar("g_balance_laser_primary_damage"), cvar("g_balance_laser_primary_edgedamage"), cvar("g_balance_laser_primary_radius"), world, cvar("g_balance_laser_primary_force"), self.projectiledeathtype, other);
-	sound (self, CHAN_PROJECTILE, "weapons/laserimpact.wav", VOL_BASE, ATTN_NORM);
 
 	remove (self);
 }
@@ -48,7 +36,7 @@ void W_Laser_Attack (float issecondary)
 	if(issecondary)
 		missile.projectiledeathtype |= HITTYPE_SECONDARY;
 
-	setmodel (missile, "models/laser.mdl"); // precision set below
+	setmodel (missile, "null"); // precision set below
 	setsize (missile, '0 0 0', '0 0 0');
 	setorigin (missile, w_shotorg);
 
@@ -67,8 +55,9 @@ void W_Laser_Attack (float issecondary)
 	else
 		missile.nextthink = time + cvar("g_balance_laser_primary_lifetime");
 
-	missile.effects = EF_LOWPRECISION;
 	missile.flags = FL_PROJECTILE;
+
+	CSQCProjectile(missile, TRUE, PROJECTILE_LASER);
 }
 
 float w_laser(float req)
@@ -116,11 +105,9 @@ float w_laser(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/laser.mdl");
 		precache_model ("models/weapons/v_laser.md3");
 		precache_model ("models/weapons/w_laser.zym");
 		precache_sound ("weapons/lasergun_fire.wav");
-		precache_sound ("weapons/laserimpact.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_LASER);

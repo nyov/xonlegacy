@@ -1,0 +1,4 @@
+.float csqcprojectile_clientanimate;
+
+void CSQCProjectile(entity e, float clientanimate, float type);
+void UpdateCSQCProjectile(entity e);

@@ -51,7 +51,6 @@ void CopyBody(float keepvelocity)
 	self.solid = oldself.solid;
 	self.takedamage = oldself.takedamage;
 	self.think = oldself.think;
-	self.gibrandom = oldself.gibrandom;
 	self.customizeentityforclient = oldself.customizeentityforclient;
 	if (keepvelocity == 1)
 		self.velocity = oldself.velocity;
@@ -62,6 +61,7 @@ void CopyBody(float keepvelocity)
 	setorigin(self, oldself.origin);
 	setsize(self, oldself.mins, oldself.maxs);
 	self.oldorigin = oldself.origin;
+	self.reset = SUB_Remove;
 	self = oldself;
 }
 
@@ -258,8 +258,8 @@ void SpawnThrownWeapon (vector org, float w)
 void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
 	local float take, save;
-	if(sv_gentle < 1)	
-		pointparticles(particleeffectnum("blood"), hitloc, force, bound(0, damage, 200));
+	Violence_GibSplash_At(hitloc, '0 0 0', '0 0 0', force, 2, bound(0, damage, 200) / 16);
+
 	// damage resistance (ignore most of the damage from a bullet or similar)
 	damage = max(damage - 5, 1);
 
@@ -273,13 +273,10 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 	else if (take > 10)
 		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM);
 
-	if(independent_players)
-	if(sv_gentle < 1) {	
-		if (take > 50)
-			TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.1,1);
-		if (take > 100)
-			TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.2,1);
-	}
+	if (take > 50)
+		Violence_GibSplash_At(hitloc, '0 0 0', '0 0 0', force * -0.1, 3, 1);
+	if (take > 100)
+		Violence_GibSplash_At(hitloc, '0 0 0', '0 0 0', force * -0.2, 3, 1);
 
 	if (!(self.flags & FL_GODMODE))
 	{
@@ -292,7 +289,7 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 	self.dmg_take = self.dmg_take + take;//max(take - 10, 0);
 	self.dmg_inflictor = inflictor;
 
-	if (self.health <= -50)
+	if (self.health <= -75 && self.modelindex != 0)
 	{
 		// don't use any animations as a gib
 		self.frame = 0;
@@ -300,61 +297,9 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 		// view just above the floor
 		self.view_ofs = '0 0 4';
 
-		// make a juicy mess
-		local float multiplier;
-		multiplier = 1;
-		if (cvar("ekg"))
-			multiplier = 5;
-
-
-		// make a meaty mess
-		if(independent_players)
-		{
-			TossGib (self, "models/gibs/eye.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
-			self.solid = SOLID_TRIGGER; // undo SOLID_CORPSE
-			self.takedamage = DAMAGE_NO; // can't damage this gib, to prevent better jumps from it
-		}
-		else
-			TossGib (self, "models/gibs/eye.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
-		
-		if not(independent_players)
-		if(sv_gentle < 1) {
-			te_bloodshower (self.origin + self.mins, self.origin + self.maxs, 1200 * multiplier, 1000);
-			TossGib (world, "models/gibs/bloodyskull.md3", self.origin + self.view_ofs, self.velocity,0);
-
-			local float c;
-			c = 0;
-
-			while (c < multiplier)
-			{
-				c = c + 1;
-				//TossGib (world, "models/gibs/gib1.md3", self.origin, self.velocity + randomvec() * 450,0);
-				//TossGib (world, "models/gibs/gib2.md3", self.origin, self.velocity + randomvec() * 450,0);
-				//TossGib (world, "models/gibs/gib3.md3", self.origin, self.velocity + randomvec() * 450,0);
-				//TossGib (world, "models/gibs/gib4.md3", self.origin, self.velocity + randomvec() * 450,0);
-				//TossGib (world, "models/gibs/gib5.md3", self.origin, self.velocity + randomvec() * 450,0);
-				//TossGib (world, "models/gibs/gib6.md3", self.origin, self.velocity + randomvec() * 450,0);
-
-				TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * (random() * 120 + 90),0);
-				TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * (random() * 120 + 90),0);
-				//TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
-				//TossGib (world, "models/gibs/arm.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
-				TossGib (world, "models/gibs/chest.md3", self.origin + self.view_ofs * 0.5, self.velocity + randomvec() * (random() * 120 + 80),0);
-				//TossGib (world, "models/gibs/smallchest.md3", self.origin + self.view_ofs, self.velocity + randomvec() * 150,0);
-				TossGib (world, "models/gibs/smallchest.md3", self.origin + self.view_ofs, self.velocity + randomvec() * (random() * 120 + 80),0);
-				TossGib (world, "models/gibs/leg1.md3", self.origin + self.view_ofs * -0.2, self.velocity + randomvec() * (random() * 120 + 85),0);
-				TossGib (world, "models/gibs/leg2.md3", self.origin + self.view_ofs * -0.4, self.velocity + randomvec() * (random() * 120 + 85),0);
-				//TossGib (world, "models/gibs/leg1.md3", self.origin + self.view_ofs * -0.2, self.velocity + randomvec() * 150,0);
-				//TossGib (world, "models/gibs/leg2.md3", self.origin + self.view_ofs * -0.4, self.velocity + randomvec() * 150,0);
-
-				// these splat on impact
-				TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
-				TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
-				TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
-				TossGib (world, "models/gibs/chunk.mdl", self.origin, self.velocity + randomvec() * 450,1);
-			}
-			sound (self, CHAN_PLAYER, "misc/gib.wav", VOL_BASE, ATTN_NORM);
-		}
+		Violence_GibSplash(self, 1, 1);
+		self.modelindex = 0; // restore later
+		self.solid = SOLID_NOT; // restore later
 	}
 }
 
@@ -371,11 +316,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 			damage /= sqrt(bound(1.0, attacker.cvar_cl_handicap, 100.0));
 	}
 
-	if(sv_gentle > 0) {
-		pointparticles(particleeffectnum("damage_hit"), hitloc, force, bound(0, damage, 200));
-	} else {
-		pointparticles(particleeffectnum("blood"), hitloc, force, bound(0, damage, 200));
-	}
+	Violence_GibSplash_At(hitloc, '0 0 0', '0 0 0', force, 2, bound(0, damage, 200) / 16);
 
 	if(g_arena)
 	if(numspawned < 2)
@@ -399,14 +340,10 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 	else if (take > 10)
 		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM); // FIXME possibly remove them?
 
-	if(sv_gentle < 1)
-	if not(independent_players)
-	{
-		if (take > 50)
-			TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.1,1);
-		if (take > 100)
-			TossGib (world, "models/gibs/chunk.mdl", hitloc, force * -0.2,1);
-	}
+	if (take > 50)
+		Violence_GibSplash_At(hitloc, '0 0 0', '0 0 0', force * -0.1, 3, 1);
+	if (take > 100)
+		Violence_GibSplash_At(hitloc, '0 0 0', '0 0 0', force * -0.2, 3, 1);
 
 	if (time > self.spawnshieldtime)
 	{
@@ -431,13 +368,13 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 					// exclude pain sounds for laserjumps as long as you aren't REALLY low on health and would die of the next two
 					{
 						if(self.health > 75) // TODO make a "gentle" version?
-							PlayerSound(playersound_pain100, CHAN_PAIN, 0);
+							PlayerSound(playersound_pain100, CHAN_PAIN, VOICETYPE_PLAYERSOUND);
 						else if(self.health > 50)
-							PlayerSound(playersound_pain75, CHAN_PAIN, 0);
+							PlayerSound(playersound_pain75, CHAN_PAIN, VOICETYPE_PLAYERSOUND);
 						else if(self.health > 25)
-							PlayerSound(playersound_pain50, CHAN_PAIN, 0);
+							PlayerSound(playersound_pain50, CHAN_PAIN, VOICETYPE_PLAYERSOUND);
 						else if(self.health > 1)
-							PlayerSound(playersound_pain25, CHAN_PAIN, 0);
+							PlayerSound(playersound_pain25, CHAN_PAIN, VOICETYPE_PLAYERSOUND);
 					}
 				}
 
@@ -482,9 +419,9 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		if(sv_gentle < 1) // TODO make a "gentle" version?
 		{
 			if(deathtype == DEATH_DROWN)
-				PlayerSound(playersound_drown, CHAN_PAIN, 0);
+				PlayerSound(playersound_drown, CHAN_PAIN, VOICETYPE_PLAYERSOUND);
 			else
-				PlayerSound(playersound_death, CHAN_PAIN, 0);
+				PlayerSound(playersound_death, CHAN_PAIN, VOICETYPE_PLAYERSOUND);
 		}
 
 		// get rid of kill indicator
@@ -611,7 +548,6 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		if(sv_gentle > 0) {
 			// remove corpse
 			PlayerCorpseDamage (inflictor, attacker, 100.0, deathtype, hitloc, force);
-			pointparticles(particleeffectnum("damage_dissolve"), self.origin, force, 1);
 		}
 	}
 }
@@ -759,15 +695,150 @@ void UpdateSelectedPlayer()
 		self.last_selected_player = self.selected_player;
 }
 
-float GetVoiceMessageTeamsayType(string type)
+.float floodcontrol_chat;
+.float floodcontrol_chatteam;
+void Say(entity source, float teamsay, string msgin, float floodcontrol)
+{
+	string msgstr, colorstr, cmsgstr, namestr;
+	float flood;
+	entity head;
+
+	if(Ban_MaybeEnforceBan(source))
+		return;
+
+	if(!teamsay)
+		if(substring(msgin, 0, 1) == " ")
+			msgin = substring(msgin, 1, strlen(msgin) - 1); // work around DP say bug (say_team does not have this!)
+
+	msgin = formatmessage(msgin);
+
+	if(msgin == "")
+		return;
+
+	if(source.classname != "player")
+		colorstr = "^0"; // black for spectators
+	else if(teams_matter)
+		colorstr = Team_ColorCode(source.team);
+	else
+		teamsay = FALSE;
+
+	if(intermission_running)
+		teamsay = FALSE;
+
+	/*
+	 * using bprint solves this... me stupid
+	// how can we prevent the message from appearing in a listen server?
+	// for now, just give "say" back and only handle say_team
+	if(!teamsay)
+	{
+		clientcommand(self, strcat("say ", msgin));
+		return;
+	}
+	*/
+
+	if(cvar("g_chat_teamcolors"))
+		namestr = playername(source);
+	else
+		namestr = source.netname;
+	if(teamsay)
+	{
+		msgstr = strzone(strcat("\{1}\{13}", colorstr, "(^3", namestr, colorstr, ") ^7", msgin, "\n"));
+		cmsgstr = strcat(colorstr, "(^3", namestr, colorstr, ")\n^7", wordwrap(msgin, 50));
+	}
+	else
+		msgstr = strzone(strcat("\{1}", namestr, "^7: ", msgin, "\n"));
+
+	// FLOOD CONTROL
+	flood = 0;
+	if(floodcontrol)
+	{
+		float flood_spl;
+		float flood_burst;
+		float flood_lmax;
+		var .float flood_field;
+		float lines;
+		if(teamsay)
+		{
+			flood_spl = cvar("g_chat_flood_spl_team");
+			flood_burst = cvar("g_chat_flood_burst_team");
+			flood_lmax = cvar("g_chat_flood_lmax_team");
+			flood_field = floodcontrol_chatteam;
+		}
+		else
+		{
+			flood_spl = cvar("g_chat_flood_spl");
+			flood_burst = cvar("g_chat_flood_burst");
+			flood_lmax = cvar("g_chat_flood_lmax");
+			flood_field = floodcontrol_chat;
+		}
+		flood_burst = max(0, flood_burst - 1);
+		// to match explanation in default.cfg, a value of 3 must allow three-line bursts and not four!
+		lines = ceil(strlennocol(msgstr) / 75);
+		if(flood_lmax && lines > flood_lmax)
+			flood = 2;
+		else if(time >= self.flood_field)
+			self.flood_field = max(time - flood_burst * flood_spl, self.flood_field) + lines * flood_spl;
+		else
+			flood = 1;
+	}
+
+	if(flood)
+	{
+		if(cvar("g_chat_flood_notify_flooder"))
+		{
+			if(flood == 1)
+				sprint(self, strcat("^3FLOOD CONTROL: ^7wait ^1", ftos(self.flood_field - time), "^3 seconds\n"));
+			else if(flood == 2)
+				sprint(self, "^3FLOOD CONTROL: ^7message too long\n");
+		}
+		else
+			sprint(self, msgstr);
+		print("NOTE: ", playername(self), "^7 is flooding.\n");
+	}
+	else if(teamsay)
+	{
+		if(source.classname == "player")
+		{
+			FOR_EACH_REALPLAYER(head)
+			{
+				if(head.team == source.team)
+				{
+					sprint(head, msgstr);
+					centerprint(head, cmsgstr);
+				}
+			}
+		}
+		else
+		{
+			FOR_EACH_REALCLIENT(head) if(head.classname != "player")
+			{
+				sprint(head, msgstr);
+				centerprint(head, cmsgstr);
+			}
+		}
+	}
+	else
+	{
+		// TODO invent a cvar name for allowing global chat by spectators during warmup anyway
+		if(cvar("g_chat_nospectators") && source.classname != "player") {
+			FOR_EACH_REALCLIENT(head) if(head.classname != "player") {
+				sprint(head, msgstr);
+			}
+		}
+		else
+			bprint(msgstr);
+	}
+
+	strunzone(msgstr);
+}
+
+float GetVoiceMessageVoiceType(string type)
 {
 	if(type == "taunt")
-		return 0;
+		return VOICETYPE_TAUNT;
 	if(type == "teamshoot")
-		return 2;
-	if(type == "teamshoot_auto")
-		return 3;
-	return 1;
+		return VOICETYPE_LASTATTACKER;
+	return VOICETYPE_TEAMRADIO;
 }
 
 string allvoicesamples;
@@ -782,8 +853,6 @@ float GetPlayerSoundSampleField_fixed;
 #define _VOICEMSG(m) case #m: return playersound_##m;
 		ALLVOICEMSGS
 #undef _VOICEMSG
-		// exception:
-		case "teamshoot_auto": return playersound_teamshoot;
 	}
 	GetPlayerSoundSampleField_notFound = 1;
 	return playersound_taunt;
@@ -892,9 +961,10 @@ void UpdatePlayerSounds()
 	LoadPlayerSounds(strcat(self.model, ".sounds"), 0);
 }
 
-void GlobalSound(string sample, float chan, float teamsay)
+void GlobalSound(string sample, float chan, float voicetype)
 {
 	float n;
+	float tauntrand;
 
 	if(sample == "")
 		return;
@@ -905,65 +975,91 @@ void GlobalSound(string sample, float chan, float teamsay)
 		sample = strcat(argv(0), ftos(floor(random() * n + 1)), ".wav"); // randomization
 	else
 		sample = strcat(argv(0), ".wav"); // randomization
-
-	if(teamsay == 3) // only to last attacker
+	
+	switch(voicetype)
 	{
-		if(self.pusher)
-			if(self.pusher.team == self.team)
-			{
-				msg_entity = self.pusher;
-				if(clienttype(msg_entity) == CLIENTTYPE_REAL)
-					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
-			}
-	}
-	else if(teamsay == 2) // only to last attacker and self
-	{
-		if(self.pusher)
-			if(self.pusher.team == self.team)
-			{
-				msg_entity = self.pusher;
-				if(clienttype(msg_entity) == CLIENTTYPE_REAL)
-					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
-				msg_entity = self;
-				if(clienttype(msg_entity) == CLIENTTYPE_REAL)
-					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
-			}
-	}
-	else if(teamsay == 0) // to everyone
-	{
-		// broadcast the sound, but it's directional
-		sound(self, chan, sample, VOL_BASE, ATTN_NORM);
-	}
-	else if(teamsay == 1) // to the same team
-	{
-		if(teams_matter)
-		{
-			entity e;
-			FOR_EACH_REALCLIENT(e)
-				if(!teams_matter || e.team == self.team)
+		case VOICETYPE_LASTATTACKER_ONLY:
+			if(self.pusher)
+				if(self.pusher.team == self.team)
 				{
-					msg_entity = e;
-					soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
+					msg_entity = self.pusher;
+					if(clienttype(msg_entity) == CLIENTTYPE_REAL)
+					{
+						if(msg_entity.cvar_cl_voice_directional == 1)
+							soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_MIN);
+						else
+							soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_NONE);
+					}
 				}
-		}
-		else
-		{
-			sound(self, chan, sample, VOL_BASE, ATTN_NONE);
-		}
+			break;
+		case VOICETYPE_LASTATTACKER:
+			if(self.pusher)
+				if(self.pusher.team == self.team)
+				{
+					msg_entity = self.pusher;
+					if(clienttype(msg_entity) == CLIENTTYPE_REAL)
+					{
+						if(msg_entity.cvar_cl_voice_directional == 1)
+							soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_MIN);
+						else
+							soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_NONE);
+					}
+					msg_entity = self;
+					if(clienttype(msg_entity) == CLIENTTYPE_REAL)
+						soundto(MSG_ONE, self, chan, sample, VOL_BASE, ATTN_NONE);
+				}
+			break;
+		case VOICETYPE_TEAMRADIO:
+			FOR_EACH_REALCLIENT(msg_entity)
+				if(!teams_matter || msg_entity.team == self.team)
+				{
+					if(msg_entity.cvar_cl_voice_directional == 1)
+						soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_MIN);
+					else
+						soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_NONE);
+				}
+			break;
+		case VOICETYPE_AUTOTAUNT:
+			tauntrand = random();
+			FOR_EACH_REALCLIENT(msg_entity)
+				if (tauntrand < msg_entity.cvar_cl_autotaunt)
+				{
+					if (msg_entity.cvar_cl_voice_directional >= 1)
+						soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, bound(ATTN_MIN, msg_entity.cvar_cl_voice_directional_taunt_attenuation, ATTN_MAX));
+					else
+						soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_NONE);
+				}
+			break;
+		case VOICETYPE_TAUNT:
+			FOR_EACH_REALCLIENT(msg_entity)
+			{
+				if (msg_entity.cvar_cl_voice_directional >= 1)
+					soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, bound(ATTN_MIN, msg_entity.cvar_cl_voice_directional_taunt_attenuation, ATTN_MAX));
+				else
+					soundto(MSG_ONE, self, chan, sample, VOL_BASEVOICE, ATTN_NONE);
+			}
+		case VOICETYPE_PLAYERSOUND:
+			sound(self, chan, sample, VOL_BASE, ATTN_NORM);
+			break;
+		default:
+			backtrace("Invalid voice type!");
+			break;
 	}
 }
 
-void PlayerSound(.string samplefield, float chan, float teamsay)
+void PlayerSound(.string samplefield, float chan, float voicetype)
 {
 	string sample;
 	sample = self.samplefield;
-	GlobalSound(sample, chan, teamsay);
+	GlobalSound(sample, chan, voicetype);
 }
 
-void VoiceMessage(string type)
+.float floodcontrol_voice;
+.float floodcontrol_voiceteam;
+void VoiceMessage(string type, string msg)
 {
 	var .string sample;
-	var float teamsay;
+	var float voicetype, ownteam;
 	sample = GetVoiceMessageSampleField(type);
 
 	if(GetPlayerSoundSampleField_notFound)
@@ -972,7 +1068,33 @@ void VoiceMessage(string type)
 		return;
 	}
 
-	teamsay = GetVoiceMessageTeamsayType(type);
+	voicetype = GetVoiceMessageVoiceType(type);
+	ownteam = (voicetype == VOICETYPE_TEAMRADIO);
 
-	PlayerSound(sample, CHAN_VOICE, teamsay);
+	float flood;
+	float flood_spv;
+	var .float flood_field;
+
+	flood = 0;
+	if(ownteam)
+	{
+		flood_spv = cvar("g_voice_flood_spv_team");
+		flood_field = floodcontrol_voiceteam;
+	}
+	else
+	{
+		flood_spv = cvar("g_voice_flood_spv");
+		flood_field = floodcontrol_voice;
+	}
+
+	if(time >= self.flood_field)
+		self.flood_field = max(time, self.flood_field) + flood_spv;
+	else
+		flood = 1;
+
+	if (msg != "")
+		Say(self, ownteam, msg, 0);
+
+	if (!flood)
+		PlayerSound(sample, CHAN_VOICE, voicetype);
 }

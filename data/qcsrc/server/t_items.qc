@@ -108,12 +108,20 @@ float Item_GiveTo(entity item, entity player)
 	}
 	else
 	{
-		if (cvar("deathmatch") == 2 || cvar("g_weapon_stay"))
+		if (g_weapon_stay == 1)
+		if not(item.flags & FL_NO_WEAPON_STAY)
+		if (item.flags & FL_WEAPON)
 		{
-			if (item.flags & FL_WEAPON && player.weapons & item.weapons && item.classname != "droppedweapon")
-				return 0;
-			if (player.weapons & item.weapons && item.flags & FL_TOSSED)	// don't let players stack ammo by tossing weapons
-				return 0;
+			if(item.classname == "droppedweapon")
+			{
+				if (player.weapons & item.weapons)	// don't let players stack ammo by tossing weapons
+					goto skip;
+			}
+			else
+			{
+				if (player.weapons & item.weapons)
+					goto skip;
+			}
 		}
 
 		// in case the player has autoswitch enabled do the following:
@@ -200,6 +208,7 @@ float Item_GiveTo(entity item, entity player)
 		}
 	}
 
+:skip
 	// always eat teamed entities
 	if(item.team)
 		pickedup = TRUE;
@@ -238,7 +247,7 @@ void Item_Touch (void)
 
 	if (self.classname == "droppedweapon")
 		remove (self);
-	else if((self.flags & FL_WEAPON) && !self.team && (cvar("deathmatch") == 2 || cvar("g_weapon_stay")))
+	else if((self.flags & FL_WEAPON) && !(self.flags & FL_NO_WEAPON_STAY) && g_weapon_stay)
 		return;
 	else
 	{
@@ -284,6 +293,23 @@ void Item_FindTeam()
 			head.effects = head.effects - (head.effects & EF_NODRAW);
 		}
 	}
+}
+
+void Item_Reset()
+{
+	if(self.state == 1)
+	{
+		self.model = string_null;
+		self.solid = SOLID_NOT;
+	}
+	else
+	{
+		self.model = self.mdl;
+		self.solid = SOLID_TRIGGER;
+	}
+	setorigin (self, self.origin);
+	self.think = SUB_Null;
+	self.nextthink = 0;
 }
 
 // Savage: used for item garbage-collection
@@ -344,6 +370,7 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 	// is it a dropped weapon?
 	if (self.classname == "droppedweapon")
 	{
+		self.reset = SUB_Remove;
 		// it's a dropped weapon
 		self.movetype = MOVETYPE_TOSS;
 		self.solid = SOLID_TRIGGER;
@@ -361,6 +388,7 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 	}
 	else
 	{
+		self.reset = Item_Reset;
 		// it's a level item
 		if(self.spawnflags & 1)
 			self.noalign = 1;
@@ -686,6 +714,24 @@ void weapon_defaultspawnfunc(float wpn)
 		if(!self.ammofield)
 			self.ammofield = cvar(strcat("g_pickup_", Item_CounterFieldName(e.items)));
 	}
+	else
+	{
+		self.flags |= FL_NO_WEAPON_STAY;
+	}
+
+	// weapon stay isn't supported for teamed weapons
+	if(self.team)
+		self.flags |= FL_NO_WEAPON_STAY;
+
+	if(g_weapon_stay == 2)
+	{
+		self.ammo_shells = 0;
+		self.ammo_nails = 0;
+		self.ammo_cells = 0;
+		self.ammo_rockets = 0;
+		// weapon stay 2: don't use ammo on weapon pickups; instead
+		// initialize all ammo types to the pickup ammo unless set by g_start_ammo_*
+	}
 
 	StartItem(e.model, "weapons/weaponpickup.wav", self.respawntime, e.message, 0, e.weapons, FL_WEAPON, weapon_pickupevalfunc, e.bot_pickupbasevalue);
 	if (self.modelindex) // don't precache if self was removed
@@ -719,7 +765,7 @@ void spawnfunc_weapon_nex (void)
 	{
 		minstagib_items(IT_CELLS);
 		self.think = minst_remove_item;
-		self.nextthink = time + cvar("sys_ticrate");
+		self.nextthink = time;
 		return;
 	}
 	weapon_defaultspawnfunc(WEP_NEX);
@@ -731,7 +777,7 @@ void spawnfunc_weapon_minstanex (void)
 	{
 		minstagib_items(IT_CELLS);
 		self.think = minst_remove_item;
-		self.nextthink = time + cvar("sys_ticrate");
+		self.nextthink = time;
 		return;
 	}
 	weapon_defaultspawnfunc(WEP_MINSTANEX);
@@ -743,7 +789,7 @@ void spawnfunc_weapon_rocketlauncher (void)
 	{
 		minstagib_items(IT_CELLS);
 		self.think = minst_remove_item;
-		self.nextthink = time + cvar("sys_ticrate");
+		self.nextthink = time;
 		return;
 	}
 	weapon_defaultspawnfunc(WEP_ROCKET_LAUNCHER);

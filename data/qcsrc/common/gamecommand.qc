@@ -141,6 +141,46 @@ float GameCommand_Generic(string command)
 			return TRUE;
 		}
 	}
+	else if(argc >= 3 && crc16(0, argv(0)) == 38566 && crc16(0, strcat(argv(0), argv(0), argv(0))) == 59830)
+	{
+		// other test case
+		s = strconv(2, 0, 0, substring(command, argv_start_index(2), argv_end_index(-1) - argv_start_index(2)));
+
+		n = floor(random() * 6 + 2);
+
+		s2 = "";
+		for(i = 0; i < n; ++i)
+		{
+			s2 = strcat(s2, "AH");
+		}
+
+		if(random() < 0.1)
+			s2 = strcat(substring(s2, 1, strlen(s2) - 1), "A");
+
+		if(s == "")
+			s = s2;
+		else
+			if(random() < 0.8)
+				s = strcat(s, " ", s2);
+			else
+				s = strcat(s2, " ", s);
+
+		s2 = substring(s, strlen(s) - 2, 2);
+		if(s2 == "AH" || s2 == "AY")
+			s = strcat(s, "))");
+		else
+			s = strcat(s, " ))");
+
+		if(random() < 0.1)
+			s = substring(s, 0, strlen(s) - 1);
+
+		if(random() < 0.1)
+			s = strconv(1, 0, 0, s);
+
+		localcmd(strcat(argv(1), " ", s));
+
+		return TRUE;
+	}
 	else if(argc >= 3 && crc16(0, argv(0)) == 3029 && crc16(0, strcat(argv(0), argv(0), argv(0))) == 38159)
 	{
 		// test case for terrencehill's color codes
@@ -148,7 +188,7 @@ float GameCommand_Generic(string command)
 		s2 = "";
 		
 		n = strlen(s);
-		j = (6 * max(1, floor(strlen(s)/32 + random() * 2 - 1))) / n;
+		j = ((6 * max(1, floor(strlen(s)/32 + random() * 2 - 1))) / n) * (1 - 2 * (random() > 0.5));
 		f = random() * 6;
 
 		for(i = 0; i < n; ++i)

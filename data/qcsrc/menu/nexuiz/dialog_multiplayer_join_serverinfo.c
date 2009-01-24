@@ -41,8 +41,7 @@ float SLIST_FIELD_MAXPLAYERS;
 float SLIST_FIELD_NUMBOTS;
 float SLIST_FIELD_MOD;
 float SLIST_FIELD_PING;
-string CURRENT_IP; //used by join button
-void Join_Click(entity me);
+void Join_Click(entity btn, entity me);
 #endif
 
 #ifdef IMPLEMENTATION
@@ -57,7 +56,6 @@ void loadServerInfoNexuizServerInfoDialog(entity me, float i)
 
 	SLIST_FIELD_CNAME = gethostcacheindexforkey("cname");
 	me.currentServerCName = strzone(gethostcachestring(SLIST_FIELD_CNAME, i));
-	CURRENT_IP = me.currentServerCName; //used by join button
 	me.cnameLabel.setText(me.cnameLabel, me.currentServerCName);
 
 	SLIST_FIELD_QCSTATUS = gethostcacheindexforkey("qcstatus");
@@ -70,8 +68,8 @@ void loadServerInfoNexuizServerInfoDialog(entity me, float i)
 	}
 	else
 	{
-		typestr = "N.A.";
-		versionstr = "N.A.";
+		typestr = "N/A";
+		versionstr = "N/A";
 	}
 	me.currentServerType = strzone(typestr);
 	me.typeLabel.setText(me.typeLabel, me.currentServerType);
@@ -178,9 +176,9 @@ void fillNexuizServerInfoDialog(entity me)
 			e.onClickEntity = me;
 }
 
-void Join_Click(entity me)
+void Join_Click(entity btn, entity me)
 {
-	localcmd("connect ", CURRENT_IP, "\n");
+	localcmd("connect ", me.currentServerCName, "\n");
 }
 
 #endif

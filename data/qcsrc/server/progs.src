@@ -19,6 +19,8 @@ campaign.qh
 ../common/mapinfo.qh
 ../common/util.qc
 
+csqcprojectile.qh
+
 portals.qh
 
 g_hook.qh
@@ -52,12 +54,6 @@ havocbot.qc
 g_subs.qc
 
 
-// tZork's libs
-movelib.qc
-steerlib.qc
-pathlib.qc
-
-
 runematch.qc
 arena.qc
 
@@ -68,8 +64,13 @@ teamplay.qc
 
 cl_physics.qc
 
+// tZork's libs
+movelib.qc
+steerlib.qc
+pathlib.qc
+//animation.qc
+
 g_world.qc
-g_decors.qc
 g_casings.qc
 
 t_jumppads.qc
@@ -157,3 +158,10 @@ target_spawn.qc
 func_breakable.qc
 
 ../common/items.qc
+
+monsters/defs.qc
+monsters/fight.qc
+monsters/ai.qc
+monsters/m_monsters.qc
+
+csqcprojectile.qc

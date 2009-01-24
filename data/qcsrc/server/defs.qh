@@ -12,8 +12,6 @@ float require_spawnfunc_prefix; // if this float exists, only functions with spa
 #define BUTTON_CHAT   buttonchat
 #define BUTTON_USE    buttonuse
 
-#define VOL_BASE 0.7
-
 // Globals
 
 string records_reply, lsmaps_reply, maplist_reply; // cached replies
@@ -84,6 +82,8 @@ float maxclients;
 
 .vector	pos1, pos2;
 .vector	mangle;
+
+.float cvar_cl_hitsound;
 
 .float	pain_finished;			//Added by Supajoe
 .float	pain_frame;			//"
@@ -220,6 +220,7 @@ float WR_AIM		    = 5; // runs bot aiming code for this weapon
 float WR_PRECACHE	    = 6; // precaches models/sounds used by this weapon
 float WR_SUICIDEMESSAGE = 7; // sets w_deathtypestring or leaves it alone (and may inspect w_deathtype for details)
 float WR_KILLMESSAGE    = 8; // sets w_deathtypestring or leaves it alone
+float WR_RELOAD         = 9; // does not need to do anything
 
 void weapon_defaultspawnfunc(float wpn);
 
@@ -282,8 +283,8 @@ float orig_slowmo; // contains the value of cvar("slowmo") so that, after timeou
 .vector lastV_angle; //used when pausing the game in order to force the player to keep his old view angle fixed
 entity timeoutHandler; //responsible for centerprinting the timeout countdowns and playing sounds
 void timeoutHandler_Think();
-void evaluateTimeoutCall();
-void evaluateResumeGame();
+void evaluateTimeout();
+void evaluateTimein();
 string getTimeoutText(float addOneSecond);
 
 .float spawnshieldtime;
@@ -304,15 +305,12 @@ float playerid_last;
 .vector death_origin;
 .vector killer_origin;
 
-.float isdecor;
-
 float default_player_alpha;
 float default_weapon_alpha;
 
 .float() customizeentityforclient;
 .float cvar_cl_handicap;
 .float cvar_cl_playerdetailreduction;
-.float cvar_cl_nogibs;
 .float cvar_scr_centertime;
 .float cvar_cl_shownames;
 .string cvar_g_nexuizversion;
@@ -449,7 +447,7 @@ float next_pingtime;
 		_VOICEMSG(attacking) \
 		_VOICEMSG(defending) \
 		_VOICEMSG(roaming) \
-		_VOICEMSG(positive) \
+		_VOICEMSG(affirmative) \
 		_VOICEMSG(negative) \
 		_VOICEMSG(onmyway) \
 		_VOICEMSG(seenenemy) \
@@ -464,19 +462,33 @@ string globalsound_fall;
 string globalsound_metalfall;
 string globalsound_step;
 string globalsound_metalstep;
+
+#define VOICETYPE_PLAYERSOUND 10
+#define VOICETYPE_TEAMRADIO 11
+#define VOICETYPE_LASTATTACKER 12
+#define VOICETYPE_LASTATTACKER_ONLY 13
+#define VOICETYPE_AUTOTAUNT 14
+#define VOICETYPE_TAUNT 15
+
 void PrecachePlayerSounds(string f);
 void PrecacheGlobalSound(string samplestring);
 void UpdatePlayerSounds();
 void ClearPlayerSounds();
-void PlayerSound(.string samplefield, float channel, float teamsay); // 0 is normal, 1 is team, 2 is last attacker
-void GlobalSound(string samplestring, float channel, float teamsay); // 0 is normal, 1 is team, 2 is last attacker
-void VoiceMessage(string type);
+void PlayerSound(.string samplefield, float channel, float voicetype);
+void GlobalSound(string samplestring, float channel, float voicetype);
+void VoiceMessage(string type, string message);
+
+// autotaunt system
+.float cvar_cl_autotaunt;
+.float cvar_cl_voice_directional;
+.float cvar_cl_voice_directional_taunt_attenuation;
 
 .float version_mismatch;
 
 float independent_players;
 #define IS_INDEPENDENT_PLAYER(e) ((e).solid == SOLID_TRIGGER)
-#define MAKE_INDEPENDENT_PLAYER(e) ((e).solid = SOLID_TRIGGER)
+#define MAKE_INDEPENDENT_PLAYER(e) (((e).solid = SOLID_TRIGGER) + ((e).frags = FRAGS_PLAYER_NONSOLID))
+// we're using + here instead of , because fteqcc sucks
 
 string clientstuff;
 .float stat_sys_ticrate;
@@ -511,3 +523,9 @@ void target_voicescript_clear(entity pl);
 .string target3;
 .string target4;
 .float trigger_reverse;
+
+void SUB_DontUseTargets();
+void SUB_UseTargets();
+
+.void() reset; // if set, an entity is reset using this
+.void() reset2; // if set, an entity is reset using this (after calling ALL the reset functions for other entities)

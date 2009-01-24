@@ -130,7 +130,14 @@ void CSQC_Init(void)
 	if(v_y - 240 > -1)
 		cs_project_is_b0rked = FALSE;
 
+	RegisterWeapons();
+
 	WaypointSprite_Load();
+
+	Projectile_Precache();
+	GibSplash_Precache();
+	Casings_Precache();
+	DamageInfo_Precache();
 }
 
 // CSQC_Shutdown : Called every time the CSQC code is shutdown (changing maps, quitting, etc)
@@ -319,6 +326,14 @@ float GameCommand(string msg)
 	else if(cmd == "sbar_columns_help") {
 		Cmd_Sbar_Help(argc);
 	}
+#ifdef BLURTEST
+	else if(cmd == "blurtest") {
+		blurtest_time0 = time;
+		blurtest_time1 = time + stof(argv(1));
+		blurtest_radius = stof(argv(2));
+		blurtest_power = stof(argv(3));
+	}
+#endif
 	
 	return false;
 }
@@ -470,7 +485,14 @@ void Ent_RadarLink();
 void(float bIsNewEntity) CSQC_Ent_Update =
 {
 	float t;
+	float savetime;
 	t = ReadByte();
+
+	// set up the "time" global for received entities to be correct for interpolation purposes
+	savetime = time;
+	if(servertime)
+		time = servertime;
+
 #ifdef DP_CSQC_ENTITY_REMOVE_IS_B0RKED
 	if(self.enttype)
 		if(t != self.enttype)
@@ -498,9 +520,18 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		Ent_WaypointSprite();
 	else if(self.enttype == ENT_CLIENT_RADARLINK)
 		Ent_RadarLink();
+	else if(self.enttype == ENT_CLIENT_PROJECTILE)
+		Ent_Projectile();
+	else if(self.enttype == ENT_CLIENT_GIBSPLASH)
+		Ent_GibSplash();
+	else if(self.enttype == ENT_CLIENT_DAMAGEINFO)
+		Ent_DamageInfo();
+	else if(self.enttype == ENT_CLIENT_CASING)
+		Ent_Casing();
 	else
 		error(strcat("unknown entity type in CSQC_Ent_Update: ", ftos(self.enttype), "\n"));
 	
+	time = savetime;
 };
 // Destructor, but does NOT deallocate the entity by calling remove(). Also
 // used when an entity changes its type. For an entity that someone interacts
@@ -534,6 +565,8 @@ void Ent_Remove()
 	}
 	else if(self.enttype == ENT_CLIENT_WAYPOINT)
 		Ent_RemoveWaypointSprite();
+	else if(self.enttype == ENT_CLIENT_PROJECTILE)
+		Ent_RemoveProjectile();
 
 	self.enttype = 0;
 	self.classname = "";

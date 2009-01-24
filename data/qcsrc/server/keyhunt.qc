@@ -69,7 +69,7 @@ float kh_key_dropped, kh_key_carried;
 void kh_Controller_SetThink(float t, string msg, kh_Think_t func)  // runs occasionaly
 {
 	kh_Controller_Thinkfunc = func;
-	kh_controller.cnt = t;
+	kh_controller.cnt = ceil(t);
 	if(kh_Controller_Waitmsg != "")
 		strunzone(kh_Controller_Waitmsg);
 	if(msg == "")
@@ -367,6 +367,12 @@ void kh_Key_Damage(entity inflictor, entity attacker, float damage, float deatht
 			self.team = attacker.team;
 }
 
+void key_reset()
+{
+	kh_Key_AssignTo(self, world);
+	kh_Key_Remove(self);
+}
+
 void kh_Key_Spawn(entity initial_owner, float angle)  // runs every time a new flag is created, ie after all the keys have been collected
 {
 	entity key;
@@ -386,6 +392,7 @@ void kh_Key_Spawn(entity initial_owner, float angle)  // runs every time a new f
 	key.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_PLAYERCLIP;
 	setsize(key, KH_KEY_MIN, KH_KEY_MAX);
 	key.colormod = TeamColor(initial_owner.team) * KH_KEY_BRIGHTNESS;
+	key.reset = key_reset;
 
 	switch(initial_owner.team)
 	{
@@ -820,6 +827,13 @@ string kh_CheckEnoughPlayers()  // checks enough player are present, runs after 
 void kh_WaitForPlayers()  // delay start of the round until enough players are present
 {
 	string teams_missing;
+
+	if(time < game_starttime)
+	{
+		kh_Controller_SetThink(game_starttime - time + 0.1, "", kh_WaitForPlayers);
+		return;
+	}
+
 	teams_missing = kh_CheckEnoughPlayers();
 	if(teams_missing == "")
 		kh_Controller_SetThink(cvar("g_balance_keyhunt_delay_round"), "Round starts in ", kh_StartRound);
@@ -832,6 +846,12 @@ void kh_StartRound()  // runs at the start of each round
 	string teams_missing;
 	float i, players, teem;
 	entity player;
+
+	if(time < game_starttime)
+	{
+		kh_Controller_SetThink(game_starttime - time + 0.1, "", kh_WaitForPlayers);
+		return;
+	}
 
 	teams_missing = kh_CheckEnoughPlayers();
 	if(teams_missing != "")

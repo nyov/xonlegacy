@@ -1507,18 +1507,21 @@ void Sbar_Draw (void)
 			s = strcat("^1Press ^3", getcommandkey("jump", "+jump"), "^1 to join");
 		o = Sbar_DrawNoteLine(o, s);
 	}
+	if(warmup_stage)
+	{
+		s = "^2Currently in ^1warmup^2 stage!";
+		o = Sbar_DrawNoteLine(o, s);
+	}
+
+	// move more important stuff more to the middle so its more visible
+	o_y = vid_conheight * 0.66;
 
 	string blinkcolor;
 	if(mod(time, 1) >= 0.5)
 		blinkcolor = "^1";
 	else
 		blinkcolor = "^3";
-		
-	if(warmup_stage)
-	{
-		s = "^2Currently in ^1warmup^2 stage!";
-		o = Sbar_DrawNoteLine(o, s);
-	}
+
 	if(ready_waiting)
 	{
 		if(ready_waiting_for_me)
@@ -1562,6 +1565,35 @@ void Sbar_Draw (void)
 		{
 			s = strcat("^2Waiting for others to vote...");
 			o = Sbar_DrawNoteLine(o, s);
+		}
+	}
+	if(teamplay)
+	{
+		entity tm;
+		float ts_min, ts_max;
+		tm = teams.sort_next;
+		if (tm)
+		{
+			for(; tm.sort_next; tm = tm.sort_next)
+			{
+				if(!tm.team_size || tm.team == COLOR_SPECTATOR)
+					continue;
+				if(!ts_min) ts_min = tm.team_size;
+				else ts_min = min(ts_min, tm.team_size);
+				if(!ts_max) ts_max = tm.team_size;
+				else ts_max = max(ts_max, tm.team_size);
+			}
+			if ((ts_max - ts_min) > 1)
+			{
+				s = strcat(blinkcolor, "Teamnumbers are unbalanced!");
+				tm = GetTeam(myteam, false);
+				if (tm)
+				if (tm.team != COLOR_SPECTATOR)
+				if (tm.team_size == ts_max)
+					s = strcat(s, " Press ^3", getcommandkey("team menu", "menu_showteamselect"), blinkcolor, " to adjust");
+
+				o = Sbar_DrawNoteLine(o, s);
+			}
 		}
 	}
 

@@ -17,14 +17,10 @@ void W_Nex_Attack (void)
 	trailparticles(world, particleeffectnum("nex_beam"), w_shotorg, trace_endpos);
 	// flash and burn the wall
 	if (trace_ent.solid == SOLID_BSP && !(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
-		pointparticles(particleeffectnum("nex_impact"), trace_endpos - w_shotdir * 6, '0 0 0', 1);
-	// play a sound
-	soundat (self, trace_endpos, CHAN_PROJECTILE, "weapons/neximpact.wav", VOL_BASE, ATTN_NORM);
+		Damage_DamageInfo(trace_endpos, cvar("g_balance_nex_damage"), 0, 0, cvar("g_balance_nex_force") * w_shotdir, WEP_NEX);
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
-	{
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_nex_ammo");
-	}
 }
 
 void spawnfunc_weapon_nex (void); // defined in t_items.qc
@@ -51,7 +47,6 @@ float w_nex(float req)
 		precache_model ("models/weapons/v_nex.md3");
 		precache_model ("models/weapons/w_nex.zym");
 		precache_sound ("weapons/nexfire.wav");
-		precache_sound ("weapons/neximpact.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_NEX);

@@ -8,8 +8,8 @@ void Net_ReadHoldAngles()
 	angles_held_status[wpn] = ReadByte();
 	if(angles_held_status[wpn])
 	{
-		v_x = ReadCoord();
-		v_y = ReadCoord();
+		v_x = ReadAngle();
+		v_y = ReadAngle();
 		v_z = 0;
 		angles_held[wpn] = v;
 	}
@@ -111,6 +111,7 @@ float atan2(float y, float x)
 	return v_y * 0.01745329251994329576;
 }
 
+float camera_active;
 vector GetCurrentFov(float fov)
 {
 	float zoomsensitivity, zoomspeed, zoomfactor, zoomdir;
@@ -139,7 +140,7 @@ vector GetCurrentFov(float fov)
 	if(zoomdir)
 		zoomin_effect = 0;
 
-	if(zoomin_effect)
+	if(zoomin_effect || camera_active)
 	{
 		current_viewzoom = min(1, current_viewzoom + drawframetime);
 	}
@@ -190,15 +191,19 @@ void PostInit(void);
 float Sbar_WouldDrawScoreboard ();
 float zoomscript_caught;
 float view_set;
+float camera_mode;
+vector camera_offset, current_origin, mouse_angles, current_camera_offset, new_angles;
 void CSQC_UpdateView(float w, float h)
 {
 	entity e;
 	float fov;
 	float f;
-	vector v1, v2;
+	vector v1, v2, delta;
 
 	dprint_load();
 	WaypointSprite_Load();
+
+	ticrate = getstatf(STAT_SYS_TICRATE) * getstatf(STAT_MOVEVARS_TIMESCALE);
 
 	// Render the Scene
 	if(!intermission || !view_set)
@@ -230,6 +235,25 @@ void CSQC_UpdateView(float w, float h)
 		vid_width = w;
 		vid_height = h;
 	}
+
+#ifdef BLURTEST
+	if(time > blurtest_time0 && time < blurtest_time1)
+	{
+		float r, t;
+
+		t = (time - blurtest_time0) / (blurtest_time1 - blurtest_time0);
+		r = t * blurtest_radius;
+		f = 1 / pow(t, blurtest_power) - 1;
+
+		cvar_set("r_glsl_postprocess", "1");
+		cvar_set("r_glsl_postprocess_uservec1", strcat(ftos(r), " ", ftos(f), " 0 0"));
+	}
+	else
+	{
+		cvar_set("r_glsl_postprocess", "0");
+		cvar_set("r_glsl_postprocess_uservec1", "0 0 0 0");
+	}
+#endif
 
 	Fog_Force();
 
@@ -286,11 +310,170 @@ void CSQC_UpdateView(float w, float h)
 	R_SetView(VF_DRAWWORLD, 1);
 
 	R_SetView(VF_FOV, GetCurrentFov(fov));
+
+	// Camera for demo playback
+	if (cvar("chase_active") > 1 && cvar("cl_demo_mousegrab") && isdemo())
+	{
+		float speed, attenuation;
+		vector new_origin, m;
+
+		if(!camera_active)
+			camera_active = TRUE;
+		
+		if(cvar("camera_free"))
+			speed = cvar("camera_speed_free");
+		else
+			speed = cvar("camera_speed_chase");
+			
+		attenuation = cvar("camera_speed_attenuation");
+		
+		attenuation = 1 / max(1, attenuation);
+
+		if( cvar("camera_reset") || !camera_mode )
+		{
+			camera_offset = '0 0 0';
+			new_angles = view_angles;
+			camera_offset_z += 20;
+			camera_offset_x += 20 * -cos(new_angles_y * DEG2RAD);
+			camera_offset_y += 20 * -sin(new_angles_y * DEG2RAD);
+			current_origin = view_origin;
+		}
+
+		// Camera angles
+		if( cvar("camera_roll") )
+			mouse_angles_z += cvar("camera_roll") * cvar("camera_speed_roll");
+
+		if(!cvar("camera_look_player"))
+		{
+			m = getmousepos() * 0.1;
+			if(vlen(m)>cvar("camera_mouse_treshold"))
+			{
+				mouse_angles_x += m_y * cos(mouse_angles_z * DEG2RAD) + (m_x * sin(mouse_angles_z * DEG2RAD));
+				mouse_angles_y -= m_x * cos(mouse_angles_z * DEG2RAD) + (m_y * -sin(mouse_angles_z * DEG2RAD));
+			}
+
+			while (mouse_angles_x < -180)
+				mouse_angles_x = mouse_angles_x + 360;
+			while (mouse_angles_x > 180)
+				mouse_angles_x = mouse_angles_x - 360;
+			while (mouse_angles_y < -180)
+				mouse_angles_y = mouse_angles_y + 360;
+			while (mouse_angles_y > 180)
+				mouse_angles_y = mouse_angles_y - 360;
+			
+			delta = '0 0 0';			
+			if( mouse_angles_y < -90 && new_angles_y > 0)
+				delta = '0 360 0';
+			if( mouse_angles_y > 90 && new_angles_y < -90)
+				delta = '0 -360 0';
+
+			new_angles += (mouse_angles - new_angles + delta) * attenuation;
+		}
+		
+		// Camera position
+		if( cvar("camera_direction_x") )
+		{
+			camera_offset_x += cvar("camera_direction_x") * speed * cos(new_angles_y * DEG2RAD);
+			camera_offset_y += cvar("camera_direction_x") * speed * sin(new_angles_y * DEG2RAD);
+			if( cvar("camera_forward_follows") )
+				camera_offset_z += cvar("camera_direction_x") * speed * -sin(new_angles_x * DEG2RAD);
+		}
+
+		if( cvar("camera_direction_y") )
+		{
+			camera_offset_y += cvar("camera_direction_y") * speed * cos(new_angles_y * DEG2RAD) * cos(new_angles_z * DEG2RAD);
+			camera_offset_x += cvar("camera_direction_y") * speed * -sin(new_angles_y * DEG2RAD);
+			camera_offset_z += cvar("camera_direction_y") * speed * sin(new_angles_z * DEG2RAD);
+		}
+
+		if( cvar("camera_direction_z") )
+			camera_offset_z += cvar("camera_direction_z") * speed * cos(new_angles_z * DEG2RAD);
+
+		current_camera_offset += (camera_offset - current_camera_offset) * attenuation;
+
+		// Camera modes
+		if( cvar("camera_free") )
+		{
+			if ( camera_mode == CAMERA_CHASE )
+			{
+				current_camera_offset = current_origin + current_camera_offset;
+				camera_offset = current_origin + camera_offset;
+			}
+
+			camera_mode = CAMERA_FREE;
+			new_origin = current_camera_offset;
+		}
+		else
+		{
+			if ( camera_mode == CAMERA_FREE )
+			{
+				current_origin = view_origin;
+				camera_offset = camera_offset - current_origin;
+				current_camera_offset = current_camera_offset - current_origin;
+			}
+
+			camera_mode = CAMERA_CHASE;
+			
+			if(cvar("camera_chase_smoothly"))
+				current_origin += (view_origin - current_origin) * attenuation;
+			else
+				current_origin = view_origin;
+				
+			new_origin = current_origin + current_camera_offset;
+		}
+
+		if(cvar("camera_look_player"))
+		{
+			local vector dir;
+			local float n;
+			
+			dir = normalize(view_origin - new_origin);
+			n = mouse_angles_z;
+			mouse_angles = vectoangles(dir);
+			mouse_angles_x = mouse_angles_x * -1;
+			mouse_angles_z = n;
+
+			while (mouse_angles_x < -180)
+				mouse_angles_x = mouse_angles_x + 360;
+			while (mouse_angles_x > 180)
+				mouse_angles_x = mouse_angles_x - 360;
+			while (mouse_angles_y < -180)
+				mouse_angles_y = mouse_angles_y + 360;
+			while (mouse_angles_y > 180)
+				mouse_angles_y = mouse_angles_y - 360;
+
+			delta = '0 0 0';
+			if(mouse_angles_y < -90 && new_angles_y > 0)
+				delta = '0 360 0';
+			if(mouse_angles_y > 90 && new_angles_y < -90)
+				delta = '0 -360 0';
+
+			n = 1 / max(1, cvar("camera_look_attenuation"));		
+			new_angles += (mouse_angles - new_angles + delta) * n;
+		}
+
+		while (new_angles_x < -180)
+			new_angles_x = new_angles_x + 360;
+		while (new_angles_x > 180)
+			new_angles_x = new_angles_x - 360;
+		while (new_angles_y < -180)
+			new_angles_y = new_angles_y + 360;
+		while (new_angles_y > 180)
+			new_angles_y = new_angles_y - 360;
+
+		R_SetView(VF_ANGLES, new_angles);
+		R_SetView(VF_ORIGIN, new_origin);
+	}
+	else
+	{
+		if(camera_active)
+			camera_active = FALSE;
+	}
 	
 	// Draw the Crosshair
 	float scoreboard_active;
 	scoreboard_active = Sbar_WouldDrawScoreboard();
-	R_SetView(VF_DRAWCROSSHAIR, !scoreboard_active && !ons_showmap);
+	R_SetView(VF_DRAWCROSSHAIR, 0); //Make sure engine crosshairs are always hidden
 	
 	// Draw the Engine Status Bar (the default Quake HUD)
 	R_SetView(VF_DRAWENGINESBAR, 0);
@@ -325,6 +508,52 @@ void CSQC_UpdateView(float w, float h)
 	// next R_RenderScene call
 	drawstring('0 0 0', "", '1 1 0', '1 1 1', 0, 0);
 
+	// crosshair
+	if(!scoreboard_active && !ons_showmap) {
+		string wcross_style;
+		wcross_style = cvar_string("crosshair");
+
+		if (wcross_style != "0") {
+			vector wcross_color, wcross_size;
+			string wcross_wep, wcross_name;
+			float wcross_alpha, wcross_sizefloat;
+
+			wcross_color_x = cvar("crosshair_color_red");
+			wcross_color_y = cvar("crosshair_color_green");
+			wcross_color_z = cvar("crosshair_color_blue");
+			wcross_alpha = cvar("crosshair_color_alpha");
+			wcross_sizefloat = cvar("crosshair_size");
+			if (cvar("crosshair_per_weapon")) {
+				e = get_weaponinfo(activeweapon);
+				if (e && e.netname != "")
+				{
+					wcross_wep = e.netname;
+					wcross_style = cvar_string(strcat("crosshair_", wcross_wep));
+					if(wcross_style == "")
+						wcross_style = e.netname;
+
+					if(!cvar("crosshair_color_override"))
+					{
+						wcross_color_x = cvar(strcat("crosshair_", wcross_wep, "_color_red"));
+						wcross_color_y = cvar(strcat("crosshair_", wcross_wep, "_color_green"));
+						wcross_color_z = cvar(strcat("crosshair_", wcross_wep, "_color_blue"));
+					}
+
+					wcross_alpha *= cvar(strcat("crosshair_", wcross_wep, "_color_alpha"));
+					wcross_sizefloat *= cvar(strcat("crosshair_", wcross_wep, "_size"));
+				}
+			}
+
+			wcross_name = strcat("gfx/crosshair", wcross_style);
+		
+			wcross_size = drawgetimagesize(wcross_name);
+			wcross_size_x *= wcross_sizefloat;
+			wcross_size_y *= wcross_sizefloat;
+
+			drawpic('0.5 0 0' * (vid_conwidth - wcross_size_x) + '0 0.5 0' * (vid_conheight - wcross_size_y), wcross_name, wcross_size, wcross_color, wcross_alpha, DRAWFLAG_NORMAL);
+		}
+	}
+
 	// Draw the mouse cursor
 	// NOTE: drawpic must happen after R_RenderScene for some reason
 	//drawpic(getmousepos(), "gfx/cursor.tga", '11 14 0', '1 1 1', 1, 0);
@@ -349,7 +578,7 @@ void CSQC_UpdateView(float w, float h)
 	self = e;
 	
 	// draw radar
-	if(teamplay)
+	if(teamplay || cvar("cl_teamradar") == 2)
 	{
 		if((cvar_string("cl_teamradar") != "0" && !scoreboard_active) || ons_showmap)
 			teamradar_view();

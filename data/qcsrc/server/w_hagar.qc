@@ -1,17 +1,5 @@
 void W_Hagar_Explode (void)
 {
-	vector	org2;
-	float b;
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("hagar_explode"), org2, '0 0 0', 1);
-	b = crandom();
-	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp1.wav", VOL_BASE, ATTN_NORM);
-	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp2.wav", VOL_BASE, ATTN_NORM);
-	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp3.wav", VOL_BASE, ATTN_NORM);
-
 	self.event_damage = SUB_Null;
 	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_primary_damage"), cvar("g_balance_hagar_primary_edgedamage"), cvar("g_balance_hagar_primary_radius"), world, cvar("g_balance_hagar_primary_force"), self.projectiledeathtype, other);
 
@@ -20,18 +8,6 @@ void W_Hagar_Explode (void)
 
 void W_Hagar_Explode2 (void)
 {
-	vector	org2;
-	float b;
-	org2 = findbetterlocation (self.origin, 12);
-	pointparticles(particleeffectnum("hagar_explode"), org2, '0 0 0', 1);
-	b = crandom();
-	if (b<-0.7)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp1.wav", VOL_BASE, ATTN_NORM);
-	else if (b<0.4)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp2.wav", VOL_BASE, ATTN_NORM);
-	else if (b<1)
-		sound (self, CHAN_PROJECTILE, "weapons/hagexp3.wav", VOL_BASE, ATTN_NORM);
-
 	self.event_damage = SUB_Null;
 	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_secondary_damage"), cvar("g_balance_hagar_secondary_edgedamage"), cvar("g_balance_hagar_secondary_radius"), world, cvar("g_balance_hagar_secondary_force"), self.projectiledeathtype, other);
 
@@ -57,6 +33,9 @@ void W_Hagar_Touch2 (void)
 		self.owner = world;
 		self.projectiledeathtype |= HITTYPE_BOUNCE;
 	}
+
+	if(trace_ent && trace_ent.solid > SOLID_TRIGGER) // CSQC doesn't know about these entities well enough
+		UpdateCSQCProjectile(self);
 }
 
 void W_Hagar_Damage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
@@ -90,14 +69,12 @@ void W_Hagar_Attack (void)
 	missile.scale = 0.4; // BUG: the model is too big
 	missile.projectiledeathtype = WEP_HAGAR;
 	setorigin (missile, w_shotorg);
-	setmodel (missile, "models/hagarmissile.mdl"); // precision set below
+	setmodel (missile, "null"); // precision set below
 	setsize (missile, '0 0 0', '0 0 0');
 	//missile.takedamage = DAMAGE_YES;
 	//missile.damageforcescale = 4;
 	//missile.health = 10;
 	//missile.event_damage = W_Hagar_Damage;
-	missile.effects = EF_LOWPRECISION;
-	missile.modelflags = MF_GRENADE;
 
 	missile.movetype = MOVETYPE_FLY;
 	missile.velocity = (w_shotdir + randomvec() * cvar("g_balance_hagar_primary_spread")) * cvar("g_balance_hagar_primary_speed");
@@ -105,6 +82,8 @@ void W_Hagar_Attack (void)
 
 	missile.angles = vectoangles (missile.velocity);
 	missile.flags = FL_PROJECTILE;
+
+	CSQCProjectile(missile, TRUE, PROJECTILE_HAGAR);
 }
 
 void W_Hagar_Attack2 (void)
@@ -132,14 +111,12 @@ void W_Hagar_Attack2 (void)
 	missile.scale = 0.4; // BUG: the model is too big
 	missile.projectiledeathtype = WEP_HAGAR | HITTYPE_SECONDARY;
 	setorigin (missile, w_shotorg);
-	setmodel (missile, "models/hagarmissile.mdl"); // precision set below
+	setmodel (missile, "null"); // precision set below
 	setsize (missile, '0 0 0', '0 0 0');
 	//missile.takedamage = DAMAGE_YES;
 	//missile.damageforcescale = 4;
 	//missile.health = 10;
 	//missile.event_damage = W_Hagar_Damage;
-	missile.effects = EF_LOWPRECISION;
-	missile.modelflags = MF_GRENADE;
 
 	missile.movetype = MOVETYPE_BOUNCEMISSILE;
 	missile.velocity = (w_shotdir + randomvec() * cvar("g_balance_hagar_secondary_spread")) * cvar("g_balance_hagar_secondary_speed");
@@ -148,6 +125,8 @@ void W_Hagar_Attack2 (void)
 
 	missile.angles = vectoangles (missile.velocity);
 	missile.flags = FL_PROJECTILE;
+
+	CSQCProjectile(missile, TRUE, PROJECTILE_HAGAR_BOUNCING);
 }
 
 void spawnfunc_weapon_hagar (void)
@@ -182,14 +161,10 @@ float w_hagar(float req)
 	}
 	else if (req == WR_PRECACHE)
 	{
-		precache_model ("models/hagarmissile.mdl");
 		precache_model ("models/weapons/g_hagar.md3");
 		precache_model ("models/weapons/v_hagar.md3");
 		precache_model ("models/weapons/w_hagar.zym");
 		precache_sound ("weapons/hagar_fire.wav");
-		precache_sound ("weapons/hagexp1.wav");
-		precache_sound ("weapons/hagexp2.wav");
-		precache_sound ("weapons/hagexp3.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_HAGAR);

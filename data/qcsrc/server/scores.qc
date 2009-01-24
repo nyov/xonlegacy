@@ -88,6 +88,10 @@ void TeamScore_Spawn(float t, string name)
 float TeamScore_AddToTeam(float t, float scorefield, float score)
 {
 	entity s;
+
+	if(gameover)
+		score = 0;
+
 	if(!scores_initialized) return 0; // FIXME remove this when everything uses this system
 	if(t <= 0 || t >= 16)
 		error("Adding score to invalid team!");
@@ -284,6 +288,10 @@ void PlayerScore_Detach(entity player)
 float PlayerScore_Add(entity player, float scorefield, float score)
 {
 	entity s;
+
+	if(gameover)
+		score = 0;
+
 	if(!scores_initialized) return 0; // FIXME remove this when everything uses this system
 	s = player.scorekeeper;
 	if(!s)
@@ -323,9 +331,13 @@ void WinningConditionHelper()
 	float c;
 	string s;
 	entity p;
+	float fullstatus;
+
 	s = GetGametype();
 	s = strcat(s, ":", cvar_string("g_nexuizversion"));
 	s = strcat(s, "::", GetPlayerScoreString(world, 2)); // make this 1 once we can
+
+	fullstatus = cvar("g_full_getstatus_responses");
 
 	if(teamscores_entities_count)
 	{
@@ -427,21 +439,25 @@ void WinningConditionHelper()
 
 	FOR_EACH_CLIENT(p)
 	{
-		/* this breaks qstat :( find a way to make qstat parse this at least as an int first
-		s = GetPlayerScoreString(p, 1);
-		if(clienttype(p) == CLIENTTYPE_REAL)
-			s = strcat(s, ":human");
+		if(fullstatus)
+		{
+			s = GetPlayerScoreString(p, 1);
+			if(clienttype(p) == CLIENTTYPE_REAL)
+				s = strcat(s, ":human");
+			else
+				s = strcat(s, ":bot");
+			if(p.classname == "player" || g_arena || g_lms)
+				s = strcat(s, ":", ftos(p.team));
+			else
+				s = strcat(s, ":spectator");
+		}
 		else
-			s = strcat(s, ":bot");
-		if(p.classname == "player" || g_arena || g_lms)
-			s = strcat(s, ":", ftos(p.team));
-		else
-			s = strcat(s, ":spectator");
-		*/
-		if(p.classname == "player" || g_arena || g_lms)
-			s = GetPlayerScoreString(p, 2);
-		else
-			s = "-666";
+		{
+			if(p.classname == "player" || g_arena || g_lms)
+				s = GetPlayerScoreString(p, 2);
+			else
+				s = "-666";
+		}
 
 		if(p.clientstatus)
 			strunzone(p.clientstatus);
