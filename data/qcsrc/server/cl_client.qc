@@ -1,3 +1,79 @@
+.float spectatee_status;
+.float zoomstate;
+
+.entity clientdata;
+float ClientData_Send(entity to, float sf)
+{
+	if(to != self.owner)
+	{
+		error("wtf");
+		return FALSE;
+	}
+
+	entity e;
+
+	e = to;
+	if(to.classname == "spectator")
+		e = to.enemy;
+
+	sf = 0;
+
+	if(e.race_completed)
+		sf |= 1; // forced scoreboard
+	if(to.spectatee_status)
+		sf |= 2; // spectator ent number follows
+	if(e.zoomstate)
+		sf |= 4; // zoomed
+	if(e.porto_v_angle_held)
+		sf |= 8; // angles held
+	
+	WriteByte(MSG_ENTITY, ENT_CLIENT_CLIENTDATA);
+	WriteByte(MSG_ENTITY, sf);
+
+	if(sf & 2)
+		WriteByte(MSG_ENTITY, to.spectatee_status);
+	
+	if(sf & 8)
+	{
+		WriteAngle(MSG_ENTITY, e.v_angle_x);
+		WriteAngle(MSG_ENTITY, e.v_angle_y);
+	}
+
+	return TRUE;
+}
+
+void ClientData_Attach()
+{
+	self.clientdata = spawn();
+	self.clientdata.SendEntity = ClientData_Send;
+	self.clientdata.effects = EF_NODEPTHTEST;
+	self.clientdata.drawonlytoclient = self;
+	self.clientdata.owner = self;
+	setmodel(self.clientdata, "null");
+}
+
+void ClientData_Detach()
+{
+	remove(self.clientdata);
+	self.clientdata = world;
+}
+
+void ClientData_Touch(entity e)
+{
+	e.clientdata.SendFlags = 1;
+
+	// make it spectatable
+	entity e2;
+	FOR_EACH_REALCLIENT(e2)
+	{
+		if(e2 != e)
+			if(e2.classname == "spectator")
+				if(e2.enemy == e)
+					e2.clientdata.SendFlags = 1;
+	}
+}
+
+
 #define SPAWNPOINT_SCORE frags
 
 .float wantswelcomemessage;
@@ -823,28 +899,34 @@ void PutClientInServer (void)
 	//	ctf_playerchanged();
 }
 
-/*
-=============
-SendCSQCInfo
-
-Send whatever CSQC needs NOW and cannot wait for SendServerInfo to happen...
-=============
-*/
-void SendCSQCInfo(void)
+float ClientInit_SendEntity(entity to, float sf)
 {
 	float i;
-	if(clienttype(self) != CLIENTTYPE_REAL)
-		return;
-	msg_entity = self;
-	WriteByte(MSG_ONE, SVC_TEMPENTITY);
-	WriteByte(MSG_ONE, TE_CSQC_INIT);
-	WriteShort(MSG_ONE, CSQC_REVISION);
-	WriteByte(MSG_ONE, maxclients);
+	WriteByte(MSG_ENTITY, ENT_CLIENT_INIT);
+	WriteShort(MSG_ENTITY, CSQC_REVISION);
+	WriteByte(MSG_ENTITY, maxclients);
 	for(i = 1; i <= 24; ++i)
-		WriteByte(MSG_ONE, (get_weaponinfo(i)).impulse + 1);
-	WriteCoord(MSG_ONE, hook_shotorigin_x);
-	WriteCoord(MSG_ONE, hook_shotorigin_y);
-	WriteCoord(MSG_ONE, hook_shotorigin_z);
+		WriteByte(MSG_ENTITY, (get_weaponinfo(i)).impulse + 1);
+	WriteCoord(MSG_ENTITY, hook_shotorigin_x);
+	WriteCoord(MSG_ENTITY, hook_shotorigin_y);
+	WriteCoord(MSG_ENTITY, hook_shotorigin_z);
+
+	if(sv_foginterval && world.fog != "")
+		WriteString(MSG_ENTITY, world.fog);
+	else
+		WriteString(MSG_ENTITY, "");
+
+	return TRUE;
+}
+
+void ClientInit_Spawn()
+{
+	entity e;
+	e = spawn();
+	e.classname = "ent_client_init";
+	e.SendEntity = ClientInit_SendEntity;
+	setmodel(e, "null");
+	e.effects = EF_NODEPTHTEST;
 }
 
 /*
@@ -1088,31 +1170,6 @@ void FixClientCvars(entity e)
 	 */
 }
 
-.float fog_set;
-void SendFog()
-{
-	if(clienttype(self) == CLIENTTYPE_REAL)
-	if(world.fog) // NOT string_null!
-	{
-		if(!self.fog_set)
-		{
-			if(sv_foginterval)
-			{
-				msg_entity = self;
-				WriteByte(MSG_ONE, SVC_TEMPENTITY);
-				WriteByte(MSG_ONE, TE_CSQC_FOG);
-				WriteCoord(MSG_ONE, sv_foginterval);
-				WriteString(MSG_ONE, world.fog);
-			}
-			else
-				// set it once
-				stuffcmd(self, strcat("\nfog ", world.fog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
-
-			self.fog_set = 1;
-		}
-	}
-}
-
 /*
 =============
 ClientConnect
@@ -1151,6 +1208,7 @@ void ClientConnect (void)
 	}
 
 	PlayerScore_Attach(self);
+	ClientData_Attach();
 
 	bot_clientconnect();
 
@@ -1267,22 +1325,6 @@ void ClientConnect (void)
 	if(clienttype(self) == CLIENTTYPE_REAL)
 	{
 		sprint(self, strcat("nexuiz-csqc protocol ", ftos(CSQC_REVISION), "\n"));
-		SendCSQCInfo();
-		msg_entity = self;
-		if(mapvote_initialized && !cvar("g_maplist_textonly"))
-		{
-			MapVote_SendData(MSG_ONE);
-			MapVote_UpdateData(MSG_ONE);
-		}
-		ScoreInfo_Write(MSG_ONE);
-
-		if(inWarmupStage)
-		{
-			msg_entity = self;
-			WriteByte(MSG_ONE, SVC_TEMPENTITY);
-			WriteByte(MSG_ONE, TE_CSQC_WARMUP);
-			WriteByte(MSG_ONE, 1);
-		}
 
 		if(cvar("g_bugrigs"))
 			stuffcmd(self, "cl_cmd settemp chase_active 1\n");
@@ -1297,7 +1339,8 @@ void ClientConnect (void)
 		}
 	}
 
-	SendFog();
+	if(!sv_foginterval && world.fog != "")
+		stuffcmd(self, strcat("\nfog ", world.fog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
 }
 
 /*
@@ -1364,6 +1407,7 @@ void ClientDisconnect (void)
 		Spawnqueue_Remove(self);
 	}
 
+	ClientData_Detach();
 	PlayerScore_Detach(self);
 
 	if(self.netname_previous)
@@ -1389,7 +1433,6 @@ void ChatBubbleThink()
 		remove(self);
 		return;
 	}
-	setorigin(self, self.owner.origin + '0 0 15' + self.owner.maxs_z * '0 0 1');
 	if (self.owner.BUTTON_CHAT && !self.owner.deadflag)
 		self.model = self.mdl;
 	else
@@ -1409,7 +1452,9 @@ void UpdateChatBubble()
 		self.chatbubbleentity.think = ChatBubbleThink;
 		self.chatbubbleentity.nextthink = time;
 		setmodel(self.chatbubbleentity, "models/misc/chatbubble.spr"); // precision set below
-		setorigin(self.chatbubbleentity, self.origin + '0 0 15' + self.maxs_z * '0 0 1');
+		//setorigin(self.chatbubbleentity, self.origin + '0 0 15' + self.maxs_z * '0 0 1');
+		setorigin(self.chatbubbleentity, '0 0 15' + self.maxs_z * '0 0 1');
+		setattachment(self.chatbubbleentity, self, "");  // sticks to moving player better, also conserves bandwidth
 		self.chatbubbleentity.mdl = self.chatbubbleentity.model;
 		self.chatbubbleentity.model = "";
 		self.chatbubbleentity.effects = EF_LOWPRECISION;
@@ -1454,7 +1499,7 @@ void UpdateTeamBubble()
 		self.teambubbleentity.nextthink = time;
 		setmodel(self.teambubbleentity, "models/misc/teambubble.spr"); // precision set below
 //		setorigin(self.teambubbleentity, self.origin + '0 0 15' + self.maxs_z * '0 0 1');
-		setorigin(self.teambubbleentity, self.teambubbleentity.origin + '0 0 15' + self.maxs_z * '0 0 1');
+		setorigin(self.teambubbleentity, '0 0 15' + self.maxs_z * '0 0 1');
 		setattachment(self.teambubbleentity, self, "");  // sticks to moving player better, also conserves bandwidth
 		self.teambubbleentity.mdl = self.teambubbleentity.model;
 		self.teambubbleentity.model = self.teambubbleentity.mdl;
@@ -1535,17 +1580,9 @@ void player_powerups (void)
 		{
 			if (time > self.strength_finished)
 			{
-				if (g_minstagib_invis_alpha > 0)
-				{
-					self.alpha = default_player_alpha;
-					self.exteriorweaponentity.alpha = default_weapon_alpha;
-					self.effects = self.effects | EF_FULLBRIGHT;
-				}
-				else
-				{
-					self.effects -= self.effects & EF_NODRAW;
-				}
-				self.items = self.items - (self.items & IT_STRENGTH);
+				self.alpha = default_player_alpha;
+				self.exteriorweaponentity.alpha = default_weapon_alpha;
+				self.items &~= IT_STRENGTH;
 				sprint(self, "^3Invisibility has worn off\n");
 			}
 		}
@@ -1553,17 +1590,9 @@ void player_powerups (void)
 		{
 			if (time < self.strength_finished)
 			{
-				if (g_minstagib_invis_alpha > 0)
-				{
-					self.alpha = g_minstagib_invis_alpha;
-					self.exteriorweaponentity.alpha = g_minstagib_invis_alpha;
-					self.effects -= self.effects & EF_FULLBRIGHT;
-				}
-				else
-				{
-					self.effects = self.effects | EF_NODRAW;
-				}
-				self.items = self.items | IT_STRENGTH;
+				self.alpha = g_minstagib_invis_alpha;
+				self.exteriorweaponentity.alpha = g_minstagib_invis_alpha;
+				self.items |= IT_STRENGTH;
 				sprint(self, "^3You are invisible\n");
 			}
 		}
@@ -1737,18 +1766,11 @@ void player_regen (void)
 		self.event_damage(self, self, 1, DEATH_ROT, self.origin, '0 0 0');
 }
 
-.float zoomstate;
 float zoomstate_set;
 void SetZoomState(float z)
 {
 	if(z != self.zoomstate)
-	{
-		msg_entity = self;
-		WriteByte(MSG_ONE, SVC_TEMPENTITY);
-		WriteByte(MSG_ONE, TE_CSQC_ZOOMNOTIFY);
-		WriteByte(MSG_ONE, z);
-		self.zoomstate = z;
-	}
+		ClientData_Touch(self);
 	zoomstate_set = 1;
 }
 
@@ -2023,7 +2045,6 @@ Called every frame for each client before the physics are run
 =============
 */
 void() ctf_setstatus;
-.float spectatee_status;
 void PlayerPreThink (void)
 {
 	self.stat_sys_ticrate = cvar("sys_ticrate");
@@ -2083,10 +2104,7 @@ void PlayerPreThink (void)
 	}
 
 	if(frametime)
-	{
-		SendFog();
 		antilag_record(self);
-	}
 
 	if(self.classname == "player") {
 //		if(self.netname == "Wazat")
@@ -2111,9 +2129,8 @@ void PlayerPreThink (void)
 		if(time > self.teleport_time)
 		{
 			self.teleport_time = 0;
-			self.effects = self.effects - (self.effects & EF_NODRAW);
-			if(self.weaponentity)
-				self.weaponentity.flags = self.weaponentity.flags - (self.weaponentity.flags & EF_NODRAW);
+			if(! (self.items & IT_STRENGTH))
+				self.effects = self.effects - (self.effects & EF_NODRAW);
 		}
 
 		Nixnex_GiveCurrentWeapon();
@@ -2281,10 +2298,7 @@ void PlayerPreThink (void)
 		self.spectatee_status = 0;
 	if(self.spectatee_status != oldspectatee_status)
 	{
-		msg_entity = self;
-		WriteByte(MSG_ONE, SVC_TEMPENTITY);
-		WriteByte(MSG_ONE, TE_CSQC_SPECTATING);
-		WriteByte(MSG_ONE, self.spectatee_status);
+		ClientData_Touch(self);
 		if(g_race)
 			race_InitSpectator();
 	}

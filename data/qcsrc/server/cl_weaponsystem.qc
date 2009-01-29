@@ -279,12 +279,13 @@ void CL_Weaponentity_Think()
 
 	if (self.flags & FL_FLY)
 		// owner is currently being teleported, so don't apply EF_NODRAW otherwise the viewmodel would "blink"
-		self.effects = self.effects - (self.effects & EF_NODRAW);
+		self.effects &~= EF_NODRAW;
 
-	if(self.owner.alpha >= 0)
+	if(self.owner.alpha != 0)
 		self.alpha = self.owner.alpha;
 	else
 		self.alpha = 1;
+	
 	self.colormap = self.owner.colormap;
 
 	self.angles = '0 0 0';
@@ -340,10 +341,11 @@ void CL_ExteriorWeaponentity_Think()
 	}
 	self.effects = self.owner.effects | EF_LOWPRECISION;
 	self.effects = self.effects & EFMASK_CHEAP; // eat performance
-	if(self.owner.alpha >= 0)
+	if(self.owner.alpha != 0)
 		self.alpha = self.owner.alpha;
 	else
 		self.alpha = 1;
+	
 	self.colormap = self.owner.colormap;
 };
 

@@ -41,16 +41,6 @@ void() menu_sub_null =
 float __engine_check;
 #endif
 
-string config_get(string key, string defaultvalue)
-{
-	string s;
-	s = db_get(configdb, strcat("/s/", key));
-	if(s == "")
-		return defaultvalue;
-	else
-		return db_get(configdb, strcat("/v/", key));
-}
-
 string forcefog;
 void WaypointSprite_Load();
 void CSQC_Init(void)
@@ -71,7 +61,6 @@ void CSQC_Init(void)
 	CSQC_CheckEngine();
 	dprint_load();
 
-	configdb = db_create();
 	binddb = db_create();
 	tempdb = db_create();
 	compressShortVector_init();
@@ -138,6 +127,24 @@ void CSQC_Init(void)
 	GibSplash_Precache();
 	Casings_Precache();
 	DamageInfo_Precache();
+
+	get_mi_min_max_texcoords(1); // try the CLEVER way first
+	minimapname = strcat("gfx/", mi_shortname, "_radar.tga");
+	shortmapname = mi_shortname;
+
+	if(precache_pic(minimapname) == "")
+	{
+		// but maybe we have a non-clever minimap
+		minimapname = strcat("gfx/", mi_shortname, "_mini.tga");
+		if(precache_pic(minimapname) == "")
+			minimapname = ""; // FAIL
+		else
+			get_mi_min_max_texcoords(0); // load new texcoords
+	}
+
+	mi_center = (mi_min + mi_max) * 0.5;
+	mi_scale = mi_max - mi_min;
+	minimapname = strzone(minimapname);
 }
 
 // CSQC_Shutdown : Called every time the CSQC code is shutdown (changing maps, quitting, etc)
@@ -152,7 +159,6 @@ void CSQC_Shutdown(void)
 
 	remove(teams);
 	remove(players);
-	db_close(configdb);
 	db_close(binddb);
 	db_close(tempdb);
 
@@ -375,10 +381,6 @@ void Ent_ReadEntCS()
 	InterpolateOrigin_Note();
 }
 
-void Ent_RemoveEntCS()
-{
-}
-
 void Ent_Remove();
 void Ent_ReadPlayerScore()
 {
@@ -460,6 +462,47 @@ void Ent_ReadTeamScore()
 	Sbar_UpdateTeamPos(o);
 }
 
+void Net_Reset()
+{
+}
+
+void Ent_ClientData()
+{
+	float f;
+	float newspectatee_status;
+
+	f = ReadByte();
+
+	sb_showscores_force = (f & 1);
+
+	if(f & 2)
+	{
+		newspectatee_status = ReadByte();
+		if(newspectatee_status == player_localentnum)
+			newspectatee_status = -1; // observing
+	}
+	else
+		newspectatee_status = 0;
+
+	spectatorbutton_zoom = (f & 4);
+
+	if(f & 8)
+	{
+		angles_held_status = 1;
+		angles_held_x = ReadAngle();
+		angles_held_y = ReadAngle();
+		angles_held_z = 0;
+	}
+	
+	if(newspectatee_status != spectatee_status)
+	{
+		// clear race stuff
+		race_laptime = 0;
+		race_checkpointtime = 0;
+	}
+	spectatee_status = newspectatee_status;
+}
+
 void Ent_Nagger()
 {
 	float nags;
@@ -477,11 +520,14 @@ void Ent_Nagger()
 	ready_waiting_for_me = (nags & 2);
 	vote_waiting = (nags & 4);
 	vote_waiting_for_me = (nags & 8);
+	warmup_stage = (nags & 16);
 }
 
 // CSQC_Ent_Update : Called every frame that the server has indicated an update to the SSQC / CSQC entity has occured.
 // The only parameter reflects if the entity is "new" to the client, meaning it just came into the client's PVS.
 void Ent_RadarLink();
+void Ent_Init();
+void Ent_ScoresInfo();
 void(float bIsNewEntity) CSQC_Ent_Update =
 {
 	float t;
@@ -528,6 +574,14 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		Ent_DamageInfo();
 	else if(self.enttype == ENT_CLIENT_CASING)
 		Ent_Casing();
+	else if(self.enttype == ENT_CLIENT_INIT)
+		Ent_Init();
+	else if(self.enttype == ENT_CLIENT_SCORES_INFO)
+		Ent_ScoresInfo();
+	else if(self.enttype == ENT_CLIENT_MAPVOTE)
+		Ent_MapVote();
+	else if(self.enttype == ENT_CLIENT_CLIENTDATA)
+		Ent_ClientData();
 	else
 		error(strcat("unknown entity type in CSQC_Ent_Update: ", ftos(self.enttype), "\n"));
 	
@@ -539,10 +593,7 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 void Ent_Remove()
 {
 	float i;
-	if(self.enttype == ENT_CLIENT_ENTCS)
-	{
-		Ent_RemoveEntCS();
-	} else if(self.enttype == ENT_CLIENT_SCORES)
+	if(self.enttype == ENT_CLIENT_SCORES)
 	{
 		if(self.owner)
 		{
@@ -583,24 +634,6 @@ void CSQC_Ent_Remove()
 
 void Gamemode_Init()
 {
-	get_mi_min_max_texcoords(1); // try the CLEVER way first
-	minimapname = strcat("gfx/", mi_shortname, "_radar.tga");
-	shortmapname = mi_shortname;
-
-	if(precache_pic(minimapname) == "")
-	{
-		// but maybe we have a non-clever minimap
-		minimapname = strcat("gfx/", mi_shortname, "_mini.tga");
-		if(precache_pic(minimapname) == "")
-			minimapname = ""; // FAIL
-		else
-			get_mi_min_max_texcoords(0); // load new texcoords
-	}
-
-	mi_center = (mi_min + mi_max) * 0.5;
-	mi_scale = mi_max - mi_min;
-	minimapname = strzone(minimapname);
-
 	if(gametype == GAME_ONSLAUGHT) {
 		print(strcat("Using ", minimapname, " as minimap.\n"));
 		precache_pic("gfx/ons-cp-neutral.tga");
@@ -639,18 +672,11 @@ void Fog_Force()
 		localcmd(strcat("\nfog ", forcefog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
 }
 
-void Net_ReadFog()
-{
-	if(forcefog)
-		strunzone(forcefog);
-	ReadCoord(); // ignore fog interval
-	forcefog = strzone(ReadString());
-}
-
 void Gamemode_Init();
-void Net_ReadScoresInfo()
+void Ent_ScoresInfo()
 {
 	float i;
+	self.classname = "ent_client_scores_info";
 	gametype = ReadByte();
 	for(i = 0; i < MAX_SCORE; ++i)
 	{
@@ -666,17 +692,27 @@ void Net_ReadScoresInfo()
 	Gamemode_Init();
 }
 
-void Net_ReadInit()
+void Ent_Init()
 {
 	float i;
+	self.classname = "ent_client_init";
+
 	csqc_revision = ReadShort();
+
 	maxclients = ReadByte();
 	for(i = 0; i < 24; ++i)
 		weaponimpulse[i] = ReadByte() - 1;
 	hook_shotorigin_x = ReadCoord();
 	hook_shotorigin_y = ReadCoord();
 	hook_shotorigin_z = ReadCoord();
+
+	if(forcefog)
+		strunzone(forcefog);
+	forcefog = strzone(ReadString());
+
 	CSQC_CheckRevision();
+	if(!postinit)
+		PostInit();
 }
 
 string Net_ReadPicture()
@@ -698,15 +734,6 @@ string Net_ReadPicture()
 			ReadByte();
 	}
 	return img;
-}
-
-void Net_Config()
-{
-	string key, value;
-	key = ReadString();
-	value = ReadString();
-	db_put(configdb, strcat("/v/", key), value);
-	db_put(configdb, strcat("/s/", key), "1");
 }
 
 void Net_ReadRace()
@@ -776,51 +803,15 @@ void Net_ReadRace()
 	}
 }
 
-void Net_ReadForceScoreboard()
-{
-	sb_showscores_force = ReadByte();
-}
-
-void Net_Reset()
-{
-	float i;
-	race_laptime = 0;
-	race_checkpointtime = 0;
-	for(i = 0; i < 24; ++i)
-		angles_held_status[i] = 0;
-}
-
-void Net_ReadSpectating()
-{
-	float newspectatee_status;
-	newspectatee_status = ReadByte();
-	if(newspectatee_status == player_localentnum)
-		newspectatee_status = -1; // observing
-	if(newspectatee_status != spectatee_status)
-		Net_Reset();
-	spectatee_status = newspectatee_status;
-}
-
-void Net_ReadZoomNotify()
-{
-	spectatorbutton_zoom = ReadByte();
-}
-
 void Net_ReadSpawn()
 {
 	zoomin_effect = 1;
 	current_viewzoom = 0.6;
 }
 
-void Net_ReadWarmupStage()
-{
-	warmup_stage = ReadByte();
-}
-
 // CSQC_Parse_TempEntity : Handles all temporary entity network data in the CSQC layer.
 // You must ALWAYS first acquire the temporary ID, which is sent as a byte.
 // Return value should be 1 if CSQC handled the temporary entity, otherwise return 0 to have the engine process the event.
-void Net_ReadHoldAngles();
 float CSQC_Parse_TempEntity()
 {
 	local float bHandled;
@@ -832,32 +823,12 @@ float CSQC_Parse_TempEntity()
 		// NOTE: Could just do return instead of break...
 	switch(nTEID)
 	{
-		case TE_CSQC_INIT:
-			Net_ReadInit();
-			bHandled = true;
-			break;
-		case TE_CSQC_MAPVOTE:
-			Net_Mapvote();
-			bHandled = true;
-			break;
-		case TE_CSQC_CONFIG:
-			Net_Config();
-			bHandled = true;
-			break;
-		case TE_CSQC_SCORESINFO:
-			Net_ReadScoresInfo();
+		case TE_CSQC_PICTURE:
+			Net_MapVote_Picture();
 			bHandled = true;
 			break;
 		case TE_CSQC_RACE:
 			Net_ReadRace();
-			bHandled = true;
-			break;
-		case TE_CSQC_FORCESCOREBOARD:
-			Net_ReadForceScoreboard();
-			bHandled = true;
-			break;
-		case TE_CSQC_SPECTATING:
-			Net_ReadSpectating();
 			bHandled = true;
 			break;
 		case 13: // TE_BEAM
@@ -868,30 +839,11 @@ float CSQC_Parse_TempEntity()
 			Net_ReadSpawn();
 			bHandled = true;
 			break;
-		case TE_CSQC_ZOOMNOTIFY:
-			Net_ReadZoomNotify();
-			bHandled = true;
-			break;
-		case TE_CSQC_HOLDANGLES:
-			Net_ReadHoldAngles();
-			bHandled = true;
-			break;
-		case TE_CSQC_WARMUP:
-			Net_ReadWarmupStage();
-			bHandled = true;
-			break;
-		case TE_CSQC_FOG:
-			Net_ReadFog();
-			bHandled = true;
-			break;
 		default:
 			// No special logic for this temporary entity; return 0 so the engine can handle it
 			bHandled = false;
 			break;
 	}
-	
-	if(!postinit)
-		PostInit();
 		
 	return bHandled;
 }

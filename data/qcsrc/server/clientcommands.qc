@@ -18,6 +18,8 @@ float Nagger_SendEntity(entity to, float sendflags)
 		if(to.vote_vote == 0)
 			nags |= 8;
 	}
+	if(inWarmupStage)
+		nags |= 16;
 
 	if(sendflags & 128)
 	{
@@ -283,7 +285,7 @@ void SV_ParseClientCommand(string s) {
 			pointparticles(effectnum, start, end, f);
 		}
 		else
-			print("Usage: sv_cheats 1; restart; cmd pointparticles effectname position(0..1) velocityvector multiplier\n");
+			sprint(self, "Usage: sv_cheats 1; restart; cmd pointparticles effectname position(0..1) velocityvector multiplier\n");
 	} else if(argv(0) == "trailparticles") {
 		if(sv_cheats && tokens == 3)
 		{
@@ -296,7 +298,7 @@ void SV_ParseClientCommand(string s) {
 			trailparticles(self, effectnum, w_shotorg, trace_endpos);
 		}
 		else
-			print("Usage: sv_cheats 1; restart; cmd trailparticles effectname shotorigin\n");
+			sprint(self, "Usage: sv_cheats 1; restart; cmd trailparticles effectname shotorigin\n");
 	} else {
 		//if(ctf_clientcommand())
 		//	return;
@@ -361,14 +363,7 @@ void ReadyRestartForce()
 	FOR_EACH_CLIENTSLOT(e)
 		e.ready = 0;
 	readycount = 0;
-	Nagger_ReadyCounted();
-	FOR_EACH_REALCLIENT(e)
-	{
-		msg_entity = e;
-		WriteByte(MSG_ONE, SVC_TEMPENTITY);
-		WriteByte(MSG_ONE, TE_CSQC_WARMUP);
-		WriteByte(MSG_ONE, 0);
-	}
+	Nagger_ReadyCounted(); // NOTE: this causes a resend of that entity, and will also turn off warmup state on the client
 
 	if(cvar("teamplay_lockonrestart") && teams_matter) {
 		lockteams = 1;
