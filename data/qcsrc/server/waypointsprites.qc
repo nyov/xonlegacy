@@ -254,13 +254,11 @@ entity WaypointSprite_Spawn(
 	wp.max_health = maxdistance;
 	wp.think = WaypointSprite_Think;
 	wp.nextthink = time;
-	wp.effects = EF_NODEPTHTEST | EF_LOWPRECISION;
 	wp.model1 = spr;
-	setmodel(wp, "null");
-	wp.SendEntity = WaypointSprite_SendEntity;
 	wp.customizeentityforclient = WaypointSprite_Customize;
 	wp.waypointsprite_visible_for_player = WaypointSprite_visible_for_player;
 	wp.reset2 = WaypointSprite_Reset;
+	Net_LinkEntity(wp, FALSE, 0, WaypointSprite_SendEntity);
 	return wp;
 }
 

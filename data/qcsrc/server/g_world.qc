@@ -1760,7 +1760,15 @@ void CheckRules_World()
 	}
 
 	if(timelimit > 0)
+	{
 		timelimit += game_starttime;
+	}
+	else if (timelimit < 0)
+	{
+		// endmatch
+		NextLevel();
+		return;
+	}
 
 	if(checkrules_overtimeend)
 	{
@@ -2100,11 +2108,7 @@ float MapVote_SendEntity(entity to, float sf)
 
 void MapVote_Spawn()
 {
-	mapvote_ent = spawn();
-	mapvote_ent.classname = "ent_client_mapvote";
-	mapvote_ent.SendEntity = MapVote_SendEntity;
-	setmodel(mapvote_ent, "null");
-	mapvote_ent.effects = EF_NODEPTHTEST;
+	Net_LinkEntity(mapvote_ent = spawn(), FALSE, 0, MapVote_SendEntity);
 }
 
 void MapVote_TouchMask()
