@@ -1633,15 +1633,20 @@ void SetCustomizer(entity e, float(void) customizer, void(void) uncustomizer)
 #define IFTARGETED if(!self.nottargeted && self.targetname != "")
 
 void() SUB_Remove;
-void Net_LinkEntityWithSize(entity e, float docull, float dt, vector mi, vector ma, float(entity, float) sendfunc)
+void Net_LinkEntity(entity e, float docull, float dt, float(entity, float) sendfunc)
 {
+	vector mi, ma;
+
 	if(e.classname == "")
 		e.classname = "net_linked";
 
 	if(e.model == "" || self.modelindex == 0)
+	{
+		mi = e.mins;
+		ma = e.maxs;
 		setmodel(e, "null");
-
-	setsize(e, mi, ma);
+		setsize(e, mi, ma);
+	}
 
 	e.SendEntity = sendfunc;
 	e.SendFlags = 0xFFFFFF;
@@ -1654,11 +1659,6 @@ void Net_LinkEntityWithSize(entity e, float docull, float dt, vector mi, vector 
 		e.nextthink = time + dt;
 		e.think = SUB_Remove;
 	}
-}
-
-void Net_LinkEntity(entity e, float docull, float dt, float(entity, float) sendfunc)
-{
-	Net_LinkEntityWithSize(e, docull, dt, e.mins, e.maxs, sendfunc);
 }
 
 void adaptor_think2touch()
@@ -1857,4 +1857,100 @@ string getrecords()
 		return "No records are available on this server.\n";
 	else
 		return strcat("Records on this server:\n", s);
+}
+
+float MoveToRandomMapLocation(entity e, float goodcontents, float badcontents, float badsurfaceflags, float attempts, float maxaboveground, float minviewdistance)
+{
+	float m, i;
+	vector start, org, delta, end, enddown, mstart;
+
+	m = e.dphitcontentsmask;
+	e.dphitcontentsmask = goodcontents | badcontents;
+
+	org = world.mins;
+	delta = world.maxs - world.mins;
+
+	for(i = 0; i < attempts; ++i)
+	{
+		start_x = org_x + random() * delta_x;
+		start_y = org_y + random() * delta_y;
+		start_z = org_z + random() * delta_z;
+
+		// rule 1: start inside world bounds, and outside
+		// solid, and don't start from somewhere where you can
+		// fall down to evil
+		tracebox(start, e.mins, e.maxs, start - '0 0 1' * delta_z, MOVE_NORMAL, e);
+		if(trace_fraction >= 1)
+			continue;
+		if(trace_startsolid)
+			continue;
+		if(trace_dphitcontents & badcontents)
+			continue;
+		if(trace_dphitq3surfaceflags & badsurfaceflags)
+			continue;
+
+		// rule 2: if we are too high, lower the point
+		if(trace_fraction * delta_z > maxaboveground)
+			start = trace_endpos + '0 0 1' * maxaboveground;
+		enddown = trace_endpos;
+
+		// rule 3: make sure we aren't outside the map. This only works
+		// for somewhat well formed maps. A good rule of thumb is that
+		// the map should have a convex outside hull.
+		// these can be traceLINES as we already verified the starting box
+		mstart = start + 0.5 * (e.mins + e.maxs);
+		traceline(mstart, mstart + '1 0 0' * delta_x, MOVE_NORMAL, e);
+		if(trace_fraction >= 1)
+			continue;
+		traceline(mstart, mstart - '1 0 0' * delta_x, MOVE_NORMAL, e);
+		if(trace_fraction >= 1)
+			continue;
+		traceline(mstart, mstart + '0 1 0' * delta_y, MOVE_NORMAL, e);
+		if(trace_fraction >= 1)
+			continue;
+		traceline(mstart, mstart - '0 1 0' * delta_y, MOVE_NORMAL, e);
+		if(trace_fraction >= 1)
+			continue;
+		traceline(mstart, mstart + '0 0 1' * delta_z, MOVE_NORMAL, e);
+		if(trace_fraction >= 1)
+			continue;
+
+		// find a random vector to "look at"
+		end_x = org_x + random() * delta_x;
+		end_y = org_y + random() * delta_y;
+		end_z = org_z + random() * delta_z;
+		end = start + normalize(end - start) * vlen(delta);
+
+		// rule 4: start TO end must not be too short
+		tracebox(start, e.mins, e.maxs, end, MOVE_NORMAL, e);
+		if(trace_startsolid)
+			continue;
+		if(trace_fraction < minviewdistance / vlen(delta))
+			continue;
+
+		// rule 5: don't want to look at sky
+		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_SKY)
+			continue;
+
+		// rule 6: we must not end up in trigger_hurt
+		if(tracebox_hits_trigger_hurt(start, e.mins, e.maxs, enddown))
+		{
+			dprint("trigger_hurt! ouch! and nothing else could find it!\n");
+			continue;
+		}
+
+		break;
+	}
+
+	e.dphitcontentsmask = m;
+
+	if(i < attempts)
+	{
+		setorigin(e, start);
+		e.angles = vectoangles(end - start);
+		dprint("Needed ", ftos(i + 1), " attempts\n");
+		return TRUE;
+	}
+	else
+		return FALSE;
 }

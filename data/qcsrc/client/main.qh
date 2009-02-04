@@ -110,6 +110,7 @@ entity teamslots[17];    // 17 teams (including "spectator team")
 
 .void(void) draw;
 .void(void) draw2d;
+.void(void) entremove;
 float drawframetime;
 vector view_origin, view_angles, view_forward, view_right, view_up;
 
@@ -141,4 +142,5 @@ float vid_width, vid_height, vid_pixelheight;
 
 float camera_active;		// Demo camera is active if set to TRUE
 float chase_active_backup;
+float camera_roll;
 vector camera_direction;
