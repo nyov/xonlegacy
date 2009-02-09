@@ -606,14 +606,20 @@ string Sbar_GetField(entity pl, float field)
 			return str;
 		
 		case SP_NAME:
-			if(!teamplay)
+			if(ready_waiting && pl.ready)
+			{
+				sbar_field_icon0 = "gfx/sb_player_ready";
+			}
+			else if(!teamplay)
 			{
 				f = stof(getplayerkey(pl.sv_entnum, "colors"));
-				sbar_field_icon0 = "gfx/sb_playercolor_base";
-				sbar_field_icon1 = "gfx/sb_playercolor_shirt";
-				sbar_field_icon1_rgb = colormapPaletteColor(floor(f / 16), 0);
-				sbar_field_icon2 = "gfx/sb_playercolor_pants";
-				sbar_field_icon2_rgb = colormapPaletteColor(mod(f, 16), 1);
+				{
+					sbar_field_icon0 = "gfx/sb_playercolor_base";
+					sbar_field_icon1 = "gfx/sb_playercolor_shirt";
+					sbar_field_icon1_rgb = colormapPaletteColor(floor(f / 16), 0);
+					sbar_field_icon2 = "gfx/sb_playercolor_pants";
+					sbar_field_icon2_rgb = colormapPaletteColor(mod(f, 16), 1);
+				}
 			}
 			return GetPlayerName(pl.sv_entnum);
 
@@ -654,51 +660,20 @@ string Sbar_GetField(entity pl, float field)
 	//return "error";
 }
 
-// shamelessly stolen from menu QC :P <- as if I would steal YOUR code pfft ;)
-float textLengthUpToWidth(string theText, float maxWidth, float handleColors)
-{
-	// STOP.
-	// The following function is SLOW.
-	// For your safety and for the protection of those around you...
-	// DO NOT CALL THIS AT HOME.
-	// No really, don't.
-	if(stringwidth(theText, handleColors) <= maxWidth)
-		return strlen(theText); // yeah!
-
-	// binary search for right place to cut string
-	float left, right, middle; // this always works
-	left = 0;
-	right = strlen(theText); // this always fails
-	do
-	{
-		middle = floor((left + right) / 2);
-		if(stringwidth(substring(theText, 0, middle), handleColors) <= maxWidth)
-			left = middle;
-		else
-			right = middle;
-	}
-	while(left < right - 1);
-
-	// NOTE: when color codes are involved, this binary search is,
-	// mathematically, BROKEN. However, it is obviously guaranteed to
-	// terminate, as the range still halves each time - but nevertheless, it is
-	// guaranteed that it finds ONE valid cutoff place (where "left" is in
-	// range, and "right" is outside).
-
-	return left;
-}
-string textShortenToWidth(string theText, float maxWidth, float handleColors)
-{
-	if(stringwidth(theText, handleColors) <= maxWidth)
-		return theText;
-	else
-		return strcat(substring(theText, 0, textLengthUpToWidth(theText, maxWidth - stringwidth("...", handleColors), handleColors)), "...");
-}
-
 float xmin, xmax, ymin, ymax, sbwidth;
 float sbar_fixscoreboardcolumnwidth_len;
 float sbar_fixscoreboardcolumnwidth_iconlen;
 float sbar_fixscoreboardcolumnwidth_marginlen;
+
+float stringwidth_colors(string s)
+{
+	return stringwidth(s, TRUE);
+}
+
+float stringwidth_nocolors(string s)
+{
+	return stringwidth(s, FALSE);
+}
 
 string Sbar_FixScoreboardColumnWidth(float i, string str)
 {
@@ -712,7 +687,7 @@ string Sbar_FixScoreboardColumnWidth(float i, string str)
 		for(j = 0; j < sbar_num_fields; ++j) if(j != i) if(sbar_field[j] != SP_SEPARATOR)
 			maxsize -= sbar_size[j] + 1;
 		maxsize += 1;
-		str = textShortenToWidth(str, maxsize, TRUE);
+		str = textShortenToWidth(str, maxsize, stringwidth_colors);
 		sbar_fixscoreboardcolumnwidth_len = stringwidth(str, TRUE);
 	}
 	else
@@ -847,6 +822,7 @@ void Sbar_PrintScoreboardItem(vector pos, entity pl, float is_self)
 }
 
 float lastpingstime;
+float scoreboard_bottom;
 void Sbar_DrawScoreboard()
 {
 	//float xmin, ymin, xmax, ymax;
@@ -864,7 +840,7 @@ void Sbar_DrawScoreboard()
 	sbwidth = Sbar_GetWidth(6.5 * sbar_fontsize_y);
 
 	xmin = 0.5 * (vid_conwidth - sbwidth);
-	ymin = 20;
+	ymin = 45;
 
 	xmax = vid_conwidth - xmin;
     ymax = vid_conheight - 0.2*vid_conheight;
@@ -1055,10 +1031,11 @@ void Sbar_DrawScoreboard()
 	}
 	
 
-	pos_y += 1.5 * sbar_fontsize_y;
+	pos_y += 1.2 * sbar_fontsize_y;
 	drawcolorcodedstring(pos + '0.5 0 0' * (sbwidth - sbar_fontsize_x * stringwidth(str, TRUE)), str, sbar_fontsize, 0.8, 0);
 	
 	sbar = sbar_save;
+	scoreboard_bottom = pos_y + 2 * sbar_fontsize_y;
 }
 
 string MakeRaceString(float cp, float mytime, float histime, float lapdelta, string hisname)
@@ -1120,10 +1097,6 @@ string MakeRaceString(float cp, float mytime, float histime, float lapdelta, str
 		return strcat(col, cpname, " (", timestr, ")");
 	else
 		return strcat(col, cpname, " (", timestr, " ", strcat(hisname, col, lapstr), ")");
-}
-
-void dummyfunction(float a1, float a2, float a3, float a4, float a5, float a6, float a7, float a8)
-{
 }
 
 void Sbar_Score(float margin)
@@ -1219,6 +1192,10 @@ void Sbar_Score(float margin)
 			timer_color = '1 0 0'; //red
 		}
 		
+		if (warmup_stage) {
+			timer_color = '1 1 1'; //don't use red or yellow for timer during warmup
+		}
+		
 		if (cvar("sbar_increment_maptime")) {
 			if (time < getstatf(STAT_GAMESTARTTIME)) {
 				//while restart is still active, show negative counter
@@ -1260,7 +1237,6 @@ void Sbar_Score(float margin)
 
 		if(race_checkpointtime)
 		{
-
 			a = bound(0, 2 - (time - race_checkpointtime), 1);
 			s = "";
 			forcetime = "";
@@ -1293,11 +1269,8 @@ void Sbar_Score(float margin)
 
 			if(forcetime != "")
 			{
-				float sz;
-				a = bound(0, 1 - 2 * (time - race_checkpointtime), 1);
-				sz = 1.2 / (a + 0.2);
-				drawstring(m - '0 0 0' - '0 16 0' * (sz - 1) - '16 0 0' * sz * stringwidth(forcetime, FALSE), forcetime, '32 32 0' * sz, '1 1 1', sbar_alpha_fg * a, 0);
-				a = 1 - a;
+				a = bound(0, (time - race_checkpointtime) / 0.5, 1);
+				drawstring_expanding(m - '16 0 0' * stringwidth(forcetime, FALSE), forcetime, '32 32 0', '1 1 1', sbar_alpha_fg, 0, a);
 			}
 			else
 				a = 1;
@@ -1305,7 +1278,7 @@ void Sbar_Score(float margin)
 			if(race_laptime)
 			{
 				s = mmsss(10*(time - race_laptime));
-				drawstring(m - '0 0 0' - '16 0 0' * stringwidth(s, FALSE), s, '32 32 0', '1 1 1', sbar_alpha_fg * a, 0);
+				drawstring(m - '16 0 0' * stringwidth(s, FALSE), s, '32 32 0', '1 1 1', sbar_alpha_fg * a, 0);
 			}
 		}
 		else
@@ -1467,6 +1440,256 @@ float Sbar_WouldDrawScoreboard ()
 	return 0;
 }
 
+void CSQC_Strength_Timer() {
+	float stat_items, dt;
+	stat_items = getstati(STAT_ITEMS);
+	if not(stat_items & IT_STRENGTH)
+		if not(stat_items & IT_INVINCIBLE)
+			return;
+	
+	if (getstati(STAT_HEALTH) <= 0)
+		return;
+	
+	vector pos, picsize, number_position;
+	float strength_time, invincibility_time, countdown_fontsize;
+
+	picsize = '40 40 0';
+	countdown_fontsize = 22;
+	
+	//element will be positioned on the right side of the screen:
+	pos_x = vid_conwidth - picsize_x - 10; //margin 10 from right border
+	number_position_x = pos_x - 5/*margin to the left from image*/ - countdown_fontsize*2/*width of text*/;
+	
+	pos_y = 180;
+	number_position_y = pos_y;
+	
+	//now calculate the values Sbar_DrawXNum() will be called with:
+	number_position_x = number_position_x - sbar_x; //relative to sbar coordinates
+	number_position_y = number_position_y - sbar_y; //relative to sbar coordinates
+	number_position_y += 10; //center number vertically to the icon
+	
+	pos_z = number_position_z = 0;
+	
+	//strength
+	strength_time = getstatf(STAT_STRENGTH_FINISHED);
+	invincibility_time = getstatf(STAT_INVINCIBLE_FINISHED);
+
+	if (strength_time) {
+		dt = strength_time - time;
+		if(dt > 0)
+		{
+			if(dt < 5)
+			{
+				drawpic_expanding_two(pos, "gfx/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
+					bound(0, (ceil(dt) - dt) / 0.5, 1));
+			}
+			else
+			{
+				drawpic(pos, "gfx/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+			}
+			Sbar_DrawXNum(number_position, ceil(dt), 2, countdown_fontsize, '1 1 1', 1, DRAWFLAG_NORMAL);
+		}
+	}
+	
+	//add some margin to the invincibility icon
+	pos_y             += picsize_y + 10;
+	number_position_y += picsize_y + 10;
+
+	//invincibility
+	if (invincibility_time) {
+		dt = invincibility_time - time;
+		if(dt > 0)
+		{
+			if(dt < 5)
+			{
+				drawpic_expanding_two(pos, "gfx/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
+					bound(0, (ceil(dt) - dt) / 0.5, 1));
+			}
+			else
+			{
+				drawpic(pos, "gfx/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+			}
+			Sbar_DrawXNum(number_position, ceil(dt), 2, countdown_fontsize, '1 1 1', 1, DRAWFLAG_NORMAL);
+		}
+	}
+}
+
+#define CENTERPRINT_MAX_LINES 30
+string centerprint_messages[CENTERPRINT_MAX_LINES]; 
+float centerprint_width[CENTERPRINT_MAX_LINES]; 
+vector centerprint_start;
+float centerprint_expire;
+float centerprint_num;
+float centerprint_offset_hint;
+vector centerprint_fontsize;
+
+void centerprint(string strMessage)
+{
+	float i, j, n, hcount;
+	string s;
+
+	centerprint_fontsize = Sbar_GetFontsize("scr_centersize");
+
+	centerprint_expire = max(centerprint_expire, time); // if any of the returns happens, this message will fade out
+	
+	if(strMessage == "")
+		return;
+
+	// strip trailing newlines
+	j = strlen(strMessage) - 1;
+	while(substring(strMessage, j, 1) == "\n" && j >= 0)
+		j = j - 1;
+	strMessage = substring(strMessage, 0, j + 1);
+	
+	if(strMessage == "")
+		return;
+
+	// strip leading newlines and remember them, they are a hint that the message should be lower on the screen
+	j = 0;
+	while(substring(strMessage, j, 1) == "\n" && j < strlen(strMessage))
+		j = j + 1;
+	strMessage = substring(strMessage, j, strlen(strMessage) - j);
+	centerprint_offset_hint = j;
+
+	if(strMessage == "")
+		return;
+
+	// if we get here, we have a message. Initialize its height.
+	centerprint_num = 0;
+	
+	n = tokenizebyseparator(strMessage, "\n");
+	i = hcount = 0;
+	for(j = 0; j < n; ++j)
+	{
+		getWrappedLine_remaining = argv(j);
+		while(getWrappedLine_remaining)
+		{
+			s = getWrappedLine(vid_conwidth * 0.75 / centerprint_fontsize_x, stringwidth_colors);
+			if(centerprint_messages[i])
+				strunzone(centerprint_messages[i]);
+			centerprint_messages[i] = strzone(s);
+			centerprint_width[i] = stringwidth(s, TRUE);
+			++i;
+
+			// half height for empty lines looks better
+			if(s == "")
+				hcount += 0.5;
+			else
+				hcount += 1;
+
+			if(i >= CENTERPRINT_MAX_LINES)
+				break;
+		}
+	}
+
+	float h, havail;
+	h = centerprint_fontsize_y*hcount;
+
+	havail = vid_conheight;
+	if(cvar("con_chatpos") < 0)
+		havail -= (-cvar("con_chatpos") + cvar("con_chat")) * cvar("con_chatsize"); // avoid overlapping chat
+
+	centerprint_start_x = 0;
+
+#if 0
+	float forbiddenmin, forbiddenmax, allowedmin, allowedmax, preferred;
+
+	// here, the centerprint would cover the crosshair. REALLY BAD.
+	forbiddenmin = vid_conheight * 0.5 - h - 16;
+	forbiddenmax = vid_conheight * 0.5 + 16;
+
+	allowedmin = scoreboard_bottom;
+	allowedmax = havail - h;
+	preferred = (havail - h)/2;
+
+
+	// possible orderings (total: 4! / 4 = 6)
+	//  allowedmin allowedmax forbiddenmin forbiddenmax
+	//  forbiddenmin forbiddenmax allowedmin allowedmax
+	if(allowedmax < forbiddenmin || allowedmin > forbiddenmax)
+	{
+		// forbidden doesn't matter in this case
+		centerprint_start_y = bound(allowedmin, preferred, allowedmax);
+	}
+	//  allowedmin forbiddenmin allowedmax forbiddenmax
+	else if(allowedmin < forbiddenmin && allowedmax < forbiddenmax)
+	{
+		centerprint_start_y = bound(allowedmin, preferred, forbiddenmin);
+	}
+	//  allowedmin forbiddenmin forbiddenmax allowedmax
+	else if(allowedmin < forbiddenmin)
+	{
+		// make sure the forbidden zone is not covered
+		if(preferred > (forbiddenmin + forbiddenmax) * 0.5)
+			centerprint_start_y = bound(allowedmin, preferred, forbiddenmin);
+		else
+			centerprint_start_y = bound(forbiddenmax, preferred, allowedmin);
+	}
+	//  forbiddenmin allowedmin allowedmax forbiddenmax
+	else if(allowedmax < forbiddenmax)
+	{
+		// it's better to leave the allowed zone (overlap with scoreboard) than
+		// to cover the forbidden zone (crosshair)
+		if(preferred > (forbiddenmin + forbiddenmax) * 0.5)
+			centerprint_start_y = forbiddenmax;
+		else
+			centerprint_start_y = forbiddenmin;
+	}
+	//  forbiddenmin allowedmin forbiddenmax allowedmax
+	else
+	{
+		centerprint_start_y = bound(forbiddenmax, preferred, allowedmax);
+	}
+#else
+	centerprint_start_y =
+		min(
+			max(
+				max(scoreboard_bottom, vid_conheight * 0.5 + 16),
+				(havail - h)/2
+			),
+			havail - h
+		);
+#endif
+
+	centerprint_num = i;
+	centerprint_expire = time + cvar("scr_centertime");
+}
+
+void Sbar_DrawCenterPrint (void)
+{
+	float i;
+	vector pos;
+	string ts;
+	float a;
+
+	//if(time > centerprint_expire)
+	//	return;
+	
+	//a = bound(0, 1 - 2 * (time - centerprint_expire), 1);
+	a = bound(0, 1 - 4 * (time - centerprint_expire), 1);
+	//sz = 1.2 / (a + 0.2);
+
+	if(a <= 0)
+		return;
+	
+	pos = centerprint_start;
+	for (i=0; i<centerprint_num; i = i + 1)
+	{
+		pos_x = (vid_conwidth - centerprint_fontsize_x * centerprint_width[i]) * 0.5;
+		ts = centerprint_messages[i];
+		if (ts != "")
+		{
+			dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
+			drawcolorcodedstring(pos, ts, centerprint_fontsize, a, DRAWFLAG_NORMAL);
+			//  - '0 0.5 0' * (sz - 1) * centerprint_fontsize_x - '0.5 0 0' * (sz - 1) * centerprint_width[i] * centerprint_fontsize_y, centerprint_fontsize * sz
+			pos_y = pos_y + centerprint_fontsize_y;
+		}
+		else
+			// half height for empty lines looks better
+			pos_y = pos_y + centerprint_fontsize_y * 0.5;
+	}
+}
+
 vector Sbar_DrawNoteLine(vector offset, string s)
 {
 	dummyfunction(0, 0, 0, 0, 0, 0, 0, 0); // work around DP bug (set OFS_PARAM5 to 0)
@@ -1488,7 +1711,7 @@ void Sbar_Draw (void)
 	vector o; o = '1 0 0' * vid_conwidth;
 	string s;
 
-	sbar_fontsize = Sbar_GetFontsize();
+	sbar_fontsize = Sbar_GetFontsize("sbar_fontsize");
 	
 	if(spectatee_status)
 	{
@@ -1526,6 +1749,15 @@ void Sbar_Draw (void)
 		else
 			s = strcat("^1Press ^3", getcommandkey("jump", "+jump"), "^1 to join");
 		o = Sbar_DrawNoteLine(o, s);
+		
+		//show restart countdown:
+		if (time < getstatf(STAT_GAMESTARTTIME)) {
+			float countdown;
+			//we need to ceil, otherwise the countdown would be off by .5 when using round()
+			countdown = ceil(getstatf(STAT_GAMESTARTTIME) - time);
+			s = strcat("^1Game starts in ^3", ftos(countdown), "^1 seconds");
+			o = Sbar_DrawNoteLine(o, s);
+		}
 	}
 	if(warmup_stage)
 	{
@@ -1623,14 +1855,21 @@ void Sbar_Draw (void)
 	sb_lines = 24;
 
 	if (sb_showscores)
+	{
 		Sbar_DrawScoreboard();
+		Sbar_DrawCenterPrint();
+	}
 	else if (intermission == 1)
 	{
 		Sbar_DrawScoreboard();
+		Sbar_DrawCenterPrint();
 		return;
 	}
 	else if (intermission == 2)
+	{
 		Sbar_FinaleOverlay();
+		Sbar_DrawCenterPrint();
+	}
 	else
 	{
 		if (sb_showscores || sb_showscores_force || (getstati(STAT_HEALTH) <= 0 && cvar("cl_deathscoreboard")))
@@ -1810,7 +2049,9 @@ void Sbar_Draw (void)
 				//   that is, 96 pixels mini scoreboard size, needing 16 pixels
 				//   to the right!
 			}
-		
+			
+			//show strength/invincibility ICON and timer:
+			CSQC_Strength_Timer();
 
 			if(gametype == GAME_KEYHUNT)
 			{
@@ -1820,6 +2061,7 @@ void Sbar_Draw (void)
 				CSQC_ctf_hud();
 			}
 		}
+		Sbar_DrawCenterPrint();
 	}
 }
 
@@ -1862,25 +2104,25 @@ void CSQC_ctf_hud(void)
 
 	switch(redflag)
 	{
-	case 1: drawpic(pos, "gfx/sb_flag_red_taken", '128 64 0', '1 1 1', 1, DRAWFLAG_NORMAL); break;
-	case 2: drawpic(pos, "gfx/sb_flag_red_lost", '128 64 0', '1 1 1', 1, DRAWFLAG_NORMAL); break;
-	case 3: drawpic(pos, "gfx/sb_flag_red_carrying", '128 64 0', '1 1 1', 1, DRAWFLAG_NORMAL); break;
+	case 1: drawpic(pos, "gfx/sb_flag_red_taken", '128 64 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL); break;
+	case 2: drawpic(pos, "gfx/sb_flag_red_lost", '128 64 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL); break;
+	case 3: drawpic(pos, "gfx/sb_flag_red_carrying", '128 64 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL); break;
 	default:
 		if(stat_items & IT_CTF_SHIELDED)
 			if(myteam == COLOR_TEAM2)
-				drawpic(pos, "gfx/sb_flag_red_shielded", '128 64 0', '1 1 1', 1, DRAWFLAG_NORMAL); break;
+				drawpic(pos, "gfx/sb_flag_red_shielded", '128 64 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL); break;
 	}
 
 	pos_y -= 64;
 	
 	switch(blueflag)
 	{
-	case 1: drawpic(pos, "gfx/sb_flag_blue_taken", '128 64 0', '1 1 1', 1, 0); break;
-	case 2: drawpic(pos, "gfx/sb_flag_blue_lost", '128 64 0', '1 1 1', 1, 0); break;
-	case 3: drawpic(pos, "gfx/sb_flag_blue_carrying", '128 64 0', '1 1 1', 1, 0); break;
+	case 1: drawpic(pos, "gfx/sb_flag_blue_taken", '128 64 0', '1 1 1', sbar_alpha_fg, 0); break;
+	case 2: drawpic(pos, "gfx/sb_flag_blue_lost", '128 64 0', '1 1 1', sbar_alpha_fg, 0); break;
+	case 3: drawpic(pos, "gfx/sb_flag_blue_carrying", '128 64 0', '1 1 1', sbar_alpha_fg, 0); break;
 	default:
 		if(stat_items & IT_CTF_SHIELDED)
 			if(myteam == COLOR_TEAM1)
-				drawpic(pos, "gfx/sb_flag_blue_shielded", '128 64 0', '1 1 1', 1, DRAWFLAG_NORMAL); break;
+				drawpic(pos, "gfx/sb_flag_blue_shielded", '128 64 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL); break;
 	}
 }

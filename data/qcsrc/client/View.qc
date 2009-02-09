@@ -70,6 +70,30 @@ void Porto_Draw()
 	}
 }
 
+/**
+ * Checks whether the server initiated a map restart (stat_game_starttime changed)
+ *
+ * TODO: Use a better solution where a common shared entitiy is used that contains
+ * timelimit, fraglimit and game_starttime! Requires engine changes (remove STAT_TIMELIMIT
+ * and STAT_FRAGLIMIT to be auto-sent)
+ */
+void CheckForGamestartChange() {
+	float startTime;
+	startTime = getstatf(STAT_GAMESTARTTIME);
+	if (previous_game_starttime != startTime) {
+		if ((time + 5.0) < startTime) {
+			//if connecting to server while restart was active don't always play prepareforbattle
+			sound(self, CHAN_VOICE, "announcer/robotic/prepareforbattle.wav", VOL_BASEVOICE, ATTN_NONE);
+		}
+		if (time < startTime) {
+			restartAnnouncer = spawn();
+			restartAnnouncer.think = restartAnnouncer_Think;
+			restartAnnouncer.nextthink = startTime - floor(startTime - time); //synchronize nextthink to startTime
+		}
+	}
+	previous_game_starttime = startTime;
+}
+
 float DPCONTENTS_SOLID = 1; // hit a bmodel, not a bounding box
 float DPCONTENTS_BODY = 32; // hit a bounding box, not a bmodel
 void Porto_Init()
@@ -247,6 +271,8 @@ void CSQC_UpdateView(float w, float h)
 	// might even be better to add the gametype to TE_CSQC_INIT...?
 	if(!postinit)
 		PostInit();
+	
+	CheckForGamestartChange();
 
 	fov = cvar("fov");
 	if(button_zoom || fov <= 59.5)
@@ -357,7 +383,42 @@ void CSQC_UpdateView(float w, float h)
 	// next R_RenderScene call
 	drawstring('0 0 0', "", '1 1 0', '1 1 1', 0, 0);
 
-	// crosshair
+	// Draw the mouse cursor
+	// NOTE: drawpic must happen after R_RenderScene for some reason
+	//drawpic(getmousepos(), "gfx/cursor.tga", '11 14 0', '1 1 1', 1, 0);
+	//drawstring('50 50', ftos(game), '10 10 0', '1 1 1', 1, 0);
+	//self = edict_num(player_localnum);
+	//drawstring('0 0', vtos(pmove_org), '8 8 0', '1 1 1', 1, 0);
+	//drawstring('0 8', strcat("ORG: ", vtos(self.origin), " state: ", ftos(self.ctf_state), " HP: ", ftos(self.health)), '8 8 0', '1 1 1', 1, 0);
+	// as long as the ctf part isn't in, this is useless
+	if(menu_visible)
+		menu_show();
+	
+	/*if(gametype == GAME_CTF)
+	{
+		ctf_view();
+	} else */
+
+	// draw 2D entities
+	e = self;
+	for(self = world; (self = nextent(self)); )
+		if(self.draw2d)
+			self.draw2d();
+	self = e;
+	
+	// draw radar
+	if(teamplay || cvar("cl_teamradar") == 2)
+	{
+		if((cvar_string("cl_teamradar") != "0" && !scoreboard_active) || ons_showmap)
+			teamradar_view();
+	}
+
+	// draw sbar
+	if(cvar("r_letterbox") == 0)
+	if(cvar("viewsize") < 120)
+		CSQC_common_hud();
+
+	// crosshair goes VERY LAST
 	if(!scoreboard_active && !ons_showmap) {
 		string wcross_style;
 		wcross_style = cvar_string("crosshair");
@@ -402,41 +463,6 @@ void CSQC_UpdateView(float w, float h)
 			drawpic('0.5 0 0' * (vid_conwidth - wcross_size_x) + '0 0.5 0' * (vid_conheight - wcross_size_y), wcross_name, wcross_size, wcross_color, wcross_alpha, DRAWFLAG_NORMAL);
 		}
 	}
-
-	// Draw the mouse cursor
-	// NOTE: drawpic must happen after R_RenderScene for some reason
-	//drawpic(getmousepos(), "gfx/cursor.tga", '11 14 0', '1 1 1', 1, 0);
-	//drawstring('50 50', ftos(game), '10 10 0', '1 1 1', 1, 0);
-	//self = edict_num(player_localnum);
-	//drawstring('0 0', vtos(pmove_org), '8 8 0', '1 1 1', 1, 0);
-	//drawstring('0 8', strcat("ORG: ", vtos(self.origin), " state: ", ftos(self.ctf_state), " HP: ", ftos(self.health)), '8 8 0', '1 1 1', 1, 0);
-	// as long as the ctf part isn't in, this is useless
-	if(menu_visible)
-		menu_show();
-	
-	/*if(gametype == GAME_CTF)
-	{
-		ctf_view();
-	} else */
-
-	// draw 2D entities
-	e = self;
-	for(self = world; (self = nextent(self)); )
-		if(self.draw2d)
-			self.draw2d();
-	self = e;
-	
-	// draw radar
-	if(teamplay || cvar("cl_teamradar") == 2)
-	{
-		if((cvar_string("cl_teamradar") != "0" && !scoreboard_active) || ons_showmap)
-			teamradar_view();
-	}
-
-	// draw sbar
-	if(cvar("r_letterbox") == 0)
-	if(cvar("viewsize") < 120)
-		CSQC_common_hud();
 }
 
 void Sbar_Draw();

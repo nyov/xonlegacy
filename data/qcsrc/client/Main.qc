@@ -69,7 +69,12 @@ void CSQC_Init(void)
 	menu_visible = FALSE;
 	menu_show = menu_show_error;
 	menu_action = menu_sub_null;
-	maxclients = 255; // we later get the real maxclients to speed up stuff
+
+	for(i = 0; i < 255; ++i)
+		if(getplayerkey(i, "viewentity") == "")
+			break;
+	maxclients = i;
+
 	//ctf_temp_1 = "";
 	// localcmd("alias order \"cmd order $*\""); enable if ctf-command thingy is used
 	//registercmd("ctf_menu");
@@ -364,17 +369,37 @@ void ShotOrg_Draw()
 	self.angles_x = -self.angles_x;
 	R_AddEntity(self);
 }
+void ShotOrg_Draw2D()
+{
+	vector coord2d_topleft, coord2d_topright, coord2d;
+	string s;
+	vector fs;
+
+	s = vtos(self.view_ofs);
+	s = substring(s, 1, strlen(s) - 2);
+	if(tokenize_sane(s) == 3)
+		s = strcat(argv(0), " ", argv(1), " ", argv(2));
+
+	coord2d_topleft = project_3d_to_2d(self.origin + view_up * 4 - view_right * 4);
+	coord2d_topright = project_3d_to_2d(self.origin + view_up * 4 + view_right * 4);
+
+	fs = '1 1 0' * ((coord2d_topright_x - coord2d_topleft_x) / stringwidth(s, FALSE));
+
+	coord2d = coord2d_topleft - '0 1 0' * fs_y;
+	coord2d_z = 0;
+	drawstring(coord2d, s, fs, '1 1 1', 1, 0);
+}
 
 void ShotOrg_Spawn()
 {
 	debug_shotorg = spawn();
 	debug_shotorg.draw = ShotOrg_Draw;
+	debug_shotorg.draw2d = ShotOrg_Draw2D;
 	debug_shotorg.renderflags = RF_VIEWMODEL;
 	debug_shotorg.effects = EF_FULLBRIGHT;
 	precache_model("models/shotorg_adjuster.md3");
 	setmodel(debug_shotorg, "models/shotorg_adjuster.md3");
-	debug_shotorg.scale = 3;
-	debug_shotorg.alpha = 0.7;
+	debug_shotorg.scale = 2;
 	debug_shotorg.view_ofs = '25 8 -8';
 }
 
@@ -426,7 +451,6 @@ void GameCommand(string msg)
 			ShotOrg_Spawn();
 		else
 			debug_shotorg.view_ofs = debug_shotorg.view_ofs + stov(argv(1));
-		print(vtos(debug_shotorg.view_ofs), "\n");
 		localcmd("sv_cmd debug_shotorg \"", vtos(debug_shotorg.view_ofs), "\"\n");
 	}
 	else if(cmd == "shotorg_movez") {
@@ -434,7 +458,6 @@ void GameCommand(string msg)
 			ShotOrg_Spawn();
 		else
 			debug_shotorg.view_ofs = debug_shotorg.view_ofs + stof(argv(1)) * (debug_shotorg.view_ofs * (1 / debug_shotorg.view_ofs_x)); // closer/farther, same xy pos
-		print(vtos(debug_shotorg.view_ofs), "\n");
 		localcmd("sv_cmd debug_shotorg \"", vtos(debug_shotorg.view_ofs), "\"\n");
 	}
 	else if(cmd == "shotorg_set") {
@@ -442,7 +465,6 @@ void GameCommand(string msg)
 			ShotOrg_Spawn();
 		else
 			debug_shotorg.view_ofs = stov(argv(1));
-		print(vtos(debug_shotorg.view_ofs), "\n");
 		localcmd("sv_cmd debug_shotorg \"", vtos(debug_shotorg.view_ofs), "\"\n");
 	}
 	else if(cmd == "shotorg_setz") {
@@ -450,7 +472,6 @@ void GameCommand(string msg)
 			ShotOrg_Spawn();
 		else
 			debug_shotorg.view_ofs = debug_shotorg.view_ofs * (stof(argv(1)) / debug_shotorg.view_ofs_x); // closer/farther, same xy pos
-		print(vtos(debug_shotorg.view_ofs), "\n");
 		localcmd("sv_cmd debug_shotorg \"", vtos(debug_shotorg.view_ofs), "\"\n");
 	}
 	else if(cmd == "shotorg_end") {
@@ -647,7 +668,7 @@ void Ent_ClientData()
 
 void Ent_Nagger()
 {
-	float nags;
+	float nags, i, j, b, f;
 
 	nags = ReadByte();
 
@@ -656,6 +677,21 @@ void Ent_Nagger()
 		if(vote_called_vote)
 			strunzone(vote_called_vote);
 		vote_called_vote = strzone(ColorTranslateRGB(ReadString()));
+	}
+
+	if(nags & 1)
+	{
+		for(j = 0; j < maxclients; ++j)
+			if(playerslots[j])
+				playerslots[j].ready = 1;
+		for(i = 1; i <= maxclients; i += 8)
+		{
+			f = ReadByte();
+			for(j = i-1, b = 1; b < 256; b *= 2, ++j)
+				if not(f & b)
+					if(playerslots[j])
+						playerslots[j].ready = 0;
+		}
 	}
 
 	ready_waiting = (nags & 1);
@@ -687,7 +723,15 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 	// set up the "time" global for received entities to be correct for interpolation purposes
 	savetime = time;
 	if(servertime)
+	{
 		time = servertime;
+	}
+	else
+	{
+		serverprevtime = time;
+		serverdeltatime = getstatf(STAT_SYS_TICRATE) * getstatf(STAT_MOVEVARS_TIMESCALE);
+		time = serverprevtime + serverdeltatime;
+	}
 
 #ifdef DP_CSQC_ENTITY_REMOVE_IS_B0RKED
 	if(self.enttype)
@@ -771,10 +815,11 @@ void CSQC_Parse_Print(string strMessage)
 {
 	print(ColorTranslateRGB(strMessage));
 }
-// CSQC_Parse_CenterPrint : Provides the centerprint string in the first parameter that the server provided.  To execute standard behavior, simply execute cprint with the string.
+
+// CSQC_Parse_CenterPrint : Provides the centerprint string in the first parameter that the server provided.  
 void CSQC_Parse_CenterPrint(string strMessage)
 {
-	cprint(ColorTranslateRGB(strMessage));
+	centerprint(strMessage);
 }
 
 void CSQC_CheckRevision();
@@ -814,7 +859,6 @@ void Ent_Init()
 
 	csqc_revision = ReadShort();
 
-	maxclients = ReadByte();
 	for(i = 0; i < 24; ++i)
 		weaponimpulse[i] = ReadByte() - 1;
 	hook_shotorigin_x = ReadCoord();

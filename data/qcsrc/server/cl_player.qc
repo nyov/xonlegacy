@@ -252,7 +252,18 @@ void player_anim (void)
 
 void SpawnThrownWeapon (vector org, float w)
 {
-	W_ThrowWeapon(randomvec() * 100 + '0 0 200', org - self.origin, FALSE);
+	if(g_pinata)
+	{
+		float j;
+		for(j = WEP_FIRST; j <= WEP_LAST; ++j)
+		{
+			if(self.weapons & W_WeaponBit(j))
+				if(W_IsWeaponThrowable(j))
+					W_ThrowNewWeapon(self, j, FALSE, self.origin, randomvec() * 175 + '0 0 325');
+		}
+	}
+	else
+		W_ThrowWeapon(randomvec() * 125 + '0 0 200', org - self.origin, FALSE);
 }
 
 void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
@@ -742,11 +753,13 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 		namestr = source.netname;
 	if(teamsay)
 	{
-		msgstr = strzone(strcat("\{1}\{13}", colorstr, "(^3", namestr, colorstr, ") ^7", msgin, "\n"));
-		cmsgstr = strcat(colorstr, "(^3", namestr, colorstr, ")\n^7", wordwrap(msgin, 50));
+		msgstr = strcat("\{1}\{13}", colorstr, "(^3", namestr, colorstr, ") ^7", msgin);
+		cmsgstr = strcat(colorstr, "(^3", namestr, colorstr, ")\n^7", msgin);
 	}
 	else
-		msgstr = strzone(strcat("\{1}", namestr, "^7: ", msgin, "\n"));
+		msgstr = strcat("\{1}", namestr, "^7: ", msgin);
+	
+	msgstr = strcat(strreplace("\n", " ", msgstr), "\n"); // newlines only are good for centerprint
 
 	// FLOOD CONTROL
 	flood = 0;
@@ -819,8 +832,10 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 	}
 	else
 	{
-		// TODO invent a cvar name for allowing global chat by spectators during warmup anyway
-		if(cvar("g_chat_nospectators") && source.classname != "player") {
+		if(
+			(cvar("g_chat_nospectators") == 1 && source.classname != "player")
+			|| (cvar("g_chat_nospectators") == 2 && source.classname != "player" && !inWarmupStage)
+		) {
 			FOR_EACH_REALCLIENT(head) if(head.classname != "player") {
 				sprint(head, msgstr);
 			}
@@ -828,8 +843,6 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 		else
 			bprint(msgstr);
 	}
-
-	strunzone(msgstr);
 }
 
 float GetVoiceMessageVoiceType(string type)

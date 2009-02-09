@@ -2,7 +2,8 @@ entity nagger;
 float readycount;
 float Nagger_SendEntity(entity to, float sendflags)
 {
-	float nags;
+	float nags, i, f, b;
+	entity e;
 	WriteByte(MSG_ENTITY, ENT_CLIENT_NAGGER);
 
 	nags = 0;
@@ -22,15 +23,28 @@ float Nagger_SendEntity(entity to, float sendflags)
 		nags |= 16;
 
 	if(sendflags & 128)
+		nags |= 128;
+
+	WriteByte(MSG_ENTITY, nags);
+
+	if(nags & 128)
 	{
-		WriteByte(MSG_ENTITY, nags | 128);
 		if(votecalled)
 			WriteString(MSG_ENTITY, votecalledvote_display);
 		else
 			WriteString(MSG_ENTITY, "");
 	}
-	else
-		WriteByte(MSG_ENTITY, nags);
+	
+	if(nags & 1)
+	{
+		for(i = 1; i <= maxclients; i += 8)
+		{
+			for(f = 0, e = edict_num(i), b = 1; b < 256; b *= 2, e = nextent(e))
+				if(clienttype(e) != CLIENTTYPE_REAL || e.ready)
+					f |= b;
+			WriteByte(MSG_ENTITY, f);
+		}
+	}
 
 	return TRUE;
 }
@@ -204,8 +218,7 @@ void SV_ParseClientCommand(string s) {
 			if(timeoutStatus) {
 				return sprint(self, "^1You cannot reset the game while a timeout is active!\n");
 			}
-			
-			//if(!restartAnnouncer)
+
 			{
 				if(!readyrestart_happened || cvar("sv_ready_restart_repeatable"))
 				{
@@ -367,13 +380,15 @@ void ReadyRestartForce()
 		lockteams = 1;
 		bprint("^1The teams are now locked.\n");
 	}
-	
+
 	//initiate the restart-countdown-announcer entity
-	restartAnnouncer = spawn();
-	restartAnnouncer.think = restartAnnouncer_Think;
-	restartAnnouncer.nextthink = time;
-	restartAnnouncer.spawnflags = !!cvar("sv_ready_restart_after_countdown");
-	
+	if(cvar("sv_ready_restart_after_countdown"))
+	{
+		restartTimer = spawn();
+		restartTimer.think = restartTimer_Think;
+		restartTimer.nextthink = game_starttime;
+	}
+
 	//after a restart every players number of allowed timeouts gets reset, too
 	if(cvar("sv_timeout"))
 	{
@@ -381,13 +396,10 @@ void ReadyRestartForce()
 			e.allowedTimeouts = cvar("sv_timeout_number");
 	}
 
-	//play the prepareforbattle sound to everyone
-	play2all("announcer/robotic/prepareforbattle.wav");
-
 	//reset map immediately if this cvar is not set
 	if (!cvar("sv_ready_restart_after_countdown"))
 		reset_map(TRUE);
-	
+
 	if(cvar("sv_eventlog"))
 		GameLogEcho(":restart");
 }
@@ -398,8 +410,11 @@ void ReadyRestart()
 	if(g_arena | g_assault | gameover | intermission_running | race_completing)
 		localcmd("restart\n");
 
-	// reset ALL scores
-	Score_ClearAll();
+	// reset ALL scores, but only do that at the beginning 
+	//of the countdown if sv_ready_restart_after_countdown is off!
+	//Otherwise scores could be manipulated during the countdown!
+	if (!cvar("sv_ready_restart_after_countdown"))
+		Score_ClearAll();
 
 	ReadyRestartForce();
 }
@@ -410,7 +425,7 @@ void ReadyRestart()
  * restart_countdown variable is set to allow other functions like PlayerPostThink
  * to detect that the countdown is now active. If the cvar sv_ready_restart_after_countdown
  * is not set the map will be resetted.
- * 
+ *
  * Function is called after the server receives a 'ready' sign from a player.
  */
 void ReadyCount()
@@ -437,48 +452,14 @@ void ReadyCount()
 }
 
 /**
- * Shows the restart countdown for all players.
- * Plays the countdown sounds for the seconds 3, 2 1, begin for everyone.
  * Restarts the map after the countdown is over (and cvar sv_ready_restart_after_countdown
- * is set to 1).
+ * is set)
  */
-void restartAnnouncer_Think() {
-	local entity plr;
-	local string s;
-	float f, c;
-	c = game_starttime - time;
-	f = floor(0.5 + c);
-	if(c <= 0) { //show the "Begin" message and
-		if(self.spawnflags & 1)
-		{
-			restart_mapalreadyrestarted = 1;
-			reset_map(TRUE);
-		}
-
-		FOR_EACH_REALCLIENT(plr) {
-			if(plr.classname == "player") {
-				s = strcat(NEWLINES, "^1Begin!");
-				centerprint(plr, s);
-			}
-		}
-		play2all("announcer/robotic/begin.wav");
-
-		remove(self);
-		return;
-	}
-	else {
-		FOR_EACH_REALCLIENT(plr) {
-			if(plr.classname == "player") {
-				s = strcat(NEWLINES, "^1Game starts in ", ftos(f), " seconds");
-				centerprint(plr, s);
-			}
-		}
-
-		if(f <= 3) {
-			play2all(strcat("announcer/robotic/", ftos(f), ".wav"));
-		}
-		self.nextthink = game_starttime - (f - 1);
-	}
+void restartTimer_Think() {
+	restart_mapalreadyrestarted = 1;
+	reset_map(TRUE);
+	remove(self);
+	return;
 }
 
 /**

@@ -118,7 +118,6 @@ sub color_dp2none($)
 	return color_dp_transform
 	{
 		my ($type, $data, $next) = @_;
-		print "$type $data\n";
 		$type eq 'char'
 			? $text_qfont_table[ord $data]
 			: "";
@@ -175,7 +174,6 @@ sub color_dp_rgb2basic($)
 	return color_dp_transform
 	{
 		my ($type, $data, $next) = @_;
-		print "$type $data\n";
 		$type eq 'char'  ? ($data eq '^' ? '^^' : $data) :
 		$type eq 'color' ? "^$data" :
 		$type eq 'rgb'   ? "^" . color_rgb2basic $data :
@@ -1373,7 +1371,7 @@ sub cond($)
 	} ],
 
 	# scores: Nexuiz server -> IRC channel, new format
-	[ dp => q{:player:see-labels:(\d+)[-0-9,]*:(\d+):(\d+):(\d+):(.*)} => sub {
+	[ dp => q{:player:see-labels:(-?\d+)[-0-9,]*:(\d+):(\d+):(\d+):(.*)} => sub {
 		my ($frags, $time, $team, $id, $name) = @_;
 		return if not exists $store{scores};
 		push @{$store{scores}{players}}, [$frags, $team, $name];
@@ -1381,7 +1379,7 @@ sub cond($)
 	} ],
 
 	# scores: Nexuiz server -> IRC channel (CTF), new format
-	[ dp => q{:teamscores:see-labels:(\d+)[-0-9,]*:(\d+)} => sub {
+	[ dp => q{:teamscores:see-labels:(-?\d+)[-0-9,]*:(\d+)} => sub {
 		my ($frags, $team) = @_;
 		return if not exists $store{scores};
 		$store{scores}{teams}{$team} = $frags;

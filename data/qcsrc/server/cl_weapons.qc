@@ -224,15 +224,34 @@ float W_ThrowNewWeapon(entity own, float wpn, float doreduce, vector org, vector
 	}
 }
 
+float W_IsWeaponThrowable(float w)
+{
+	float wb, wa;
+	wb = W_WeaponBit(w);
+	if(!wb)
+		return 0;
+	wa = W_AmmoItemCode(w);
+	if(start_weapons & wb)
+	{
+		if(wa == IT_SUPERWEAPON && start_items & IT_UNLIMITED_SUPERWEAPONS)
+			return 0;
+		if(wa != IT_SUPERWEAPON && start_items & IT_UNLIMITED_WEAPON_AMMO)
+			return 0;
+		// start weapons that take no ammo can't be dropped (this prevents dropping the laser, as long as it continues to use no ammo)
+		if(wa == 0)
+			return 0;
+	}
+
+	return 1;
+}
+
 // toss current weapon
 void W_ThrowWeapon(vector velo, vector delta, float doreduce)
 {
-	local float w, a, wb, wa;
+	local float w, a, wb;
 
 	w = self.weapon;
 	if (w == 0)
-		return; // just in case
-	if (w == WEP_LASER)
 		return; // just in case
 	if (g_weaponarena)
 		return;
@@ -242,24 +261,14 @@ void W_ThrowWeapon(vector velo, vector delta, float doreduce)
 		return;
 	if (!cvar("g_pickup_items"))
 		return;
+	if(!W_IsWeaponThrowable(w))
+		return;
 
 	wb = W_WeaponBit(w);
-	wa = W_AmmoItemCode(w);
-	if(!wb)
-		return;
 	if(self.weapons & wb != wb)
 		return;
-	if(start_weapons & wb)
-	{
-		if(wa == IT_SUPERWEAPON && start_items & IT_UNLIMITED_SUPERWEAPONS)
-			return;
-		if(wa != IT_SUPERWEAPON && start_items & IT_UNLIMITED_WEAPON_AMMO)
-			return;
-		if(wa == 0)
-			return;
-	}
 
-	self.weapons = self.weapons - wb;
+	self.weapons &~= wb;
 	W_SwitchWeapon_Force(self, w_getbestweapon(self));
 	a = W_ThrowNewWeapon(self, w, doreduce, self.origin + delta, velo);
 	if(a < 0)
@@ -286,6 +295,8 @@ void W_WeaponFrame()
 	{
 		self.weapon = 0;
 		self.weaponentity.state = WS_CLEAR;
+		self.weaponname = "";
+		self.items &~= IT_AMMO;
 		return;
 	}
 
@@ -379,30 +390,19 @@ float nixnex_nextweapon;
 
 void Nixnex_ChooseNextWeapon()
 {
-	float numberof, id;
-	numberof = WEP_LAST - WEP_FIRST; // all but the current one
-	if(g_nixnex_with_laser)
-		numberof = numberof - 1;
-	id = WEP_FIRST + floor(random() * numberof);
+	float j;
+	entity e;
 
-	if(g_nixnex_with_laser) // skip the laser if needed
-		id = id + 1;
-
-	if(id >= nixnex_weapon) // skip the current weapon
-		id = id + 1;
-
-	if(id < WEP_FIRST) // can't happen, but to be sure...
+	RandomSelection_Init();
+	for(j = WEP_FIRST; j <= WEP_LAST; ++j)
 	{
-		dprint("Won't happen (id < WEP_FIRST)\n");
-		id = WEP_FIRST;
+		if(j == WEP_LASER && g_nixnex_with_laser)
+			continue;
+		if(!e.weapons) // skip dummies
+			continue;
+		RandomSelection_Add(world, j, 1, 0);
 	}
-	if(id > WEP_LAST) // either
-	{
-		dprint("Won't happen (id > WEP_LAST)\n");
-		id = WEP_LAST;
-	}
-
-	nixnex_nextweapon = id;
+	nixnex_nextweapon = RandomSelection_chosen_float;
 }
 
 void Nixnex_GiveCurrentWeapon()
@@ -444,7 +444,7 @@ void Nixnex_GiveCurrentWeapon()
 			if(dt >= 1 && dt <= 5)
 				self.nixnex_lastinfotime = -42;
 			else
-				centerprint(self, strcat("\n\n^2Active weapon: ^3", W_Name(nixnex_weapon), "\n"));
+				centerprint(self, strcat("\n\n^2Active weapon: ^3", W_Name(nixnex_weapon)));
 		}
 		if(self.nixnex_lastinfotime != dt)
 		{

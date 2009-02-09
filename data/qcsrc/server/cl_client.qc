@@ -875,9 +875,9 @@ void PutClientInServer (void)
 
 		if(g_assault) {
 			if(self.team == assault_attacker_team)
-				centerprint(self, "You are attacking!\n");
+				centerprint(self, "You are attacking!");
 			else
-				centerprint(self, "You are defending!\n");
+				centerprint(self, "You are defending!");
 		}
 
 		target_voicescript_clear(self);
@@ -902,7 +902,6 @@ float ClientInit_SendEntity(entity to, float sf)
 	float i;
 	WriteByte(MSG_ENTITY, ENT_CLIENT_INIT);
 	WriteShort(MSG_ENTITY, CSQC_REVISION);
-	WriteByte(MSG_ENTITY, maxclients);
 	for(i = 1; i <= 24; ++i)
 		WriteByte(MSG_ENTITY, (get_weaponinfo(i)).impulse + 1);
 	WriteCoord(MSG_ENTITY, hook_shotorigin_x);
@@ -1780,6 +1779,8 @@ void SpectateCopy(entity spectatee) {
 	self.health = spectatee.health;
 	self.impulse = 0;
 	self.items = spectatee.items;
+	self.strength_finished = spectatee.strength_finished;
+	self.invincible_finished = spectatee.invincible_finished;
 	self.weapons = spectatee.weapons;
 	self.switchweapon = spectatee.switchweapon;
 	self.weapon = spectatee.weapon;

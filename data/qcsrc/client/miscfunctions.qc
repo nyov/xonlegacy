@@ -3,6 +3,30 @@ var float(string text, float handleColors) stringwidth;
 entity players;
 entity teams;
 
+void restartAnnouncer_Think() {
+	float countdown_rounded, countdown;
+	countdown = getstatf(STAT_GAMESTARTTIME) - time;
+	countdown_rounded = floor(0.5 + countdown);
+	if(countdown <= 0) {
+		if (!spectatee_status) //do cprint only for players
+			centerprint("^1Begin!");
+
+		sound(self, CHAN_VOICE, "announcer/robotic/begin.wav", VOL_BASEVOICE, ATTN_NONE);
+		remove(self);
+		return;
+	}
+	else {
+		if (!spectatee_status) //do cprint only for players
+			centerprint(strcat("^1Game starts in ", ftos(countdown_rounded), " seconds"));
+
+		if(countdown_rounded <= 3 && countdown_rounded >= 1) {
+			sound(self, CHAN_VOICE, strcat("announcer/robotic/", ftos(countdown_rounded), ".wav"), VOL_BASEVOICE, ATTN_NONE);
+		}
+
+		self.nextthink = getstatf(STAT_GAMESTARTTIME) - (countdown - 1);
+	}
+}
+
 void AuditLists()
 {
 	entity e;
@@ -181,12 +205,12 @@ void CSQC_CheckEngine()
 		csqc_flags |= CSQC_FLAG_COLORCODES;
 }
 
-vector Sbar_GetFontsize()
+vector Sbar_GetFontsize(string cvarname)
 {
 	if(csqc_flags & CSQC_FLAG_READPICTURE)
 	{
 		vector v;
-		v = stov(cvar_string("sbar_fontsize"));
+		v = stov(cvar_string(cvarname));
 		if(v_x == 0)
 			v = '8 8 0';
 		if(v_y == 0)
@@ -394,4 +418,64 @@ float cvar_or(string cv, float v)
 		return v;
 	else
 		return stof(s);
+}
+
+vector project_3d_to_2d(vector vec)
+{ 
+	vec = cs_project(vec);
+	if(cs_project_is_b0rked)
+	{
+		vec_x += vid_width / 2;
+		vec_y += vid_height / 2;
+	}
+	vec_x *= vid_conwidth / vid_width;
+	vec_y *= vid_conheight / vid_height;
+	return vec;
+}
+
+void dummyfunction(float a1, float a2, float a3, float a4, float a5, float a6, float a7, float a8)
+{
+}
+
+float expandingbox_sizefactor_from_fadelerp(float fadelerp)
+{
+	return 1.2 / (1.2 - fadelerp);
+}
+
+vector expandingbox_resize_centered_box_offset(float sz, vector boxsize, float boxxsizefactor)
+{
+	boxsize_x *= boxxsizefactor; // easier interface for text
+	return boxsize * (0.5 * (1 - sz));
+}
+
+void drawpic_expanding(vector position, string pic, vector scale, vector rgb, float alpha, float flag, float fadelerp)
+{
+	float sz;
+	sz = expandingbox_sizefactor_from_fadelerp(fadelerp);
+
+	drawpic(position + expandingbox_resize_centered_box_offset(sz, scale, 1), pic, scale * sz, rgb, alpha * (1 - fadelerp), flag);
+}
+
+void drawpic_expanding_two(vector position, string pic, vector scale, vector rgb, float alpha, float flag, float fadelerp)
+{
+	drawpic_expanding(position, pic, scale, rgb, alpha, flag, fadelerp);
+	drawpic(position, pic, scale, rgb, alpha * fadelerp, flag);
+}
+
+void drawstring_expanding(vector position, string text, vector scale, vector rgb, float alpha, float flag, float fadelerp)
+{
+	float sz;
+	sz = expandingbox_sizefactor_from_fadelerp(fadelerp);
+
+	dummyfunction(0, 0, 0, 0, 0, 0, 0, 0);
+	drawstring(position + expandingbox_resize_centered_box_offset(sz, scale, stringwidth(text, FALSE)), text, scale * sz, rgb, alpha * (1 - fadelerp), flag);
+}
+
+void drawcolorcodedstring_expanding(vector position, string text, vector scale, float alpha, float flag, float fadelerp)
+{
+	float sz;
+	sz = expandingbox_sizefactor_from_fadelerp(fadelerp);
+
+	dummyfunction(0, 0, 0, 0, 0, 0, 0, 0);
+	drawcolorcodedstring(position + expandingbox_resize_centered_box_offset(sz, scale, stringwidth(text, TRUE)), text, scale * sz, alpha * (1 - fadelerp), flag);
 }

@@ -229,6 +229,8 @@ const float STAT_SYS_TICRATE = 34;
 const float STAT_WEAPONS = 35;
 const float STAT_SWITCHWEAPON = 36;
 const float STAT_GAMESTARTTIME = 37;
+const float STAT_STRENGTH_FINISHED = 38;
+const float STAT_INVINCIBLE_FINISHED = 39;
 const float CTF_STATE_ATTACK = 1;
 const float CTF_STATE_DEFEND = 2;
 const float CTF_STATE_COMMANDER = 3;
@@ -397,3 +399,6 @@ float HITTYPE_RESERVED = 0x1000; // unused yet
 #define FRAGS_PLAYER 0
 #define FRAGS_SPECTATOR -666
 #define FRAGS_PLAYER_NONSOLID -616
+
+//misc. stuff
+#define NEWLINES "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"

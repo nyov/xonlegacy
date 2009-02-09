@@ -22,7 +22,7 @@ string MapVote_FormatMapItem(float id, string map, float count, float maxwidth)
 	else
 		post = "";
 	maxwidth -= stringwidth(pre, FALSE) + stringwidth(post, FALSE);
-	map = textShortenToWidth(map, maxwidth, FALSE);
+	map = textShortenToWidth(map, maxwidth, stringwidth_nocolors);
 	return strcat(pre, map, post);
 }
 
@@ -133,7 +133,7 @@ void MapVote_Draw()
 		ymax = vid_conheight - ymin;
 
 	drawfont = sbar_bigfont;
-	sbar_fontsize = Sbar_GetFontsize();
+	sbar_fontsize = Sbar_GetFontsize("sbar_fontsize");
 
 	pos_y = ymin;
 	pos_z = 0;

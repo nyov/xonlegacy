@@ -84,6 +84,8 @@ string toStringNexuizMutatorsDialog(entity me)
 		s = strcat(s, ", Midair");
 	if(cvar("g_vampire"))
 		s = strcat(s, ", Vampire");
+	if(cvar("g_pinata"))
+		s = strcat(s, ", Pinata");
 	if(cvar("g_weapon_stay"))
 		s = strcat(s, ", Weapons stay");
 	if(cvar("g_bloodloss") > 0)
@@ -169,19 +171,21 @@ void fillNexuizMutatorsDialog(entity me)
 	me.TR(me);
 		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "g_vampire", "Vampire"));
 	me.TR(me);
+		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "g_pinata", "Pinata"));
+	me.TR(me);
 		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "g_weapon_stay", "Weapons stay"));
+	me.TR(me);
+		s = makeNexuizSlider(10, 50, 1, "g_bloodloss");
+		me.TD(me, 1, 2, e = makeNexuizSliderCheckBox(0, 1, s, "Blood loss"));
+	me.TR(me);
+		me.TDempty(me, 0.2);
+		me.TD(me, 1, 1.8, s);
 	me.TR(me);
 		s = makeNexuizSlider(80, 400, 8, "sv_gravity");
 			s.valueDigits = 0;
 			s.valueDisplayMultiplier = 0.125; // show gravity in percent
 		me.TD(me, 1, 2, e = makeNexuizSliderCheckBox(800, 1, s, "Low gravity"));
 			e.savedValue = 200; // good on silvercity
-	me.TR(me);
-		me.TDempty(me, 0.2);
-		me.TD(me, 1, 1.8, s);
-	me.TR(me);
-		s = makeNexuizSlider(10, 50, 1, "g_bloodloss");
-		me.TD(me, 1, 2, e = makeNexuizSliderCheckBox(0, 1, s, "Blood loss"));
 	me.TR(me);
 		me.TDempty(me, 0.2);
 		me.TD(me, 1, 1.8, s);

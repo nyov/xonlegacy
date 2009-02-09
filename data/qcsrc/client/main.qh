@@ -107,6 +107,7 @@ entity playerslots[255]; // 255 is engine limit on maxclients
 entity teamslots[17];    // 17 teams (including "spectator team")
 .float gotscores;
 .entity owner;
+.float ready;
 
 .void(void) draw;
 .void(void) draw2d;
@@ -135,6 +136,10 @@ float ready_waiting_for_me;
 float vote_waiting;
 float vote_waiting_for_me;
 
+float previous_game_starttime;
+entity restartAnnouncer; //a temporary entity which will play the countdown sounds 3, 2, 1 for the client
+void restartAnnouncer_Think();
+
 float current_zoomfraction;
 
 float cs_project_is_b0rked;
@@ -144,3 +149,5 @@ float camera_active;		// Demo camera is active if set to TRUE
 float chase_active_backup;
 float camera_roll;
 vector camera_direction;
+
+void centerprint(string strMessage);
