@@ -74,7 +74,6 @@ void ClientData_Touch(entity e)
 
 #define SPAWNPOINT_SCORE frags
 
-.float wantswelcomemessage;
 .string netname_previous;
 
 void spawnfunc_info_player_survivor (void)
@@ -564,7 +563,6 @@ void PutObserverInServer (void)
 	self.punchvector = '0 0 0';
 	self.oldvelocity = self.velocity;
 	self.customizeentityforclient = Client_customizeentityforclient;
-	self.wantswelcomemessage = 1;
 
 	if(g_arena)
 	{
@@ -584,7 +582,7 @@ void PutObserverInServer (void)
 		if(PlayerScore_Add(self, SP_LMS_RANK, 0) == 666)
 			self.frags = FRAGS_SPECTATOR;
 		else
-			self.frags = FRAGS_SPECTATOR; // this was -667 before, is this okay?
+			self.frags = FRAGS_LMS_LOSER;
 	}
 	else
 		self.frags = FRAGS_SPECTATOR;
@@ -1327,7 +1325,7 @@ void ClientConnect (void)
 		if(PlayerScore_Add(self, SP_LMS_LIVES, LMS_NewPlayerLives()) <= 0)
 		{
 			PlayerScore_Add(self, SP_LMS_RANK, 666);
-			self.frags = FRAGS_SPECTATOR; // FIXME do we still need this?
+			self.frags = FRAGS_SPECTATOR;
 		}
 	}
 
@@ -1766,6 +1764,49 @@ void SetZoomState(float z)
 	zoomstate_set = 1;
 }
 
+void GetPressedKeys(void) {
+	if (self.movement_x > 0) // get if movement keys are pressed
+	{	// forward key pressed
+		self.pressedkeys |= KEY_FORWARD;
+		self.pressedkeys &~= KEY_BACKWARD;
+	}
+	else if (self.movement_x < 0)
+	{	// backward key pressed
+		self.pressedkeys |= KEY_BACKWARD;
+		self.pressedkeys &~= KEY_FORWARD;
+	}
+	else
+	{	// no x input
+		self.pressedkeys &~= KEY_FORWARD;
+		self.pressedkeys &~= KEY_BACKWARD;
+	}
+	
+	if (self.movement_y > 0)
+	{	// right key pressed
+		self.pressedkeys |= KEY_RIGHT;
+		self.pressedkeys &~= KEY_LEFT;
+	}
+	else if (self.movement_y < 0)
+	{	// left key pressed
+		self.pressedkeys |= KEY_LEFT;
+		self.pressedkeys &~= KEY_RIGHT;
+	}
+	else
+	{	// no y input
+		self.pressedkeys &~= KEY_RIGHT;
+		self.pressedkeys &~= KEY_LEFT;
+	}
+	
+	if (self.BUTTON_JUMP) // get if jump and crouch keys are pressed
+		self.pressedkeys |= KEY_JUMP;
+	else
+		self.pressedkeys &~= KEY_JUMP;
+	if (self.BUTTON_CROUCH)
+		self.pressedkeys |= KEY_CROUCH;
+	else
+		self.pressedkeys &~= KEY_CROUCH;
+}
+
 /*
 ======================
 spectate mode routines
@@ -1781,6 +1822,7 @@ void SpectateCopy(entity spectatee) {
 	self.items = spectatee.items;
 	self.strength_finished = spectatee.strength_finished;
 	self.invincible_finished = spectatee.invincible_finished;
+	self.pressedkeys = spectatee.pressedkeys;
 	self.weapons = spectatee.weapons;
 	self.switchweapon = spectatee.switchweapon;
 	self.weapon = spectatee.weapon;
@@ -1825,7 +1867,6 @@ float SpectateNext() {
 		msg_entity = self;
 		WriteByte(MSG_ONE, SVC_SETVIEW);
 		WriteEntity(MSG_ONE, self.enemy);
-		self.wantswelcomemessage = 1;
 	 	//stuffcmd(self, "set viewsize $tmpviewsize \n");
 		if(!SpectateUpdate())
 			PutObserverInServer();
@@ -1985,10 +2026,7 @@ void ObserverThink()
 			self.flags |= FL_JUMPRELEASED;
 		}
 	}
-	if(self.BUTTON_ZOOM)
-		self.wantswelcomemessage = 0;
-	if(self.wantswelcomemessage)
-		PrintWelcomeMessage(self);
+	PrintWelcomeMessage(self);
 }
 
 void SpectatorThink()
@@ -2022,10 +2060,7 @@ void SpectatorThink()
 			self.flags |= FL_JUMPRELEASED;
 		}
 	}
-	if(self.BUTTON_ZOOM)
-		self.wantswelcomemessage = 0;
-	if(self.wantswelcomemessage)
-		PrintWelcomeMessage(self);
+	PrintWelcomeMessage(self);
 	self.flags |= FL_CLIENT | FL_NOTARGET;
 }
 
@@ -2106,12 +2141,7 @@ void PlayerPreThink (void)
 
 		CheckRules_Player();
 
-		if(self.BUTTON_INFO)
-			PrintWelcomeMessage(self);
-
-		if(g_lms || !cvar("sv_spectate"))
-		if((time - self.jointime) <= cvar("welcome_message_time"))
-			PrintWelcomeMessage(self);
+		PrintWelcomeMessage(self);
 
 		if (intermission_running)
 		{
@@ -2387,7 +2417,6 @@ void PlayerPostThink (void)
 		if (intermission_running)
 			return;		// intermission or finale
 
-		//PrintWelcomeMessage(self);
 		//if (TetrisPostFrame()) return;
 
 		// restart countdown
@@ -2449,7 +2478,7 @@ void PlayerPostThink (void)
 					self.race_penalty_nagged = 0;
 				}
 			}
-		
+		GetPressedKeys();
 	} else if (self.classname == "observer") {
 		//do nothing
 	} else if (self.classname == "spectator") {

@@ -356,9 +356,12 @@ string Sbar_DefaultColumnLayout()
 {
 	return strcat( // fteqcc sucks
 		"ping pl name | ",
-		"+noteams/kills +noteams/deaths +noteams/suicides -noteams,tdm/frags ", // tdm already has this in "score"
-		"+kh/caps +kh/pushes +kh/destroyed ",
+		"-teams,race,lms/kills -teams,race,lms/deaths -teams,lms/suicides -race,dm,tdm/frags ", // tdm already has this in "score"
 		"+ctf/caps +ctf/pickups +ctf/fckills +ctf/returns ",
+		"+lms/lives +lms/rank ",
+		"+kh/caps +kh/pushes +kh/destroyed ",
+		"+race/laps +race/time +race/fastest ",
+		"+as/objectives ",
 		"-lms/score");
 }
 
@@ -1144,12 +1147,13 @@ void Sbar_Score(float margin)
 			if(me.sv_entnum == player_localentnum - 1)
 				break;
 		}
-		pl = players;
+		pl = players.sort_next;
 		if(pl == me)
 			pl = pl.sort_next;
 		
 		if(pl) {
-			distribution = me.(scores[ps_primary]) - pl.(scores[ps_primary]);
+			distribution = me.(scores[ps_primary]);
+			distribution -= pl.(scores[ps_primary]);
 		} else
 			distribution = 0;
 		
@@ -1530,7 +1534,10 @@ void centerprint(string strMessage)
 
 	centerprint_fontsize = Sbar_GetFontsize("scr_centersize");
 
-	centerprint_expire = max(centerprint_expire, time); // if any of the returns happens, this message will fade out
+	centerprint_expire = min(centerprint_expire, time); // if any of the returns happens, this message will fade out
+
+	if(cvar("scr_centertime") <= 0)
+		return;
 	
 	if(strMessage == "")
 		return;
@@ -1703,6 +1710,30 @@ vector Sbar_DrawNoteLine(vector offset, string s)
 	return offset + sbar_fontsize_y * '0 1 0';
 }
 
+void Sbar_DrawPressedKeys(void)
+{
+	vector pos, bgsize;
+	float center_y;
+	float pressedkeys;
+	
+	pos = stov(cvar_string("cl_showpressedkeys_position"));
+
+	bgsize = '126 75 0';
+
+	pos = '1 0 0' * (vid_conwidth - bgsize_x) * pos_x
+	    + '0 1 0' * (vid_conheight - bgsize_y) * pos_y;
+	pos -= '-15 -6 0'; // adjust to the origin of these numbers
+	
+	pressedkeys = getstatf(STAT_PRESSED_KEYS);
+	drawpic(pos + '-15   -6   0', "gfx/keys/key_bg.tga",           bgsize, '1 1 1', .1, DRAWFLAG_NORMAL);
+	drawpic(pos + ' 83.5  9   0', "gfx/keys/key_crouch.tga",   ' 24 24 0', '1 1 1', .5 * ((pressedkeys & KEY_CROUCH) + 1), DRAWFLAG_NORMAL);
+	drawpic(pos + ' 32   -1.5 0', "gfx/keys/key_forward.tga",  ' 32 32 0', '1 1 1', .5 * ((pressedkeys & KEY_FORWARD) + 1), DRAWFLAG_NORMAL);
+	drawpic(pos + '-11.5  9   0', "gfx/keys/key_jump.tga",     ' 24 24 0', '1 1 1', .5 * ((pressedkeys & KEY_JUMP) + 1), DRAWFLAG_NORMAL);
+	drawpic(pos + ' -1   32   0', "gfx/keys/key_left.tga",     ' 32 32 0', '1 1 1', .5 * ((pressedkeys & KEY_LEFT) + 1), DRAWFLAG_NORMAL);
+	drawpic(pos + ' 32   32   0', "gfx/keys/key_backward.tga", ' 32 32 0', '1 1 1', .5 * ((pressedkeys & KEY_BACKWARD) + 1), DRAWFLAG_NORMAL);
+	drawpic(pos + ' 65   32   0', "gfx/keys/key_right.tga",    ' 32 32 0', '1 1 1', .5 * ((pressedkeys & KEY_RIGHT) + 1), DRAWFLAG_NORMAL);
+}
+
 void Sbar_Draw (void)
 {
 	float i;
@@ -1713,7 +1744,7 @@ void Sbar_Draw (void)
 
 	sbar_fontsize = Sbar_GetFontsize("sbar_fontsize");
 	
-	if(spectatee_status)
+	if(spectatee_status && !intermission)
 	{
 		if(spectatee_status == -1)
 			s = "^1Observing";
@@ -1731,6 +1762,9 @@ void Sbar_Draw (void)
 			s = strcat("^1Use ^3", getcommandkey("next weapon", "weapnext"), "^1 or ^3", getcommandkey("previous weapon", "weapprev"), "^1 to change the speed");
 		else
 			s = strcat("^1Press ^3", getcommandkey("secondary fire", "+attack2"), "^1 to observe");
+		o = Sbar_DrawNoteLine(o, s);
+
+		s = strcat("^1Press ^3", getcommandkey("server info", "+show_info"), "^1 for gamemode info");
 		o = Sbar_DrawNoteLine(o, s);
 
 		if(gametype == GAME_ARENA)
@@ -1759,7 +1793,7 @@ void Sbar_Draw (void)
 			o = Sbar_DrawNoteLine(o, s);
 		}
 	}
-	if(warmup_stage)
+	if(warmup_stage && !intermission)
 	{
 		s = "^2Currently in ^1warmup^2 stage!";
 		o = Sbar_DrawNoteLine(o, s);
@@ -1774,7 +1808,7 @@ void Sbar_Draw (void)
 	else
 		blinkcolor = "^3";
 
-	if(ready_waiting)
+	if(ready_waiting && !intermission)
 	{
 		if(ready_waiting_for_me)
 		{
@@ -1792,7 +1826,7 @@ void Sbar_Draw (void)
 		}
 		o = Sbar_DrawNoteLine(o, s);
 	}
-	else if(warmup_stage) 
+	else if(warmup_stage && !intermission) 
 	{
 		s = strcat("^2Press ^3", getcommandkey("ready", "ready"), "^2 to end warmup");
 		o = Sbar_DrawNoteLine(o, s);
@@ -1819,7 +1853,7 @@ void Sbar_Draw (void)
 			o = Sbar_DrawNoteLine(o, s);
 		}
 	}
-	if(teamplay)
+	if(teamplay && !intermission)
 	{
 		entity tm;
 		float ts_min, ts_max;

@@ -103,6 +103,11 @@ void WaypointSprite_Disown(entity wp, float fadetime)
 {
 	if(!wp)
 		return;
+	if(wp.classname != "sprite_waypoint")
+	{
+		backtrace("Trying to disown a non-waypointsprite");
+		return;
+	}
 	if(wp.owner)
 	{
 		if(wp.exteriormodeltoclient == wp.owner)

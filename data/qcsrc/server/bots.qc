@@ -366,7 +366,8 @@ float lag_additem(float t, float f1, float f2, entity e1, vector v1, vector v2, 
 // used during navigation_goalrating_begin/end sessions
 float navigation_bestrating;
 entity navigation_bestgoal;
-
+entity navigation_alternativegoal;
+.entity alternativegoal;
 
 
 
@@ -1252,6 +1253,7 @@ void navigation_routerating(entity e, float f, float rangebias)
 		//dprint(ftos(f));
 		if (navigation_bestrating < f)
 		{
+			navigation_alternativegoal = navigation_bestgoal;
 			navigation_bestrating = f;
 			navigation_bestgoal = e;
 		}
@@ -1325,6 +1327,7 @@ void navigation_goalrating_end()
 {
 	if (self.havocbot_role == havocbot_role_ctf_offense)
 		dprint(navigation_bestgoal.classname, " (with rating ", ftos(navigation_bestrating), ")\n");
+	self.alternativegoal = navigation_alternativegoal;
 	navigation_routetogoal(navigation_bestgoal);
 };
 
@@ -1367,6 +1370,7 @@ float sv_maxspeed;
 .float(entity player, entity item) bot_pickupevalfunc;
 .float bot_pickupbasevalue;
 .float bot_canfire;
+.float bot_strategytime;
 
 // used for aiming currently
 // FIXME: make the weapon code use these and then replace the calculations here with a call to the weapon code
@@ -1621,6 +1625,11 @@ float bot_shouldattack(entity e)
 
 void bot_lagfunc(float t, float f1, float f2, entity e1, vector v1, vector v2, vector v3, vector v4)
 {
+	if(self.flags & FL_INWATER)
+	{
+		self.bot_aimtarg = world;
+		return;
+	}
 	self.bot_aimtarg = e1;
 	self.bot_aimlatency = self.ping; // FIXME?  Shouldn't this be in the lag item?
 	self.bot_aimselforigin = v1;
@@ -1940,10 +1949,13 @@ void bot_think()
 	if (self.deadflag)
 	{
 		if (self.deadflag == DEAD_DEAD)
+		{
 			self.BUTTON_JUMP = 1; // press jump to respawn
-		return;
+			self.bot_strategytime = 0;
+			return;
+		}
 	}
-
+	
 	// now call the current bot AI (havocbot for example)
 	self.bot_ai();
 };

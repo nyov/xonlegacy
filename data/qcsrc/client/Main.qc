@@ -80,8 +80,6 @@ void CSQC_Init(void)
 	//registercmd("ctf_menu");
 	registercmd("ons_map");
 	//registercmd("menu_action");
-	registercmd("sbar_columns_set");
-	registercmd("sbar_columns_help");
 
 	registercmd("+button3");
 	registercmd("-button3");
@@ -367,7 +365,8 @@ void ShotOrg_Draw()
 	self.origin = view_origin + view_forward * self.view_ofs_x + view_right * self.view_ofs_y + view_up * self.view_ofs_z;
 	self.angles = view_angles;
 	self.angles_x = -self.angles_x;
-	R_AddEntity(self);
+	if not(self.cnt)
+		R_AddEntity(self);
 }
 void ShotOrg_Draw2D()
 {
@@ -473,6 +472,12 @@ void GameCommand(string msg)
 		else
 			debug_shotorg.view_ofs = debug_shotorg.view_ofs * (stof(argv(1)) / debug_shotorg.view_ofs_x); // closer/farther, same xy pos
 		localcmd("sv_cmd debug_shotorg \"", vtos(debug_shotorg.view_ofs), "\"\n");
+	}
+	else if(cmd == "shotorg_toggle_hide") {
+		if(debug_shotorg)
+		{
+			debug_shotorg.cnt = !debug_shotorg.cnt;
+		}
 	}
 	else if(cmd == "shotorg_end") {
 		if(debug_shotorg)
@@ -656,6 +661,8 @@ void Ent_ClientData()
 		angles_held_y = ReadAngle();
 		angles_held_z = 0;
 	}
+	else
+		angles_held_status = 0;
 	
 	if(newspectatee_status != spectatee_status)
 	{
@@ -996,6 +1003,10 @@ float CSQC_Parse_TempEntity()
 			break;
 		case TE_CSQC_SPAWN:
 			Net_ReadSpawn();
+			bHandled = true;
+			break;
+		case TE_CSQC_ZCURVEPARTICLES:
+			Net_ReadZCurveParticles();
 			bHandled = true;
 			break;
 		default:

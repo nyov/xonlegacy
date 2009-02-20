@@ -99,6 +99,7 @@ entity GetPlayer(string name)
 
 //float ctf_clientcommand();
 float readyrestart_happened;
+.float lms_spectate_warning;
 void SV_ParseClientCommand(string s) {
 	local string cmd;
 	local float tokens, f, effectnum;
@@ -158,8 +159,22 @@ void SV_ParseClientCommand(string s) {
 	} else if(argv(0) == "spectate") {
 		if not(self.flags & FL_CLIENT)
 			return;
-		if(g_lms || g_arena)
-			return; // don't allow spectating in lms, unless player runs out of lives
+		if(g_arena)
+			return;
+		if(g_lms)
+		{
+			if(self.lms_spectate_warning)
+			{
+				// mark player as spectator
+				PlayerScore_Add(self, SP_LMS_RANK, 666 - PlayerScore_Add(self, SP_LMS_RANK, 0));
+			}
+			else
+			{
+				self.lms_spectate_warning = 1;
+				sprint(self, "WARNING: you won't be able to enter the game again after spectating in LMS. Use the same command again to spectate anyway.\n");
+				return;
+			}
+		}
 		if(self.classname == "player" && cvar("sv_spectate") == 1) {
 			if(self.flagcarried)
 				DropFlag(self.flagcarried, world, world);
@@ -212,22 +227,28 @@ void SV_ParseClientCommand(string s) {
 	} else if(argv(0) == "ready") {
 		if not(self.flags & FL_CLIENT)
 			return;
-		if((inWarmupStage && 0 <= g_warmup_limit) // with unlimited warmup players have to be able to restart
+
+		if((inWarmupStage && 0 >= g_warmup_limit) // with unlimited warmup players have to be able to restart
 		   || cvar("sv_ready_restart"))
 		{
-			if(timeoutStatus) {
-				return sprint(self, "^1You cannot reset the game while a timeout is active!\n");
-			}
-
+			if(!readyrestart_happened || cvar("sv_ready_restart_repeatable"))
 			{
-				if(!readyrestart_happened || cvar("sv_ready_restart_repeatable"))
+				if (self.ready) // toggle
+				{
+					self.ready = FALSE;
+					bprint(self.netname, "^2 is ^1NOT^2 ready\n");
+				}
+				else
 				{
 					self.ready = TRUE;
 					bprint(self.netname, "^2 is ready\n");
-					ReadyCount();
-				} else {
-					sprint(self, "^1game has already been restarted\n");
 				}
+
+				// cannot reset the game while a timeout is active!
+				if(!timeoutStatus)
+					ReadyCount();
+			} else {
+				sprint(self, "^1Game has already been restarted\n");
 			}
 		}
 	} else if(argv(0) == "maplist") {
@@ -361,8 +382,16 @@ void ReadyRestartForce()
 	VoteReset();
 
 	// clear overtime
-	if(checkrules_overtimeend)
-		checkrules_overtimeend = 0;
+	if (checkrules_overtimesadded > 0) {
+		//we have to decrease timelimit to its original value again!!
+		float newTL;
+		newTL = cvar("timelimit");
+		newTL -= checkrules_overtimesadded * cvar("timelimit_overtime");
+		cvar_set("timelimit", ftos(newTL));
+	}
+	
+	checkrules_suddendeathend = checkrules_overtimesadded = checkrules_suddendeathwarning = 0;
+	
 
 	readyrestart_happened = 1;
 	game_starttime = time + RESTART_COUNTDOWN;
@@ -457,6 +486,7 @@ void ReadyCount()
  */
 void restartTimer_Think() {
 	restart_mapalreadyrestarted = 1;
+	Score_ClearAll();
 	reset_map(TRUE);
 	remove(self);
 	return;

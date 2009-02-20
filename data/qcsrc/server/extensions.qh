@@ -51,15 +51,6 @@ float(string s) checkextension = #99;
 //description:
 //made +use and -use commands work, they now control the .buttonuse field (.button1 was used by many mods for other purposes).
 
-// LordHavoc: HIGHLY experimental, do not implement this in other engines
-//DP_CGAME
-//idea: LordHavoc
-//darkplaces implementation: LordHavoc
-//SVC definitions:
-float svc_cgame = 50; // [short] length [bytes] data
-//description:
-//contains network messages to client gamecode.
-
 //DP_CL_LOADSKY
 //idea: Nehahra, LordHavoc
 //darkplaces implementation: LordHavoc
@@ -191,6 +182,16 @@ float   EF_RED          = 128;
 float   EF_STARDUST     = 2048;
 //description:
 //entity emits bouncing sparkles in every direction
+
+//DP_EF_TELEPORT_BIT
+//idea: id software
+//darkplaces implementation: div0
+//effects bit:
+float   EF_TELEPORT_BIT = 2097152;
+//description:
+//when toggled, interpolation of the entity is skipped for one frame. Useful for teleporting.
+//to toggle this bit in QC, you can do:
+//  self.effects += (EF_TELEPORT_BIT - 2 * (self.effects & EF_TELEPORT_BIT));
 
 //DP_ENT_ALPHA
 //idea: Nehahra
@@ -734,6 +735,22 @@ vector(entity ent, float tagindex) gettaginfo = #452;
 //gettagindex returns the number of a tag on an entity, this number is the same as set by setattachment (in the .tag_index field), allowing the qc to save a little cpu time by keeping the number around if it wishes (this could already be done by calling setattachment and saving off the tag_index).
 //gettaginfo returns the origin of the tag in worldspace and sets v_forward, v_right, and v_up to the current orientation of the tag in worldspace, this automatically resolves all dependencies (attachments, including viewmodelforclient), this means you could fire a shot from a tag on a gun entity attached to the view for example.
 
+//DP_QC_GETTAGINFO_BONEPROPERTIES
+//idea: daemon
+//DarkPlaces implementation: div0
+//global definitions:
+float gettaginfo_parent;
+string gettaginfo_name;
+vector gettaginfo_offset;
+vector gettaginfo_forward;
+vector gettaginfo_right;
+vector gettaginfo_up;
+//description:
+//when this extension is present, gettaginfo fills in some globals with info about the bone that had been queried
+//gettaginfo_parent is set to the number of the parent bone, or 0 if it is a root bone
+//gettaginfo_name is set to the name of the bone whose index had been specified in gettaginfo
+//gettaginfo_offset, gettaginfo_forward, gettaginfo_right, gettaginfo_up contain the transformation matrix of the bone relative to its parent. Note that the matrix may contain a scaling component.
+
 //DP_QC_MINMAXBOUND
 //idea: LordHavoc
 //darkplaces implementation: LordHavoc
@@ -1265,6 +1282,10 @@ float MF_TRACER3 = 128; // purple trail
 float(string effectname) particleeffectnum = #335; // same as in CSQC
 void(entity ent, float effectnum, vector start, vector end) trailparticles = #336; // same as in CSQC
 void(float effectnum, vector org, vector vel, float howmany) pointparticles = #337; // same as in CSQC
+//SVC definitions:
+//float svc_trailparticles = 60; // [short] entnum [short] effectnum [vector] start [vector] end
+//float svc_pointparticles = 61; // [short] effectnum [vector] start [vector] velocity [short] count
+//float svc_pointparticles1 = 62; // [short] effectnum [vector] start, same as svc_pointparticles except velocity is zero and count is 1
 //description:
 //provides the ability to spawn non-standard particle effects, typically these are defined in a particle effect information file such as effectinfo.txt in darkplaces.
 //this is a port of particle effect features from clientside QC (EXT_CSQC) to server QC, as these effects are potentially useful to all games even if they do not make use of EXT_CSQC.

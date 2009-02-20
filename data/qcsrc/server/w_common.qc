@@ -128,8 +128,9 @@ void W_BallisticBullet_Hit (void)
 		headshot = 0;
 		yoda = 0;
 		damage_headshotbonus = self.dmg_edge;
-		railgun_start = self.origin - 2 * frametime * self.oldvelocity;
-		railgun_end = self.origin + 2 * frametime * self.oldvelocity;
+		railgun_start = self.origin - 2 * frametime * self.velocity;
+		railgun_end = self.origin + 2 * frametime * self.velocity;
+
 		Damage(other, self, self.owner, self.dmg * f, self.projectiledeathtype, self.origin, self.dmg_force * normalize(self.velocity) * f);
 		damage_headshotbonus = 0;
 
@@ -190,6 +191,10 @@ float W_BallisticBullet_LeaveSolid(entity e, vector vel, float constant)
 	float dt, dst, velfactor, v0, vs;
 	float maxdist;
 	float E0_m, Es_m;
+
+	// outside the world? forget it
+	if(self.origin_x > world.maxs_x || self.origin_y > world.maxs_y || self.origin_z > world.maxs_z || self.origin_x < world.mins_x || self.origin_y < world.mins_y || self.origin_z < world.mins_z)
+		return 0;
 
 	// E(s) = E0 - constant * s, constant = area of bullet circle * material constant / mass
 	v0 = vlen(vel);
@@ -259,6 +264,9 @@ void W_BallisticBullet_Touch (void)
 
 void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, float lifetime, float damage, float headshotbonus, float force, float dtype, float tracereffects, float gravityfactor, float bulletconstant)
 {
+	float lag, dt, savetime;
+	entity pl, oldself;
+
 	entity proj;
 	proj = spawn();
 	proj.classname = "bullet";
@@ -288,6 +296,84 @@ void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, f
 	proj.projectiledeathtype = dtype;
 
 	proj.oldvelocity = proj.velocity;
+
+	if(cvar("g_antilag_bullets"))
+	if(pSpeed >= cvar("g_antilag_bullets"))
+	{
+		// NOTE: this may severely throw off weapon balance
+		lag = ANTILAG_LATENCY(self);
+		if(lag < 0.001)
+			lag = 0;
+		if(clienttype(self) != CLIENTTYPE_REAL)
+			lag = 0;
+		if(cvar("g_antilag") == 0)
+			lag = 0; // only do hitscan, but no antilag
+
+		if(lag)
+			FOR_EACH_PLAYER(pl)
+				antilag_takeback(pl, time - lag);
+
+		oldself = self;
+		self = proj;
+
+		savetime = frametime;
+		frametime = 0.05;
+
+		for(;;)
+		{
+			// DP tracetoss is stupid and always traces in 0.05s
+			// ticks. This makes it trace in 0.05*0.125s ticks
+			// instead.
+			vector v0;
+			float g0;
+			v0 = self.velocity;
+			g0 = self.gravity;
+			self.velocity = self.velocity * 0.125;
+			self.gravity *= 0.125 * 0.125;
+			trace_fraction = 0;
+			tracetoss(self, oldself);
+			self.velocity = v0;
+			self.gravity = g0;
+
+			if(vlen(trace_endpos - self.origin) > 32)
+				zcurveparticles_from_tracetoss(particleeffectnum("tr_bullet"), self.origin, trace_endpos, self.velocity);
+			if(trace_fraction == 1)
+				break;
+				// won't hit anything anytime soon (DP's
+				// tracetoss does 200 tics of, here,
+				// 0.05*0.125s, that is, 1.25 seconds
+
+			other = trace_ent;
+			dt = vlen(trace_endpos - self.origin) / vlen(self.velocity); // this is only approximate!
+			setorigin(self, trace_endpos);
+			self.velocity_z -= sv_gravity * dt;
+
+			if(!SUB_OwnerCheck())
+			{
+				if(SUB_NoImpactCheck())
+					break;
+
+				// hit the player
+				W_BallisticBullet_Hit ();
+			}
+
+			// go through solid!
+			if(!W_BallisticBullet_LeaveSolid(self, self.velocity, self.dmg_radius))
+				break;
+
+			W_BallisticBullet_LeaveSolid_think();
+		}
+		frametime = savetime;
+		self = oldself;
+
+		if(lag)
+			FOR_EACH_PLAYER(pl)
+				antilag_restore(pl);
+
+		remove(proj);
+
+		return;
+	}
 
 	if(tracereffects & EF_RED)
 		CSQCProjectile(proj, TRUE, PROJECTILE_BULLET_GLOWING, TRUE);

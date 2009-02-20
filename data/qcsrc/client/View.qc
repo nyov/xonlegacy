@@ -2,6 +2,8 @@ entity porto;
 vector polyline[16];
 float trace_dphitcontents;
 float Q3SURFACEFLAG_SLICK = 2; // low friction surface
+float DPCONTENTS_SOLID = 1; // blocks player movement
+float DPCONTENTS_BODY = 32; // blocks player movement
 float DPCONTENTS_PLAYERCLIP = 256; // blocks player movement
 void Porto_Draw()
 {
@@ -29,7 +31,7 @@ void Porto_Draw()
 	for(;;)
 	{
 		dir = nextdir;
-		traceline(p, p + 65536 * dir, TRUE, world);
+		traceline(p, p + 65536 * dir, TRUE, porto);
 		if(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT)
 			return;
 		nextdir = dir - 2 * (dir * trace_plane_normal) * trace_plane_normal; // mirror dir at trace_plane_normal
@@ -94,8 +96,6 @@ void CheckForGamestartChange() {
 	previous_game_starttime = startTime;
 }
 
-float DPCONTENTS_SOLID = 1; // hit a bmodel, not a bounding box
-float DPCONTENTS_BODY = 32; // hit a bounding box, not a bmodel
 void Porto_Init()
 {
 	porto = spawn();
@@ -317,6 +317,11 @@ void CSQC_UpdateView(float w, float h)
 	// Draw the World (and sky)
 	R_SetView(VF_DRAWWORLD, 1);
 
+	// Set the console size vars
+	vid_conwidth = cvar("vid_conwidth");
+	vid_conheight = cvar("vid_conheight");
+	vid_pixelheight = cvar("vid_pixelheight");
+
 	R_SetView(VF_FOV, GetCurrentFov(fov));
 
 	// Camera for demo playback
@@ -352,11 +357,6 @@ void CSQC_UpdateView(float w, float h)
 	
 	// Draw the Engine Status Bar (the default Quake HUD)
 	R_SetView(VF_DRAWENGINESBAR, 0);
-
-	// Set the console size vars
-	vid_conwidth = cvar("vid_conwidth");
-	vid_conheight = cvar("vid_conheight");
-	vid_pixelheight = cvar("vid_pixelheight");
 
 	// fetch this one only once per frame
 	sbar_showbinds = cvar("sbar_showbinds");
@@ -411,6 +411,12 @@ void CSQC_UpdateView(float w, float h)
 	{
 		if((cvar_string("cl_teamradar") != "0" && !scoreboard_active) || ons_showmap)
 			teamradar_view();
+	}
+
+	if (cvar("cl_showpressedkeys")) // draw pressed keys when spectating and playing
+	{
+		if(spectatee_status > 0 || cvar("cl_showpressedkeys") >= 2)
+			Sbar_DrawPressedKeys();
 	}
 
 	// draw sbar
