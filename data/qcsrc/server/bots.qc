@@ -1,7 +1,13 @@
-// rough simulation of walking from one point to another to test if a path
-// can be traveled, used by havocbot
+.float aistatus;
+float AI_STATUS_ROAMING			= 1;	// Bot is just crawling the map. No enemies at sight
+float AI_STATUS_ATTACKING		= 2;	// There are enemies at sight
+float AI_STATUS_RUNNING			= 4;	// Bot is bunny hopping
+float AI_STATUS_DANGER_AHEAD	= 8;	// There is lava/slime/abism ahead
 
 .string netname_freeme;
+
+// rough simulation of walking from one point to another to test if a path
+// can be traveled, used by havocbot
 
 vector stepheightvec;
 float navigation_testtracewalk;
@@ -1310,6 +1316,21 @@ void navigation_poptouchedgoals()
 	org = self.origin;// + self.velocity * 0.1;
 	m1 = org + self.mins;
 	m2 = org + self.maxs;
+
+	// Loose goal touching check for running state
+	if(self.aistatus & AI_STATUS_RUNNING)
+	if(self.goalcurrent.classname=="waypoint")
+	{
+		if(vlen(self.origin - self.goalcurrent.origin)<150)
+		{
+				traceline(self.origin + self.view_ofs , self.goalcurrent.origin, TRUE, world);
+				if(trace_fraction==1)
+				{
+					navigation_poproute();
+				}
+		}
+	}
+
 	while (self.goalcurrent && boxesoverlap(m1, m2, self.goalcurrent.absmin, self.goalcurrent.absmax))
 		navigation_poproute();
 }

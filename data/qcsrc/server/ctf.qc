@@ -427,7 +427,7 @@ void FlagTouch()
 		{
 			return;
 		}
-		if(player_count - currentbots <= 1) // at most one human
+		if(cvar("g_ctf_captimerecord_allow_assisted") || player_count - currentbots <= 1) // at most one human
 		{
 			t = time - other.flagcarried.flagpickuptime;
 			s = ftos_decimals(t, 2);
@@ -444,7 +444,7 @@ void FlagTouch()
 				flagcaptimerecord = t;
 				db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/time"), ftos(t));
 				db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/netname"), h1);
-				GameLogEcho(strcat(":recordset:", ftos(other.playerid), ":", ftos(t)));
+				write_recordmarker(other, time - t, t);
 			}
 			else if (t < flagcaptimerecord)
 			{
@@ -452,7 +452,7 @@ void FlagTouch()
 				flagcaptimerecord = t;
 				db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/time"), ftos(t));
 				db_put(ServerProgsDB, strcat(GetMapname(), "/captimerecord/netname"), h1);
-				GameLogEcho(strcat(":recordset:", ftos(other.playerid), ":", ftos(t)));
+				write_recordmarker(other, time - t, t);
 			}
 			else
 			{
@@ -735,11 +735,11 @@ void spawnfunc_item_flag_team1()
 	}
 	self.netname = "^1RED^7 flag";
 	self.target = "###item###";
-	self.skin = 0;
+	self.skin = cvar("g_ctf_flag_red_skin");
 	if(self.spawnflags & 1)
 		self.noalign = 1;
 	if (!self.model)
-		self.model = "models/ctf/flags.md3";
+		self.model = cvar_string("g_ctf_flag_red_model");
 	if (!self.noise)
 		self.noise = "ctf/take.wav";
 	if (!self.noise1)
@@ -833,11 +833,11 @@ void spawnfunc_item_flag_team2()
 	}
 	self.netname = "^4BLUE^7 flag";
 	self.target = "###item###";
-	self.skin = 1;
+	self.skin = cvar("g_ctf_flag_blue_skin");
 	if(self.spawnflags & 1)
 		self.noalign = 1;
 	if (!self.model)
-		self.model = "models/ctf/flags.md3";
+		self.model = cvar_string("g_ctf_flag_blue_model");
 	if (!self.noise)
 		self.noise = "ctf/take.wav";
 	if (!self.noise1)

@@ -705,6 +705,8 @@ float g_pickup_armorsmall;
 float g_pickup_armorsmall_max;
 float g_pickup_armormedium;
 float g_pickup_armormedium_max;
+float g_pickup_armorbig;
+float g_pickup_armorbig_max;
 float g_pickup_armorlarge;
 float g_pickup_armorlarge_max;
 float g_pickup_healthsmall;
@@ -1058,6 +1060,8 @@ void readlevelcvars(void)
 	g_pickup_armorsmall_max            = cvar("g_pickup_armorsmall_max");
 	g_pickup_armormedium               = cvar("g_pickup_armormedium");
 	g_pickup_armormedium_max           = cvar("g_pickup_armormedium_max");
+	g_pickup_armorbig                  = cvar("g_pickup_armorbig");
+	g_pickup_armorbig_max              = cvar("g_pickup_armorbig_max");
 	g_pickup_armorlarge                = cvar("g_pickup_armorlarge");
 	g_pickup_armorlarge_max            = cvar("g_pickup_armorlarge_max");
 	g_pickup_healthsmall               = cvar("g_pickup_healthsmall");
@@ -1999,4 +2003,16 @@ void zcurveparticles_from_tracetoss(float effectno, vector start, vector end, ve
 
 	end_dz = vlen(vecxy) / vlen(velxy) * vel_z - (end_z - start_z);
 	zcurveparticles(effectno, start, end, end_dz, vlen(vel));
+}
+
+string GetGametype(); // g_world.qc
+void write_recordmarker(entity pl, float tstart, float dt)
+{
+	GameLogEcho(strcat(":recordset:", ftos(pl.playerid), ":", ftos(dt / 10)));
+
+	// also write a marker into demo files for demotc-race-record-extractor to find
+	stuffcmd(pl,
+		strcat(
+			strcat("//", strconv(2, 0, 0, GetGametype()), " RECORD SET ", mmsss(dt * 10)),
+			" ", ftos(tstart), " ", ftos(dt), "\n"));
 }
