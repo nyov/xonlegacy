@@ -365,7 +365,7 @@ string GetClientVersionMessage() {
 
 void PrintWelcomeMessage(entity pl)
 {
-	string s, mutator, modifications, motd;
+	string s, modifications, motd;
 
 	if(self.cvar_scr_centertime == 0) return;
 	if((time - self.jointime) > cvar("welcome_message_time")
@@ -404,56 +404,40 @@ void PrintWelcomeMessage(entity pl)
 	}
 
 :normal
+	modifications = "";
 	if(g_minstagib)
-		mutator = "^2Minstagib ^1";
-	else if(g_weaponarena)
-		mutator = "^2", g_weaponarena_list, " Arena ^1";
-	else if(g_nixnex)
-		mutator = "^2No Items Nexuiz ^1";
-
-	if(g_cloaked) {
-		// to protect against unheedingly made changes
-		if (modifications) {
-			modifications = strcat(modifications, ", ");
-		}
-		modifications = "cloaked";
-	}
-	if(g_footsteps) {
-		if (modifications) {
-			modifications = strcat(modifications, ", ");
-		}
-		modifications = strcat(modifications, "footsteps");
-	}
-	if(g_midair) {
-		if (modifications) {
-			modifications = strcat(modifications, ", ");
-		}
-		modifications = strcat(modifications, "midair");
-	}
-	if(g_vampire) {
-		if (modifications) {
-			modifications = strcat(modifications, ", ");
-		}
-		modifications = strcat(modifications, "vampire");
-	}
-	if(g_laserguided_missile) {
-		if (modifications) {
-			modifications = strcat(modifications, ", ");
-		}
-		modifications = strcat(modifications, "laser guided missiles");
-	}
-	if(cvar("sv_gravity") < 800) {
-		if (modifications) {
-			modifications = strcat(modifications, ", ");
-		}
-		modifications = strcat(modifications, "low gravity");
-	}
+		modifications = strcat(modifications, ", MinstaGib");
+	if(g_nixnex)
+		modifications = strcat(modifications, ", NixNex");
+	if(g_weaponarena)
+		modifications = strcat(modifications, ", ", g_weaponarena_list, " Arena");
+	if(cvar("sv_gravity") < 800)
+		modifications = strcat(modifications, ", Low gravity");
+	if(g_cloaked)
+		modifications = strcat(modifications, ", Cloaked");
+	if(g_footsteps)
+		modifications = strcat(modifications, ", Steps");
+	if(g_grappling_hook)
+		modifications = strcat(modifications, ", Hook");
+	if(g_laserguided_missile)
+		modifications = strcat(modifications, ", LG missiles");
+	if(g_midair)
+		modifications = strcat(modifications, ", Midair");
+	if(g_vampire)
+		modifications = strcat(modifications, ", Vampire");
+	if(g_pinata)
+		modifications = strcat(modifications, ", Pinata");
+	if(g_weapon_stay)
+		modifications = strcat(modifications, ", Weapons stay");
+	if(g_bloodloss > 0)
+		modifications = strcat(modifications, ", Bloodloss");
+	modifications = substring(modifications, 2, strlen(modifications) - 2);
 
 	local string versionmessage;
 	versionmessage = GetClientVersionMessage();
 
 	s = strcat(s, NEWLINES, "This is Nexuiz ", cvar_string("g_nexuizversion"), "\n", versionmessage);
-	s = strcat(s, "^8\n\nmatch type is ^1", mutator, gamemode_name, "^8\n");
+	s = strcat(s, "^8\n\nmatch type is ^1", gamemode_name, "^8\n");
 
 	if(modifications != "")
 		s = strcat(s, "^8\nactive modifications: ^3", modifications, "^8\n");
