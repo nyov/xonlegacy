@@ -72,7 +72,7 @@ void W_Electro_Attack()
 {
 	local entity proj;
 
-	W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/electro_fire.wav");
+	W_SetupShot (self, '24 8 -9.5', FALSE, 2, "weapons/electro_fire.wav");
 
 	pointparticles(particleeffectnum("electro_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -192,7 +192,7 @@ float w_electro(float req)
 		if (weapon_prepareattack(1, cvar("g_balance_electro_secondary_refire")))
 		{
 			W_Electro_Attack2();
-			weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_electro_secondary_animtime"), w_ready);
+			weapon_thinkf(WFRAME_FIRE2, cvar("g_balance_electro_secondary_animtime"), w_ready);
 		}
 	}
 	else if (req == WR_PRECACHE)

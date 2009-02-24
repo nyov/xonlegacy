@@ -17,7 +17,7 @@ void W_Laser_Attack (float issecondary)
 {
 	local entity missile;
 
-	W_SetupShot (self, '25 8 -8', FALSE, 3, "weapons/lasergun_fire.wav");
+	W_SetupShot (self, '21 8 -9', FALSE, 3, "weapons/lasergun_fire.wav");
 	pointparticles(particleeffectnum("laser_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
@@ -96,7 +96,7 @@ float w_laser(float req)
 				if (weapon_prepareattack(0, cvar("g_balance_laser_secondary_refire")))
 				{
 					W_Laser_Attack(TRUE);
-					weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_laser_secondary_animtime"), w_ready);
+					weapon_thinkf(WFRAME_FIRE2, cvar("g_balance_laser_secondary_animtime"), w_ready);
 				}
 			}
 			else

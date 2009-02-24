@@ -60,7 +60,7 @@ void W_Hook_Attack2()
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_hook_secondary_ammo");
-	W_SetupShot (self, '25 6 -8', FALSE, 4, "weapons/hookbomb_fire.wav");
+	W_SetupShot (self, '21 8 -9.5', FALSE, 4, "weapons/hookbomb_fire.wav");
 
 	gren = spawn ();
 	gren.owner = self;
@@ -130,7 +130,7 @@ float w_hook(float req)
 			if (weapon_prepareattack(1, cvar("g_balance_hook_secondary_refire")))
 			{
 				W_Hook_Attack2();
-				weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_hook_secondary_animtime"), w_ready);
+				weapon_thinkf(WFRAME_FIRE2, cvar("g_balance_hook_secondary_animtime"), w_ready);
 			}
 		}
 
