@@ -68,15 +68,14 @@ void func_breakable_colormod()
 void func_breakable_look_destroyed()
 {
 	if(self.mdl_dead == "")
-	{
 		self.model = "";
-		self.solid = SOLID_NOT;
-	}
-	else
-	{
+	else {
 		setmodel(self, self.mdl_dead);
-		self.solid = SOLID_BSP;
+		if (self.origin == '0 0 0')		// probably no origin brush, so don't spawn in the middle of the map..
+			self.origin = (self.absmax+self.absmin)*.5);
 	}
+		
+	self.solid = SOLID_NOT;
 }
 
 void func_breakable_look_restore()
