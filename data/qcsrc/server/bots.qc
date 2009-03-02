@@ -3,9 +3,9 @@ float AI_STATUS_ROAMING			= 1;	// Bot is just crawling the map. No enemies at si
 float AI_STATUS_ATTACKING		= 2;	// There are enemies at sight
 float AI_STATUS_RUNNING			= 4;	// Bot is bunny hopping
 float AI_STATUS_DANGER_AHEAD	= 8;	// There is lava/slime/abism ahead
+float AI_STATUS_BAD_JUMPPAD		= 16;	// Trying to get out of a "vertical" jump pad
 
 .string netname_freeme;
-
 // rough simulation of walking from one point to another to test if a path
 // can be traveled, used by havocbot
 
@@ -1568,40 +1568,43 @@ void bot_custom_weapon_priority_setup()
 	tokens = tokenizebyseparator(cvar_string("bot_ai_custom_weapon_priority_far")," ");
 
 	c = 0;
-	for(i=0; i < tokens && i < WEP_LAST; ++i){
+	for(i=0; i < tokens && c < WEP_COUNT; ++i){
 		w = stof(argv(i));
 		if ( w >= WEP_FIRST && w <= WEP_LAST) {
 			bot_weapons_far[c] = w;
 			++c;
 		}
 	}
-	bot_weapons_far[c] = -1;
+	if(c < WEP_COUNT)
+		bot_weapons_far[c] = -1;
 
 	// Parse mid distance weapon priorities
 	tokens = tokenizebyseparator(cvar_string("bot_ai_custom_weapon_priority_mid")," ");
 
 	c = 0;
-	for(i=0; i < tokens && i < WEP_LAST; ++i){
+	for(i=0; i < tokens && c < WEP_COUNT; ++i){
 		w = stof(argv(i));
 		if ( w >= WEP_FIRST && w <= WEP_LAST) {
 			bot_weapons_mid[c] = w;
 			++c;
 		}
 	}
-	bot_weapons_mid[c] = -1;
+	if(c < WEP_COUNT)
+		bot_weapons_mid[c] = -1;
 
 	// Parse close distance weapon priorities
 	tokens = tokenizebyseparator(cvar_string("bot_ai_custom_weapon_priority_close")," ");
 
 	c = 0;
-	for(i=0; i < tokens && i < WEP_LAST; ++i){
+	for(i=0; i < tokens && i < WEP_COUNT; ++i){
 		w = stof(argv(i));
 		if ( w >= WEP_FIRST && w <= WEP_LAST) {
 			bot_weapons_close[c] = w;
 			++c;
 		}
 	}
-	bot_weapons_close[c] = -1;
+	if(c < WEP_COUNT)
+		bot_weapons_close[c] = -1;
 
 	bot_custom_weapon = TRUE;
 };
