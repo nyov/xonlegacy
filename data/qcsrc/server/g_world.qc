@@ -131,27 +131,38 @@ void timeoutHandler_Think() {
 	}
 }
 
-float GotoFirstMap()
+void GotoFirstMap()
 {
 	if(cvar("_sv_init"))
 	{
-		cvar_set("_sv_init", "0");
+		// cvar_set("_sv_init", "0");
+		// we do NOT set this to 0 any more, so someone "accidentally" changing
+		// to this "init" map on a dedicated server will cause no permanent
+		// harm
 		if(cvar("g_maplist_shuffle"))
 			ShuffleMaplist();
 		tokenizebyseparator(cvar_string("g_maplist"), " ");
-		{
-			cvar_set("nextmap", argv(0));
 
-			MapInfo_Enumerate();
-			MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 0);
+		cvar_set("nextmap", argv(0));
 
-			if(!DoNextMapOverride())
-				GotoNextMap();
+		MapInfo_Enumerate();
+		MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN), 0);
 
-			return 1;
-		}
+		if(!DoNextMapOverride())
+			GotoNextMap();
+
+		return;
 	}
-	return 0;
+
+	if(time < 5)
+	{
+		self.nextthink = time;
+	}
+	else
+	{
+		self.nextthink = time + 1;
+		print("Waiting for _sv_init being set to 1 by initialization scripts...\n");
+	}
 }
 
 void cvar_changes_init()
@@ -326,6 +337,25 @@ void RandomSeed_Spawn()
 	self = oldself;
 }
 
+void spawnfunc___init_dedicated_server(void)
+{
+	// handler for _init/_init map (only for dedicated server initialization)
+
+	dprint_load(); // load dprint status from cvar
+	world_initialized = -1; // don't complain
+	remove = remove_unsafely;
+
+	entity e;
+	e = spawn();
+	e.think = GotoFirstMap;
+	e.nextthink = time; // this is usually 1 at this point
+
+	e = spawn();
+	e.classname = "info_player_deathmatch"; // safeguard against player joining
+
+	self.classname = "worldspawn"; // safeguard against various stuff ;)
+}
+
 void Map_MarkAsRecent(string m);
 float world_already_spawned;
 void RegisterWeapons();
@@ -366,12 +396,6 @@ void spawnfunc_worldspawn (void)
 
 	// needs to be done so early as they would still spawn
 	RegisterWeapons();
-
-	if(GotoFirstMap())
-	{
-		world_initialized = -1; // don't complain
-		return;
-	}
 
 	if(sv_cheats)
 		ServerProgsDB = db_create();
@@ -506,7 +530,7 @@ void spawnfunc_worldspawn (void)
 	orig_slowmo = cvar("slowmo");
 
 	MapInfo_Enumerate();
-	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 1);
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN), 1);
 
 	if(whichpack(strcat("maps/", mapname, ".cfg")) != "")
 	{
@@ -1601,37 +1625,7 @@ float WinningCondition_LMS()
 
 void ShuffleMaplist()
 {
-	string result;
-	float start;
-	float litems;
-	float selected;
-	float i;
-
-	result = cvar_string("g_maplist");
-	litems = tokenizebyseparator(result, " ");
-
-	for(start = 0; start < litems - 1; ++start)
-	{
-		result = "";
-
-		// select a random item
-		selected = floor(random() * (litems - start) + start);
-
-		// shift this item to the place start
-		for(i = 0; i < start; ++i)
-			result = strcat(result, " ", argv(i));
-		result = strcat(result, " ", argv(selected));
-		for(i = start; i < litems; ++i)
-			if(i != selected)
-				result = strcat(result, " ", argv(i));
-		result = substring(result, 1, strlen(result) - 1);
-
-		litems = tokenizebyseparator(result, " ");
-
-		//dprint(result, "\n");
-	}
-
-	cvar_set("g_maplist", result);
+	cvar_set("g_maplist", shufflewords(cvar_string("g_maplist")));
 }
 
 float leaderfrags;
@@ -2369,7 +2363,7 @@ void MapVote_Start()
 		return;
 
 	MapInfo_Enumerate();
-	if(MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 1))
+	if(MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN), 1))
 		mapvote_run = TRUE;
 }
 void MapVote_Think()
@@ -2508,7 +2502,7 @@ void RestoreGame()
 	// Mapinfo
 	MapInfo_Shutdown();
 	MapInfo_Enumerate();
-	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? MAPINFO_FLAG_HIDDEN : 0), 1);
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN), 1);
 }
 
 void SV_Shutdown()

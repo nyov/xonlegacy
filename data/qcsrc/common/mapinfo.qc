@@ -199,7 +199,7 @@ string MapInfo_FilterGametype_Recursive(float pGametype, float pFeatures, float 
 		return HugeSetOfIntegers_concat(l, r);
 }
 
-float MapInfo_FilterGametype(float pGametype, float pFeatures, pFlagsRequired, pFlagsForbidden, float pAbortOnGenerate)
+float MapInfo_FilterGametype(float pGametype, float pFeatures, float pFlagsRequired, float pFlagsForbidden, float pAbortOnGenerate)
 {
 	if(_MapInfo_filtered)
 		strunzone(_MapInfo_filtered);
@@ -543,6 +543,12 @@ float MapInfo_Get_ByName(string pFilename, float pAllowGenerate, float pGametype
 	string s, t;
 	float fh, fh2;
 	float r, f;
+
+	if(strstrofs(pFilename, "/", 0) >= 0)
+	{
+		print("Invalid character in map name, ignored\n");
+		return 0;
+	}
 
 	if(pGametypeToSet == 0)
 		if(MapInfo_Cache_Retrieve(pFilename))

@@ -80,6 +80,7 @@ float GameCommand_Generic(string command)
 		print("  maplist add map\n");
 		print("  maplist remove map\n");
 		print("  maplist shuffle\n");
+		print("  maplist cleanup\n");
 		return TRUE;
 	}
 	
@@ -107,37 +108,31 @@ float GameCommand_Generic(string command)
 			s2 = "";
 			for(i = 0; i < n; ++i)
 				if(argv(i) != s)
-				{
 					s2 = strcat(s2, " ", argv(i));
-				}
 			s2 = substring(s2, 1, strlen(s2) - 1);
 			cvar_set("g_maplist", s2);
 			return TRUE;
 		}
 		else if(argv(1) == "shuffle" && argc == 2)
 		{
-			s = cvar_string("g_maplist");
-			for(i = 1; i < (n = tokenizebyseparator(s, " ")); ++i)
-			{
-				// swap i-th item at a random position from 0 to i
-				// proof for even distribution:
-				//   n = 1: obvious
-				//   n -> n+1:
-				//     item n+1 gets at any position with chance 1/(n+1)
-				//     all others will get their 1/n chance reduced by factor n/(n+1)
-				//     to be on place n+1, their chance will be 1/(n+1)
-				//     1/n * n/(n+1) = 1/(n+1)
-				//     q.e.d.
-				f = floor(random() * (i + 1)); // 0 to i
-				if(f == i)
-					continue; // no change
-
-				s2 = "";
-				for(j = 0; j < n; ++j)
-					s2 = strcat(s2, " ", argv((j == i) ? f : (j == f) ? i : j));
-				s = substring(s2, 1, strlen(s2) - 1);
-			}
-			cvar_set("g_maplist", s);
+			cvar_set("g_maplist", shufflewords(cvar_string("g_maplist")));
+			return TRUE;
+		}
+		else if(argv(1) == "cleanup")
+		{
+			MapInfo_Enumerate();
+			if(cvar("g_maplist_allow_hidden"))
+				i = 0;
+			else
+				i = MAPINFO_FLAG_HIDDEN;
+			MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, i, 0);
+			n = tokenizebyseparator(cvar_string("g_maplist"), " ");
+			s2 = "";
+			for(i = 0; i < n; ++i)
+				if(MapInfo_CheckMap(argv(i)))
+					s2 = strcat(s2, " ", argv(i));
+			s2 = substring(s2, 1, strlen(s2) - 1);
+			cvar_set("g_maplist", s2);
 			return TRUE;
 		}
 	}
@@ -628,6 +623,22 @@ float GameCommand_Generic(string command)
 			}
 			return TRUE;
 		}
+	} else if(argv(0) == "addtolist") {
+		if(argc >= 2)
+		{
+			s = argv(1);
+			s2 = argv(2);
+			if(cvar_string(s) == "")
+				cvar_set(s, s2);
+			else {
+				n = tokenizebyseparator(cvar_string(s), " ");
+				for(i = 0; i < n; ++i)
+					if(argv(i) == s2)
+						return TRUE; // already in list
+				cvar_set(s, strcat(s2, " ", cvar_string(s)));
+			}
+		}
+		return TRUE;
 #ifdef MENUQC
 	} else if(argv(0) == "cp") {
 		if(argc >= 2)
