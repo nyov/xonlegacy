@@ -299,7 +299,7 @@ elsif($cmd eq 'undo')
 
 	open my $fh, '>>', '.commitmsg'
 		or die "open .commitmsg";
-	print $fh "undo the following merge:\n", GetLog $first, last;
+	print $fh "undo the following merge:\n", GetLog $first, $last;
 	close $fh;
 
 	WriteSettings();
