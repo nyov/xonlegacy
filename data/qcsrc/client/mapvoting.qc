@@ -18,7 +18,12 @@ string MapVote_FormatMapItem(float id, string map, float count, float maxwidth)
 	string pre, post;
 	pre = strcat(ftos(id+1), ". ");
 	if(mv_detail)
-		post = strcat(" (", ftos(count), " votes)");
+	{
+		if(count == 1)
+			post = strcat(" (1 vote)");
+		else
+			post = strcat(" (", ftos(count), " votes)");
+	}
 	else
 		post = "";
 	maxwidth -= stringwidth(pre, FALSE) + stringwidth(post, FALSE);
@@ -241,7 +246,7 @@ void MapVote_CheckPK3(string pic, string pk3, float id)
 	pak.chain = mv_pk3list;
 	mv_pk3list = pak;
 	
-	if(pk3 != "" && pk3 != "don't care") // TODO make this less stupid, but I am lazy now
+	if(pk3 != "")
 	{
 		localcmd(strcat("\ncurl --pak ", pk3, "; wait; cl_cmd mv_download ", ftos(id), "\n"));
 	}
@@ -253,6 +258,10 @@ void MapVote_CheckPK3(string pic, string pk3, float id)
 
 void MapVote_CheckPic(string pic, string pk3, float id)
 {
+	// never try to retrieve a pic for the "don't care" 'map'
+	if(mv_abstain && id == mv_num_maps - 1)
+		return;
+
 	if(PreviewExists(pic))
 	{
 		mv_preview[id] = true;
