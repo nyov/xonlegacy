@@ -133,6 +133,7 @@ void timeoutHandler_Think() {
 
 void GotoFirstMap()
 {
+	float n;
 	if(cvar("_sv_init"))
 	{
 		// cvar_set("_sv_init", "0");
@@ -141,9 +142,8 @@ void GotoFirstMap()
 		// harm
 		if(cvar("g_maplist_shuffle"))
 			ShuffleMaplist();
-		tokenizebyseparator(cvar_string("g_maplist"), " ");
-
-		cvar_set("nextmap", argv(0));
+		n = tokenizebyseparator(cvar_string("g_maplist"), " ");
+		cvar_set("g_maplist_index", ftos(n - 1)); // jump to map 0 in GotoNextMap
 
 		MapInfo_Enumerate();
 		MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN), 0);
@@ -354,6 +354,10 @@ void spawnfunc___init_dedicated_server(void)
 	e.classname = "info_player_deathmatch"; // safeguard against player joining
 
 	self.classname = "worldspawn"; // safeguard against various stuff ;)
+
+	g_maplist_allow_hidden = cvar("g_maplist_allow_hidden");
+	MapInfo_Enumerate();
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN), 0);
 }
 
 void Map_MarkAsRecent(string m);
@@ -377,10 +381,10 @@ void spawnfunc_worldspawn (void)
 	if(cvar_string("cvar_check_default") != "bypass")
 	{
 		if(cvar_string("cvar_check_default") != CVAR_CHECK_DEFAULT)
-			error("Config file mismatch! Please update defaultNexuiz.cfg to match the QuakeC code!");
+			error("Config file mismatch! Please update defaultNexuiz.cfg to match the QuakeC code, and restart the engine!");
 
 		if(cvar_string("cvar_check_weapons") != CVAR_CHECK_WEAPONS)
-			error("Config file mismatch! Please update weapons.cfg and weaponsPro.cfg to match the QuakeC code!");
+			error("Config file mismatch! Please update weapons.cfg and weaponsHavoc.cfg to match the QuakeC code, and restart the engine!");
 	}
 
 	compressShortVector_init();
@@ -1239,7 +1243,11 @@ void FixIntermissionClient(entity e)
 		e.movetype = MOVETYPE_NONE;
 		e.takedamage = DAMAGE_NO;
 		if(e.weaponentity)
+		{
 			e.weaponentity.effects = EF_NODRAW;
+			if (e.weaponentity.weaponentity)
+				e.weaponentity.weaponentity.effects = EF_NODRAW;
+		}
 		if(clienttype(e) == CLIENTTYPE_REAL)
 		{
 			stuffcmd(e, "\nscr_printspeed 1000000\n");
@@ -2257,6 +2265,9 @@ float MapVote_CheckRules_2()
 	float firstPlaceVotes, secondPlaceVotes;
 	float mapvote_voters_real;
 	string result;
+
+	if(mapvote_count_real == 1)
+		return MapVote_Finished(0);
 
 	mapvote_voters_real = mapvote_voters;
 	if(mapvote_abstain)

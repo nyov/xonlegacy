@@ -60,7 +60,7 @@ void W_Hook_Attack2()
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_hook_secondary_ammo");
-	W_SetupShot (self, '21 8 -8.5', FALSE, 4, "weapons/hookbomb_fire.wav");
+	W_SetupShot (self, FALSE, 4, "weapons/hookbomb_fire.wav");
 
 	gren = spawn ();
 	gren.owner = self;
@@ -204,7 +204,7 @@ float w_hook(float req)
 	{
 		precache_model ("models/weapons/g_hookgun.md3");
 		precache_model ("models/weapons/v_hookgun.md3");
-		precache_model ("models/weapons/w_hookgun.zym");
+		precache_model ("models/weapons/h_hookgun.dpm");
 		precache_sound ("weapons/hook_impact.wav"); // done by g_hook.qc
 		precache_sound ("weapons/hook_fire.wav");
 		precache_sound ("weapons/hookbomb_fire.wav");

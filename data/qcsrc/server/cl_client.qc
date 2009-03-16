@@ -556,6 +556,7 @@ void PutObserverInServer (void)
 	self.weapon = 0;
 	self.weaponmodel = "";
 	self.weaponentity = world;
+	self.exteriorweaponentity = world;
 	self.killcount = -666;
 	self.velocity = '0 0 0';
 	self.avelocity = '0 0 0';
@@ -2185,7 +2186,8 @@ void PlayerPreThink (void)
 		if (self.deadflag != DEAD_NO)
 		{
 			float button_pressed, force_respawn;
-			player_anim();
+			if(frametime)
+				player_anim();
 			button_pressed = (self.BUTTON_ATCK || self.BUTTON_JUMP || self.BUTTON_ATCK2 || self.BUTTON_HOOK || self.BUTTON_USE);
 			force_respawn = (g_lms || cvar("g_forced_respawn"));
 			if (self.deadflag == DEAD_DYING)
@@ -2274,7 +2276,7 @@ void PlayerPreThink (void)
 				self.crouch = TRUE;
 				self.view_ofs = PL_CROUCH_VIEW_OFS;
 				setsize (self, PL_CROUCH_MIN, PL_CROUCH_MAX);
-				player_setanim(self.anim_duck, FALSE, TRUE, TRUE);
+				setanim(self, self.anim_duck, FALSE, TRUE, TRUE);
 			}
 		}
 		else
@@ -2304,11 +2306,13 @@ void PlayerPreThink (void)
 
 		GrapplingHookFrame();
 
-		W_WeaponFrame();
+		if(frametime)
+			W_WeaponFrame();
 
 		player_powerups();
 		player_regen();
-		player_anim();
+		if(frametime)
+			player_anim();
 
 		if (g_minstagib)
 			minstagib_ammocheck();

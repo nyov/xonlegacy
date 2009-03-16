@@ -83,6 +83,7 @@ g_triggers.qc
 
 cl_weaponsystem.qc
 w_common.qc
+
 w_laser.qc
 w_shotgun.qc
 w_uzi.qc

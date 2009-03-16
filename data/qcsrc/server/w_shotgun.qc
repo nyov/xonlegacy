@@ -2,6 +2,7 @@
 void W_Shotgun_Attack (void)
 {
 	float	sc;
+	float	ammoamount;
 	float	bullets;
 	float	d;
 	float	f;
@@ -10,6 +11,7 @@ void W_Shotgun_Attack (void)
 	float	bulletconstant;
 	local entity flash;
 
+	ammoamount = cvar("g_balance_shotgun_primary_ammo");
 	bullets = cvar("g_balance_shotgun_primary_bullets");
 	d = cvar("g_balance_shotgun_primary_damage");
 	f = cvar("g_balance_shotgun_primary_force");
@@ -17,23 +19,24 @@ void W_Shotgun_Attack (void)
 	bulletspeed = cvar("g_balance_shotgun_primary_speed");
 	bulletconstant = cvar("g_balance_shotgun_primary_bulletconstant");
 
-	W_SetupShot (self, '28 8 -10', TRUE, 5, "weapons/shotgun_fire.wav");
+	W_SetupShot (self, TRUE, 5, "weapons/shotgun_fire.wav");
 	for (sc = 0;sc < bullets;sc = sc + 1)
 		fireBallisticBullet(w_shotorg, w_shotdir, spread, bulletspeed, 5, d, 0, f, WEP_SHOTGUN, 0, 1, bulletconstant);
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
-		self.ammo_shells = self.ammo_shells - cvar("g_balance_shotgun_primary_ammo");
+		self.ammo_shells = self.ammo_shells - ammoamount;
 
 	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 1000, cvar("g_balance_shotgun_primary_ammo"));
 
 	// casing code
 	if (cvar("g_casings") >= 1)
-		SpawnCasing (w_shotorg - v_forward * 10, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
+		for (sc = 0;sc < ammoamount;sc = sc + 1)
+			SpawnCasing (((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
 
 	// muzzle flash for 1st person view
 	flash = spawn();
 	setorigin(flash, '5 0 0');
 	setmodel(flash, "models/uziflash.md3"); // precision set below
-	setattachment(flash, self.weaponentity, "bone02");
+	setattachment(flash, self.weaponentity, "shot");
 	flash.owner = self;
 	flash.viewmodelforclient = self;
 	flash.customizeentityforclient = CL_Weaponentity_CustomizeEntityForClient;
@@ -48,6 +51,7 @@ void W_Shotgun_Attack (void)
 void W_Shotgun_Attack2 (void)
 {
 	float	sc;
+	float	ammoamount;
 	float	bullets;
 	float	d;
 	float	f;
@@ -56,6 +60,7 @@ void W_Shotgun_Attack2 (void)
 	float	bulletconstant;
 	local entity flash;
 
+	ammoamount = cvar("g_balance_shotgun_secondary_ammo");
 	bullets = cvar("g_balance_shotgun_secondary_bullets");
 	d = cvar("g_balance_shotgun_secondary_damage");
 	f = cvar("g_balance_shotgun_secondary_force");
@@ -63,22 +68,23 @@ void W_Shotgun_Attack2 (void)
 	bulletspeed = cvar("g_balance_shotgun_secondary_speed");
 	bulletconstant = cvar("g_balance_shotgun_secondary_bulletconstant");
 
-	W_SetupShot (self, '25 8 -8', TRUE, 5, "weapons/shotgun_fire.wav");
+	W_SetupShot (self, TRUE, 5, "weapons/shotgun_fire.wav");
 	for (sc = 0;sc < bullets;sc = sc + 1)
 		fireBallisticBullet(w_shotorg, w_shotdir, spread, bulletspeed, 5, d, 0, f, WEP_SHOTGUN | HITTYPE_SECONDARY, 0, 1, bulletconstant);
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
-		self.ammo_shells = self.ammo_shells - cvar("g_balance_shotgun_secondary_ammo");
+		self.ammo_shells = self.ammo_shells - ammoamount;
 
 	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 1000, cvar("g_balance_shotgun_secondary_ammo"));
 
 	// casing code
 	if (cvar("g_casings") >= 1)
-		SpawnCasing (w_shotorg - v_forward * 10, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
+		for (sc = 0;sc < ammoamount;sc = sc + 1)
+			SpawnCasing (((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 30) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 1);
 
 	flash = spawn();
-	setorigin(flash, '53 5 0');
+	setorigin(flash, '5 0 0');
 	setmodel(flash, "models/uziflash.md3"); // precision set below
-	setattachment(flash, self.weaponentity, "bone01");
+	setattachment(flash, self.weaponentity, "shot");
 	flash.owner = self;
 	flash.viewmodelforclient = self;
 	flash.customizeentityforclient = CL_Weaponentity_CustomizeEntityForClient;
@@ -131,7 +137,7 @@ float w_shotgun(float req)
 		precache_model ("models/uziflash.md3");
 		precache_model ("models/weapons/g_shotgun.md3");
 		precache_model ("models/weapons/v_shotgun.md3");
-		precache_model ("models/weapons/w_shotgun.zym");
+		precache_model ("models/weapons/h_shotgun.dpm");
 		precache_sound ("misc/itempickup.wav");
 		precache_sound ("weapons/shotgun_fire.wav");
 	}

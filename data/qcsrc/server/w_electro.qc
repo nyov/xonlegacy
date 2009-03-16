@@ -72,7 +72,7 @@ void W_Electro_Attack()
 {
 	local entity proj;
 
-	W_SetupShot (self, '24 8 -9.5', FALSE, 2, "weapons/electro_fire.wav");
+	W_SetupShot (self, FALSE, 2, "weapons/electro_fire.wav");
 
 	pointparticles(particleeffectnum("electro_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -107,7 +107,7 @@ void W_Electro_Attack2()
 {
 	local entity proj;
 
-	W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/electro_fire2.wav");
+	W_SetupShot (self, FALSE, 2, "weapons/electro_fire2.wav");
 
 	pointparticles(particleeffectnum("electro_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -199,7 +199,7 @@ float w_electro(float req)
 	{
 		precache_model ("models/weapons/g_electro.md3");
 		precache_model ("models/weapons/v_electro.md3");
-		precache_model ("models/weapons/w_electro.zym");
+		precache_model ("models/weapons/h_electro.dpm");
 		precache_sound ("weapons/electro_bounce.wav");
 		precache_sound ("weapons/electro_fire.wav");
 		precache_sound ("weapons/electro_fire2.wav");

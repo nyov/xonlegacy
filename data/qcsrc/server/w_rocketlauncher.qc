@@ -198,7 +198,7 @@ void W_Rocket_Attack (void)
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_rocketlauncher_ammo");
 
-	W_SetupShot (self, '27.0 8 -10.0', FALSE, 5, "weapons/rocket_fire.wav");
+	W_SetupShot (self, FALSE, 5, "weapons/rocket_fire.wav");
 	pointparticles(particleeffectnum("rocketlauncher_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
@@ -246,7 +246,7 @@ void W_Rocket_Attack (void)
 	flash.customizeentityforclient = CL_Weaponentity_CustomizeEntityForClient;
 	setorigin (flash, '5 0 0');
 	setmodel (flash, "models/flash.md3"); // precision set below
-	setattachment(flash, self.weaponentity, "bone02");
+	setattachment(flash, self.weaponentity, "shot");
 	SUB_SetFade (flash, time, 0.1);
 
 	// muzzle flash for 3rd person view
@@ -431,7 +431,7 @@ float w_rlauncher(float req)
 		precache_model ("models/flash.md3");
 		precache_model ("models/weapons/g_rl.md3");
 		precache_model ("models/weapons/v_rl.md3");
-		precache_model ("models/weapons/w_rl.zym");
+		precache_model ("models/weapons/h_rl.dpm");
 		precache_sound ("weapons/rocket_det.wav");
 		precache_sound ("weapons/rocket_fire.wav");
 		if (g_laserguided_missile)

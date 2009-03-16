@@ -5,7 +5,7 @@ void W_MinstaNex_Attack (void)
 	float flying;
 	flying = IsFlying(self); // do this BEFORE to make the trace values from FireRailgunBullet last
 
-	W_SetupShot (self, '25 8 -4', TRUE, 5, "weapons/minstanexfire.wav");
+	W_SetupShot (self, TRUE, 5, "weapons/minstanexfire.wav");
 
 	yoda = 0;
 	damage_goodhits = 0;
@@ -161,7 +161,7 @@ float w_minstanex(float req)
 		precache_model ("models/nexflash.md3");
 		precache_model ("models/weapons/g_minstanex.md3");
 		precache_model ("models/weapons/v_minstanex.md3");
-		precache_model ("models/weapons/w_minstanex.zym");
+		precache_model ("models/weapons/h_minstanex.dpm");
 		precache_sound ("weapons/minstanexfire.wav");
 		w_laser(WR_PRECACHE);
 	}

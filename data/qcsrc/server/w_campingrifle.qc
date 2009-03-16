@@ -22,7 +22,7 @@ void W_Campingrifle_Reload()
 	
 	if (self.weaponentity)
 	{
-		if (self.weaponentity.frame == WFRAME_RELOAD)
+		if (self.weaponentity.wframe == WFRAME_RELOAD)
 			return;
 
 		// allow to switch away while reloading, but this will cause a new reload!
@@ -51,7 +51,7 @@ void W_CampingRifle_FireBullet(float pSpread, float pDamage, float pHeadshotAdde
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_nails -= pAmmo;
 
-	W_SetupShot (self, '41 7 -10.5', FALSE, 2, "weapons/campingrifle_fire.wav");
+	W_SetupShot (self, FALSE, 2, "weapons/campingrifle_fire.wav");
 	pointparticles(particleeffectnum("shotgun_muzzleflash"), w_shotorg, w_shotdir * 2000, 1);
 
 	if(self.BUTTON_ZOOM) // if zoomed, shoot from the eye
@@ -63,7 +63,7 @@ void W_CampingRifle_FireBullet(float pSpread, float pDamage, float pHeadshotAdde
 	fireBallisticBullet(w_shotorg, w_shotdir, pSpread, pSpeed, pLifetime, pDamage, pHeadshotAddedDamage / pDamage, pForce, deathtype, EF_RED, 1, pBulletConstant);
 
 	if (cvar("g_casings") >= 2)
-		SpawnCasing (w_shotorg - v_forward * 15, ((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3);
+		SpawnCasing (((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3);
 	
 	self.campingrifle_bulletcounter = self.campingrifle_bulletcounter + 1;
 }
@@ -137,7 +137,7 @@ float w_campingrifle(float req)
 	{		
 		precache_model ("models/weapons/g_campingrifle.md3");
 		precache_model ("models/weapons/v_campingrifle.md3");
-		precache_model ("models/weapons/w_campingrifle.zym");
+		precache_model ("models/weapons/h_campingrifle.dpm");
 		precache_sound ("weapons/campingrifle_reload.wav");
 		precache_sound ("weapons/campingrifle_fire.wav");
 	}

@@ -17,7 +17,7 @@ void W_Laser_Attack (float issecondary)
 {
 	local entity missile;
 
-	W_SetupShot (self, '21 8 -9', FALSE, 3, "weapons/lasergun_fire.wav");
+	W_SetupShot (self, FALSE, 3, "weapons/lasergun_fire.wav");
 	pointparticles(particleeffectnum("laser_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
@@ -110,7 +110,7 @@ float w_laser(float req)
 	{
 		precache_model ("models/weapons/g_laser.md3");
 		precache_model ("models/weapons/v_laser.md3");
-		precache_model ("models/weapons/w_laser.zym");
+		precache_model ("models/weapons/h_laser.dpm");
 		precache_sound ("weapons/lasergun_fire.wav");
 	}
 	else if (req == WR_SETUP)

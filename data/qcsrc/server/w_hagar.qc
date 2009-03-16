@@ -51,7 +51,7 @@ void W_Hagar_Attack (void)
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_hagar_primary_ammo");
-	W_SetupShot (self, '22 8 -10', FALSE, 2, "weapons/hagar_fire.wav");
+	W_SetupShot (self, FALSE, 2, "weapons/hagar_fire.wav");
 
 	pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -88,8 +88,8 @@ void W_Hagar_Attack2 (void)
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_hagar_secondary_ammo");
-	W_SetupShot (self, '25 5 -8', FALSE, 2, "weapons/hagar_fire.wav");
-	//W_SetupShot (self, '25 8 -8', FALSE, 2, "weapons/hagar_fire.wav"); // TODO: move model a little to the right
+	W_SetupShot (self, FALSE, 2, "weapons/hagar_fire.wav");
+	//W_SetupShot (self, FALSE, 2, "weapons/hagar_fire.wav"); // TODO: move model a little to the right
 
 	pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -156,7 +156,7 @@ float w_hagar(float req)
 	{
 		precache_model ("models/weapons/g_hagar.md3");
 		precache_model ("models/weapons/v_hagar.md3");
-		precache_model ("models/weapons/w_hagar.zym");
+		precache_model ("models/weapons/h_hagar.dpm");
 		precache_sound ("weapons/hagar_fire.wav");
 	}
 	else if (req == WR_SETUP)
