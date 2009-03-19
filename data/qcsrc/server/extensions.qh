@@ -639,6 +639,18 @@ entity(.string fld, string match) findchain = #402;
 //description:
 //similar to find() but returns a chain of entities like findradius.
 
+//DP_QC_FINDCHAIN_TOFIELD
+//idea: div0
+//darkplaces implementation: div0
+//builtin definitions:
+entity(.string fld, float match, .entity tofield) findradius_tofield = #22;
+entity(.string fld, string match, .entity tofield) findchain_tofield = #402;
+entity(.string fld, float match, .entity tofield) findchainflags_tofield = #450;
+entity(.string fld, float match, .entity tofield) findchainfloat_tofield = #403;
+//description:
+//similar to findchain() etc, but stores the chain into .tofield instead of .chain
+//actually, the .entity tofield is an optional field of the the existing findchain* functions
+
 //DP_QC_FINDCHAINFLAGS
 //idea: Sajt
 //darkplaces implementation: LordHavoc
@@ -1783,6 +1795,14 @@ float PFLAGS_FULLDYNAMIC = 128; // light enable (without this set no light is pr
 //description:
 //sv_jumpstep allows stepping up onto stairs while airborn, sv_stepheight controls how high a single step can be.
 
+//FTE_QC_CHECKPVS
+//idea: Urre
+//darkplaces implementation: div0
+//builtin definitions:
+float checkpvs(vector viewpos, entity viewee) = #240;
+//description:
+//returns true if viewee can be seen from viewpos according to PVS data
+
 //FTE_STRINGS
 //idea: many
 //darkplaces implementation: KrimZon
@@ -1869,3 +1889,18 @@ float(float caseinsensitive, string s, ...) crc16 = #494;
 //EXT_CSQC
 // #232 void(float index, float type, .void field) SV_AddStat (EXT_CSQC)
 void(float index, float type, ...) addstat = #232;
+
+//ZQ_PAUSE
+//idea: ZQuake
+//darkplaces implementation: GreEn`mArine
+//builtin definitions:
+void(float pause) setpause = #531;
+//function definitions:
+//void(float elapsedtime) SV_PausedTic;
+//description:
+//during pause the world is not updated (time does not advance), SV_PausedTic is the only function you can be sure will be called at regular intervals during the pause, elapsedtime is the current system time in seconds since the pause started (not affected by slowmo or anything else).
+//
+//calling setpause(0) will end a pause immediately.
+//
+//Note: it is worth considering that network-related functions may be called during the pause (including customizeentityforclient for example), and it is also important to consider the continued use of the KRIMZON_SV_PARSECLIENTCOMMAND extension while paused (chatting players, etc), players may also join/leave during the pause.  In other words, the only things that are not called are think and other time-related functions.
+

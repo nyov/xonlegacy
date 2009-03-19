@@ -11,6 +11,7 @@ float require_spawnfunc_prefix; // if this float exists, only functions with spa
 #define BUTTON_INFO   button7
 #define BUTTON_CHAT   buttonchat
 #define BUTTON_USE    buttonuse
+#define BUTTON_DRAG   button8
 
 // Globals
 
@@ -552,4 +553,6 @@ vector debug_shotorg; // if non-zero, overrides the shot origin of all weapons
 
 float servertime, serverprevtime, serverframetime;
 
-.float NextFrameSendFlags;
+.entity dragentity;
+.float dragspeed;
+.entity dragcursor;
