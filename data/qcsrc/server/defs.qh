@@ -553,6 +553,4 @@ vector debug_shotorg; // if non-zero, overrides the shot origin of all weapons
 
 float servertime, serverprevtime, serverframetime;
 
-.entity dragentity;
-.float dragspeed;
-.entity dragcursor;
+void Drag_MoveDrag(entity from, entity to);

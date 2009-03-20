@@ -2026,8 +2026,7 @@ void ObserverThink()
 		if (self.BUTTON_JUMP && !self.version_mismatch) {
 			self.welcomemessage_time = 0;
 			self.flags &~= FL_JUMPRELEASED;
-			LeaveSpectatorMode();
-			return;
+			self.flags |= FL_SPAWNING;
 		} else if(self.BUTTON_ATCK && !self.version_mismatch) {
 			self.welcomemessage_time = 0;
 			self.flags &~= FL_JUMPRELEASED;
@@ -2038,6 +2037,12 @@ void ObserverThink()
 	} else {
 		if (!(self.BUTTON_ATCK || self.BUTTON_JUMP)) {
 			self.flags |= FL_JUMPRELEASED;
+			if(self.flags & FL_SPAWNING)
+			{
+				self.flags &~= FL_SPAWNING;
+				LeaveSpectatorMode();
+				return;
+			}
 		}
 	}
 	PrintWelcomeMessage(self);
@@ -2049,8 +2054,7 @@ void SpectatorThink()
 		if (self.BUTTON_JUMP && !self.version_mismatch) {
 			self.welcomemessage_time = 0;
 			self.flags &~= FL_JUMPRELEASED;
-			LeaveSpectatorMode();
-			return;
+			self.flags |= FL_SPAWNING;
 		} else if(self.BUTTON_ATCK) {
 			self.welcomemessage_time = 0;
 			self.flags &~= FL_JUMPRELEASED;
@@ -2072,6 +2076,12 @@ void SpectatorThink()
 	} else {
 		if (!(self.BUTTON_ATCK || self.BUTTON_ATCK2)) {
 			self.flags |= FL_JUMPRELEASED;
+			if(self.flags & FL_SPAWNING)
+			{
+				self.flags &~= FL_SPAWNING;
+				LeaveSpectatorMode();
+				return;
+			}
 		}
 	}
 	PrintWelcomeMessage(self);
@@ -2379,18 +2389,178 @@ void PlayerPreThink (void)
 	target_voicescript_next(self);
 }
 
-void DragCursor_Think()
+// on dragger:
+.entity dragentity;
+.float draggravity;
+.float dragspeed; // speed of mouse wheel action
+.float dragdistance; // distance of dragentity's draglocalvector from view_ofs
+.vector draglocalvector; // local attachment vector of the dragentity
+.float draglocalangle;
+// on draggee:
+.entity draggedby;
+.float dragmovetype;
+void Drag_Begin(entity dragger, entity draggee, vector touchpoint)
 {
-	self.model = self.owner.dragentity.model;
-	self.modelindex = self.owner.dragentity.modelindex;
-	self.origin = self.owner.dragentity.origin;
-	self.angles = self.owner.dragentity.angles;
-	self.tag_entity = self.owner.dragentity.tag_entity;
-	self.tag_index = self.owner.dragentity.tag_index;
-	self.scale = self.owner.dragentity.scale;
-	detach_sameorigin(self);
+	float tagscale;
 
-	self.nextthink = time;
+	draggee.dragmovetype = draggee.movetype;
+	draggee.draggravity = draggee.gravity;
+	draggee.movetype = MOVETYPE_WALK;
+	draggee.gravity = 0.00001;
+	draggee.flags &~= FL_ONGROUND;
+	draggee.draggedby = dragger;
+
+	dragger.dragentity = draggee;
+
+	dragger.dragdistance = vlen(touchpoint - dragger.origin - dragger.view_ofs);
+	dragger.draglocalangle = draggee.angles_y - dragger.v_angle_y;
+	touchpoint = touchpoint - gettaginfo(draggee, 0);
+	tagscale = pow(vlen(v_forward), -2);
+	dragger.draglocalvector_x = touchpoint * v_forward * tagscale;
+	dragger.draglocalvector_y = touchpoint * v_right * tagscale;
+	dragger.draglocalvector_z = touchpoint * v_up * tagscale;
+
+	dragger.dragspeed = 64;
+}
+
+void Drag_Finish(entity dragger)
+{
+	entity draggee;
+	draggee = dragger.dragentity;
+	if(dragger)
+		dragger.dragentity = world;
+	draggee.draggedby = world;
+	draggee.movetype = draggee.dragmovetype;
+	draggee.gravity = draggee.draggravity;
+
+	switch(draggee.movetype)
+	{
+		case MOVETYPE_TOSS:
+		case MOVETYPE_WALK:
+		case MOVETYPE_STEP:
+		case MOVETYPE_FLYMISSILE:
+		case MOVETYPE_BOUNCE:
+		case MOVETYPE_BOUNCEMISSILE:
+			break;
+		default:
+			draggee.velocity = '0 0 0';
+			break;
+	}
+
+	if((draggee.flags & FL_ITEM) && (vlen(draggee.velocity) < 32))
+	{
+		draggee.velocity = '0 0 0';
+		draggee.flags |= FL_ONGROUND; // floating items are FUN
+	}
+}
+
+float Drag_IsDraggable(entity draggee)
+{
+	// TODO add more checks for bad stuff here
+	if(draggee.classname == "func_bobbing")
+		return FALSE;
+	if(draggee.classname == "door") // FIXME find out why these must be excluded, or work around the problem (trying to drag these causes like 4 fps)
+		return FALSE;
+	if(draggee.classname == "plat")
+		return FALSE;
+	if(draggee.classname == "func_button")
+		return FALSE;
+	if(draggee.model == "")
+		return FALSE;
+	if(draggee.classname == "spectator")
+		return FALSE;
+	if(draggee.classname == "observer")
+		return FALSE;
+	if(draggee.classname == "exteriorweaponentity")
+		return FALSE;
+
+	return TRUE;
+}
+
+float Drag_MayChangeAngles(entity draggee)
+{
+	// TODO add more checks for bad stuff here
+	if(substring(draggee.model, 0, 1) == "*")
+		return FALSE;
+	return TRUE;
+}
+
+void Drag_MoveForward(entity dragger)
+{
+	dragger.dragdistance += dragger.dragspeed;
+}
+
+void Drag_SetSpeed(entity dragger, float s)
+{
+	dragger.dragspeed = pow(2, s);
+}
+
+void Drag_MoveBackward(entity dragger)
+{
+	dragger.dragdistance = max(0, dragger.dragdistance - dragger.dragspeed);
+}
+
+void Drag_Update(entity dragger)
+{
+	vector curorigin, neworigin, goodvelocity;
+	float f;
+	entity draggee;
+
+	draggee = dragger.dragentity;
+	draggee.flags &~= FL_ONGROUND;
+
+	curorigin = gettaginfo(draggee, 0);
+	curorigin = curorigin + v_forward * dragger.draglocalvector_x + v_right * dragger.draglocalvector_y + v_up * dragger.draglocalvector_z;
+	makevectors(dragger.v_angle);
+	neworigin = dragger.origin + dragger.view_ofs + v_forward * dragger.dragdistance;
+	goodvelocity = (neworigin - curorigin) * (1 / frametime);
+
+	while(draggee.angles_y - dragger.v_angle_y - dragger.draglocalangle > 180)
+		dragger.draglocalangle += 360;
+	while(draggee.angles_y - dragger.v_angle_y - dragger.draglocalangle <= -180)
+		dragger.draglocalangle -= 360;
+
+	f = min(frametime * 10, 1);
+	draggee.velocity = draggee.velocity * (1 - f) + goodvelocity * f;
+
+	if(Drag_MayChangeAngles(draggee))
+		draggee.angles_y = draggee.angles_y * (1 - f) + (dragger.v_angle_y + dragger.draglocalangle) * f;
+	
+	draggee.ltime = max(servertime + serverframetime, draggee.ltime); // fixes func_train breakage
+
+	te_lightning1(dragger, dragger.origin + dragger.view_ofs, curorigin);
+}
+
+float Drag_CanDrag(entity dragger)
+{
+	return (dragger.deadflag == DEAD_NO) || (dragger.classname == "player");
+}
+
+float Drag_IsDragging(entity dragger)
+{
+	if(!dragger.dragentity)
+		return FALSE;
+	if(wasfreed(dragger.dragentity) || dragger.dragentity.draggedby != dragger)
+	{
+		dragger.dragentity = world;
+		return FALSE;
+	}
+	if(!Drag_CanDrag(dragger) || !Drag_IsDraggable(dragger.dragentity))
+	{
+		Drag_Finish(dragger);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+void Drag_MoveDrag(entity from, entity to)
+{
+	if(from.draggedby)
+	{
+		to.draggedby = from.draggedby;
+		to.draggedby.dragentity = to;
+		from.draggedby = world;
+	}
 }
 
 /*
@@ -2440,58 +2610,48 @@ void PlayerPostThink (void)
 	}
 
 	if(sv_cheats)
-		if(self.BUTTON_DRAG)
-			if(!self.dragentity)
-				if(self.cursor_trace_ent)
-					if(!self.cursor_trace_ent.tag_index)
-					{
-						self.dragentity = self.cursor_trace_ent;
-						self.dragcursor = spawn();
-						self.dragcursor.owner = self;
-						self.dragcursor.think = DragCursor_Think;
-						self.dragcursor.nextthink = time;
-						self.dragcursor.exteriormodeltoclient = self;
-						attach_sameorigin(self.dragentity, self.weaponentity, "");
-						self.dragentity.effects |= EF_FLAME;
-					}
+		if(Drag_CanDrag(self))
+			if(self.BUTTON_DRAG)
+				if(!self.dragentity)
+					if(self.cursor_trace_ent)
+						if(Drag_IsDraggable(self.cursor_trace_ent))
+						{
+							if(self.cursor_trace_ent.draggedby)
+								Drag_Finish(self.cursor_trace_ent.draggedby);
+							if(self.cursor_trace_ent.tag_entity)
+								detach_sameorigin(self.cursor_trace_ent);
+							Drag_Begin(self, self.cursor_trace_ent, self.cursor_trace_endpos);
+						}
 	
-	if(self.dragentity)
+	if(Drag_IsDragging(self))
 	{
 		if(self.BUTTON_DRAG)
 		{
-			float f;
-			if(self.dragspeed == 0)
-				self.dragspeed = 32;
 			if(self.impulse == 10 || self.impulse == 15 || self.impulse == 18)
 			{
-				f = 1 + self.dragspeed / vlen(self.dragentity.origin);
-				self.dragentity.origin = self.dragentity.origin * f;
+				Drag_MoveForward(self);
 				self.impulse = 0;
 			}
 			else if(self.impulse == 12 || self.impulse == 16 || self.impulse == 19)
 			{
-				f = max(0.5, 1 - self.dragspeed / vlen(self.dragentity.origin));
-				self.dragentity.origin = self.dragentity.origin * f;
+				Drag_MoveBackward(self);
 				self.impulse = 0;
 			}
 			else if(self.impulse >= 1 && self.impulse <= 9)
 			{
-				self.dragspeed = pow(2, self.impulse);
-				self.impulse = 0;
+				Drag_SetSpeed(self, self.impulse - 1);
 			}
 			else if(self.impulse == 14)
 			{
-				self.dragspeed = pow(2, 10);
-				self.impulse = 0;
+				Drag_SetSpeed(self, 9);
 			}
+
+			if(frametime)
+				Drag_Update(self);
 		}
 		else
 		{
-			self.dragentity.effects &~= EF_FLAME;
-			detach_sameorigin(self.dragentity);
-			self.dragentity = world;
-			remove(self.dragcursor);
-			self.dragcursor = world;
+			Drag_Finish(self);
 		}
 	}
 
