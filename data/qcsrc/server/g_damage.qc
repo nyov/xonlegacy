@@ -75,7 +75,7 @@ float IsFlying(entity a)
 {
 	if(a.flags & FL_ONGROUND)
 		return 0;
-	if(a.waterlevel >= 2)
+	if(a.waterlevel >= WATERLEVEL_SWIMMING)
 		return 0;
 	traceline(a.origin, a.origin - '0 0 48', MOVE_NORMAL, a);
 	if(trace_fraction < 1)
@@ -684,6 +684,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 				centerprint(targ, strcat(DAMAGE_CENTERPRINT_SPACER, "^3Remaining extra lives: ",ftos(targ.armorvalue)));
 				damage = 0;
 				targ.hitsound += 1;
+				attacker.hitsound += 1; // TODO change this to a future specific hitsound for armor hit
 			}
 			if (DEATH_ISWEAPON(deathtype, WEP_LASER))
 			{
