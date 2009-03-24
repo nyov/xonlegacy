@@ -9,11 +9,55 @@ float campaign_won;
 string campaign_index_var;
 float checkrules_equality;
 
-void CampaignBailout(string s)
+float CampaignBailout(string s)
 {
+	cvar = cvar_builtin;
+	cvar_string = cvar_string_builtin;
+	cvar_set = cvar_set_builtin;
 	cvar_set("g_campaign", "0");
 	print("campaign initialization failed: ", s, "\n");
-	return;
+	return 1;
+}
+
+string cvar_campaignwrapper_list; // string of format ; var value; var value; var value; 
+string cvar_string_campaignwrapper(string theCvar)
+{
+	float p, q;
+	p = strstrofs(cvar_campaignwrapper_list, strcat("; ", theCvar, " "), 0);
+	if(p < 0)
+		return cvar_defstring(theCvar);
+	p += strlen(theCvar) + 3;
+	q = strstrofs(cvar_campaignwrapper_list, ";", p);
+	if(q < 0)
+		return cvar_defstring(theCvar);
+	return substring(cvar_campaignwrapper_list, p, q - p);
+}
+float cvar_campaignwrapper(string theCvar)
+{
+	return stof(cvar_string_campaignwrapper(theCvar));
+}
+void cvar_set_campaignwrapper(string theCvar, string theValue)
+{
+	if(cvar_string_campaignwrapper(theCvar) == theValue)
+		return;
+	string s;
+	s = cvar_campaignwrapper_list;
+	cvar_campaignwrapper_list = strzone(strcat("; ", theCvar, " ", theValue, s));
+	strunzone(s);
+	//print(cvar_campaignwrapper_list, "\n");
+}
+
+float Campaign_Invalid()
+{
+	string thismapname, wantedmapname;
+	thismapname = GetMapname();
+	wantedmapname = campaign_gametype[0];
+	if(MapInfo_CurrentGametype() != MapInfo_Type_FromString(wantedmapname))
+		return CampaignBailout("wrong game type!");
+	wantedmapname = campaign_mapname[0];
+	if(wantedmapname != thismapname)
+		return CampaignBailout(strcat("wrong map: ", wantedmapname, " != ", thismapname));
+	return 0;
 }
 
 void CampaignPreInit()
@@ -25,17 +69,33 @@ void CampaignPreInit()
 	campaign_index_var = strzone(strcat("g_campaign", campaign_name, "_index"));
 	CampaignFile_Load(campaign_level, 2);
 	if(campaign_entries < 1)
-		return CampaignBailout("unknown map");
-	cvar_set("bot_number", ftos(campaign_bots[0]));
+	{
+		CampaignBailout("unknown map");
+		return;
+	}
 
 	baseskill = cvar("g_campaign_skill");
 	baseskill = baseskill + campaign_botskill[0];
 	if(baseskill < 0)
 		baseskill = 0;
-	cvar_set("skill", ftos(baseskill));
 
 	cvar_set("sv_public", "0");
 	cvar_set("pausable", "1");
+
+	cvar_campaignwrapper_list = strzone(strcat("; ", campaign_mutators[0], "; "));
+
+	cvar = cvar_campaignwrapper;
+	cvar_string = cvar_string_campaignwrapper;
+	cvar_set = cvar_set_campaignwrapper;
+
+	cvar_set("g_campaign", "1");
+	cvar_set("g_dm", "0");
+	cvar_set("skill", ftos(baseskill));
+	cvar_set("bot_number", ftos(campaign_bots[0]));
+	MapInfo_SwitchGameType(MapInfo_Type_FromString(campaign_gametype[0]));
+
+	if(Campaign_Invalid())
+		return;
 
 	title = campaign_shortdesc[0];
 	title = strzone(strcat("Level ", ftos(campaign_level + 1), ": ", title));
@@ -47,16 +107,12 @@ string GetMapname();
 void CampaignPostInit()
 {
 	// now some sanity checks
-	string thismapname, wantedmapname;
-	thismapname = GetMapname();
-	wantedmapname = campaign_gametype[0];
-	if(MapInfo_CurrentGametype() != MapInfo_Type_FromString(wantedmapname))
-		return CampaignBailout("wrong game type!");
-	wantedmapname = campaign_mapname[0];
-	if(wantedmapname != thismapname)
-		return CampaignBailout(strcat("wrong map: ", wantedmapname, " != ", thismapname));
+	if(Campaign_Invalid())
+		return;
 	cvar_set("fraglimit", ftos(campaign_fraglimit[0]));
 	cvar_set("timelimit", "0");
+	cvar_set_builtin("fraglimit", ftos(campaign_fraglimit[0]));
+	cvar_set_builtin("timelimit", "0");
 }
 
 void CampaignSaveCvar(string cvarname, float value)
@@ -67,7 +123,7 @@ void CampaignSaveCvar(string cvarname, float value)
 	string l;
 
 	registercvar(cvarname, ftos(value));
-	cvar_set(cvarname, ftos(value));
+	cvar_set_builtin(cvarname, ftos(value));
 	// note: cvarname must be remembered
 
 	fh = fopen("campaign.cfg", FILE_READ);
@@ -144,7 +200,7 @@ void CampaignPreIntermission()
 			// advance level (for menu to show it right)
 			CampaignSaveCvar(campaign_index_var, campaign_level + 1);
 		}
-		else if(campaign_level == cvar(campaign_index_var))
+		else if(campaign_level == cvar_builtin(campaign_index_var))
 		{
 			// advance level
 			CampaignSaveCvar(campaign_index_var, campaign_level + 1);
