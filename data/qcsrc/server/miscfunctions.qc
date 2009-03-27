@@ -947,16 +947,26 @@ void readplayerstartcvars()
 		g_grappling_hook = 0;
 	}
 
+	if(g_jetpack)
+	{
+		if(!start_ammo_cells)
+			start_ammo_cells = g_pickup_cells;
+		if(!warmup_start_ammo_cells)
+			warmup_start_ammo_cells = g_pickup_cells;
+
+		g_grappling_hook = 0; // these two can't coexist, as they use the same button
+	}
+
 	if(g_weapon_stay == 2)
 	{
 		if(!start_ammo_shells) start_ammo_shells = g_pickup_shells;
-		if(!start_ammo_nails) start_ammo_shells = g_pickup_nails;
-		if(!start_ammo_cells) start_ammo_shells = g_pickup_cells;
-		if(!start_ammo_rockets) start_ammo_shells = g_pickup_rockets;
+		if(!start_ammo_nails) start_ammo_nails = g_pickup_nails;
+		if(!start_ammo_cells) start_ammo_cells = g_pickup_cells;
+		if(!start_ammo_rockets) start_ammo_rockets = g_pickup_rockets;
 		if(!warmup_start_ammo_shells) warmup_start_ammo_shells = g_pickup_shells;
-		if(!warmup_start_ammo_nails) warmup_start_ammo_shells = g_pickup_nails;
-		if(!warmup_start_ammo_cells) warmup_start_ammo_shells = g_pickup_cells;
-		if(!warmup_start_ammo_rockets) warmup_start_ammo_shells = g_pickup_rockets;
+		if(!warmup_start_ammo_nails) warmup_start_ammo_nails = g_pickup_nails;
+		if(!warmup_start_ammo_cells) warmup_start_ammo_cells = g_pickup_cells;
+		if(!warmup_start_ammo_rockets) warmup_start_ammo_rockets = g_pickup_rockets;
 	}
 
 	start_ammo_shells = max(0, start_ammo_shells);
@@ -1024,6 +1034,7 @@ void readlevelcvars(void)
 	g_jump_grunt = cvar("g_jump_grunt");
 	g_footsteps = cvar("g_footsteps");
 	g_grappling_hook = cvar("g_grappling_hook");
+	g_jetpack = cvar("g_jetpack");
 	g_laserguided_missile = cvar("g_laserguided_missile");
 	g_midair = cvar("g_midair");
 	g_minstagib = cvar("g_minstagib");
@@ -1373,6 +1384,9 @@ void precache()
 	precache_sound ("misc/teleport.wav");
 	precache_sound ("player/lava.wav");
 	precache_sound ("player/slime.wav");
+	
+	if(g_jetpack)
+		precache_sound ("misc/jetpack_fly.wav");
 
 	// announcer sounds - male
 	precache_sound ("announcer/male/electrobitch.wav");
@@ -1427,7 +1441,7 @@ void precache()
 	// common weapon precaches
 	precache_sound ("weapons/weapon_switch.wav");
 	precache_sound ("weapons/weaponpickup.wav");
-	if (cvar("g_grappling_hook"))
+	if(g_grappling_hook)
 	{
 		precache_sound ("weapons/hook_fire.wav"); // hook
 		precache_sound ("weapons/hook_impact.wav"); // hook
@@ -2129,4 +2143,40 @@ vector gettaginfo_relative(entity e, float tag)
 	gettaginfo_relative_ent.modelindex = e.modelindex;
 	gettaginfo_relative_ent.frame = e.frame;
 	return gettaginfo(gettaginfo_relative_ent, tag);
+}
+
+void SoundEntity_StartSound(entity pl, float chan, string samp, float vol, float attn)
+{
+	float p;
+	p = pow(2, chan);
+	if(pl.soundentity.cnt & p)
+		return;
+	soundtoat(MSG_ALL, pl.soundentity, gettaginfo(pl.soundentity, 0), chan, samp, vol, attn);
+	pl.soundentity.cnt |= p;
+}
+
+void SoundEntity_StopSound(entity pl, float chan)
+{
+	float p;
+	p = pow(2, chan);
+	if(pl.soundentity.cnt & p)
+	{
+		stopsoundto(MSG_ALL, pl.soundentity, chan);
+		pl.soundentity.cnt &~= p;
+	}
+}
+
+void SoundEntity_Attach(entity pl)
+{
+	pl.soundentity = spawn();
+	pl.soundentity.classname = "soundentity";
+	setattachment(pl.soundentity, pl, "");
+	setmodel(pl.soundentity, "null");
+}
+
+void SoundEntity_Detach(entity pl)
+{
+	float i;
+	for(i = 0; i <= 7; ++i)
+		SoundEntity_StopSound(pl, i);
 }

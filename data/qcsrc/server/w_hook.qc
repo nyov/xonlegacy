@@ -111,7 +111,7 @@ float w_hook(float req)
 	}
 	else if (req == WR_THINK)
 	{
-		if (self.BUTTON_ATCK || self.BUTTON_HOOK)
+		if (self.BUTTON_ATCK || (!g_jetpack && self.BUTTON_HOOK))
 		{
 			if(!self.hook)
 			if not(self.hook_state & HOOK_WAITING_FOR_RELEASE)
@@ -154,16 +154,18 @@ float w_hook(float req)
 			{
 				if ( time > self.hook_time_ammodecrease )
 				{
-					if ( self.ammo_cells >= 1 )
+					if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 					{
-						if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
-							self.ammo_cells -= 1;
-						self.hook_time_ammodecrease = time + hooked_ammodecrease_delay;
-					}
-					else
-					{
-						self.hook_state |= HOOK_REMOVING;
-						W_SwitchWeapon_Force(self, w_getbestweapon(self));
+						if ( self.ammo_cells >= frametime / hooked_ammodecrease_delay )
+						{
+							self.ammo_cells -= frametime / hooked_ammodecrease_delay;
+							// decrease next frame again
+						}
+						else
+						{
+							self.hook_state |= HOOK_REMOVING;
+							W_SwitchWeapon_Force(self, w_getbestweapon(self));
+						}
 					}
 				}
 			}
@@ -177,7 +179,7 @@ float w_hook(float req)
 		if (self.BUTTON_CROUCH)
 		{
 			self.hook_state &~= HOOK_PULLING;
-			if (self.BUTTON_ATCK || self.BUTTON_HOOK)
+			if (self.BUTTON_ATCK || (!g_jetpack && self.BUTTON_HOOK))
 				self.hook_state &~= HOOK_RELEASING;
 			else
 				self.hook_state |= HOOK_RELEASING;
@@ -187,7 +189,7 @@ float w_hook(float req)
 			self.hook_state |= HOOK_PULLING;
 			self.hook_state &~= HOOK_RELEASING;
 
-			if (self.BUTTON_ATCK || self.BUTTON_HOOK)
+			if (self.BUTTON_ATCK || (!g_jetpack && self.BUTTON_HOOK))
 			{
 				// already fired
 				if(self.hook)

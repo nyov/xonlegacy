@@ -1341,6 +1341,8 @@ void ClientConnect (void)
 
 	if(!sv_foginterval && world.fog != "")
 		stuffcmd(self, strcat("\nfog ", world.fog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
+
+	SoundEntity_Attach(self);
 }
 
 /*
@@ -1370,6 +1372,8 @@ void ClientDisconnect (void)
 		GameLogEcho(strcat(":part:", ftos(self.playerid)));
 	bprint ("^4",self.netname);
 	bprint ("^4 disconnected\n");
+	
+	SoundEntity_Detach(self);
 
 	DropAllRunes(self);
 	kh_Key_DropAll(self, TRUE);
@@ -1574,6 +1578,22 @@ string getTimeoutText(float addOneSecond) {
 
 void player_powerups (void)
 {
+	if((self.items & IT_USING_JETPACK) && !self.deadflag)
+	{
+		SoundEntity_StartSound(self, CHAN_PLAYER, "misc/jetpack_fly.wav", VOL_BASE, ATTN_IDLE);
+		self.modelflags |= MF_ROCKET;
+	}
+	else
+	{
+		SoundEntity_StopSound(self, CHAN_PLAYER);
+		self.modelflags &~= MF_ROCKET;
+	}
+
+	self.effects &~= (EF_RED | EF_BLUE | EF_ADDITIVE | EF_FULLBRIGHT);
+
+	if(!self.modelindex || self.deadflag) // don't apply the flags if the player is gibbed
+		return;
+
 	if (g_minstagib)
 	{
 		if (self.items & IT_STRENGTH)
@@ -1615,11 +1635,6 @@ void player_powerups (void)
 		}
 		return;
 	}
-
-	self.effects &~= (EF_RED | EF_BLUE | EF_ADDITIVE | EF_FULLBRIGHT);
-
-	if(!self.modelindex) // don't apply the flags if the player is gibbed
-		return;
 
 	if (self.items & IT_STRENGTH)
 	{
@@ -1829,7 +1844,10 @@ spectate mode routines
 void SpectateCopy(entity spectatee) {
 	self.armortype = spectatee.armortype;
 	self.armorvalue = spectatee.armorvalue;
-	self.currentammo = spectatee.currentammo;
+	self.ammo_cells = spectatee.ammo_cells;
+	self.ammo_shells = spectatee.ammo_shells;
+	self.ammo_nails = spectatee.ammo_nails;
+	self.ammo_rockets = spectatee.ammo_rockets;
 	self.effects = spectatee.effects & EFMASK_CHEAP; // eat performance
 	self.health = spectatee.health;
 	self.impulse = 0;
@@ -2193,6 +2211,8 @@ void PlayerPreThink (void)
 			self.fixangle = TRUE;
 		}
 
+		player_powerups();
+
 		if (self.deadflag != DEAD_NO)
 		{
 			float button_pressed, force_respawn;
@@ -2319,7 +2339,6 @@ void PlayerPreThink (void)
 		if(frametime)
 			W_WeaponFrame();
 
-		player_powerups();
 		player_regen();
 		if(frametime)
 			player_anim();

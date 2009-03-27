@@ -356,6 +356,7 @@ void SV_PlayerPhysics()
 	local vector wishvel, wishdir, v;
 	local float wishspeed, f, maxspd_mod, spd, maxairspd, airaccel, swampspd_mod, shtest_score, buttons;
 	string temps;
+	float buttons_prev;
 
 	buttons = self.BUTTON_ATCK + 2 * self.BUTTON_JUMP + 4 * self.BUTTON_ATCK2 + 8 * self.BUTTON_ZOOM + 16 * self.BUTTON_CROUCH + 32 * self.BUTTON_HOOK + 64 * self.BUTTON_USE;
 	if(!sv_maxidle_spectatorsareidle || self.movetype == MOVETYPE_WALK)
@@ -363,6 +364,7 @@ void SV_PlayerPhysics()
 		if(buttons != self.buttons_old || self.movement != self.movement_old || self.v_angle != self.v_angle_old)
 			self.parm_idlesince = time;
 	}
+	buttons_prev = self.buttons_old;
 	self.buttons_old = buttons;
 	self.movement_old = self.movement;
 	self.v_angle_old = self.v_angle;
@@ -387,6 +389,8 @@ void SV_PlayerPhysics()
 
 	if (clienttype(self) == CLIENTTYPE_BOT)
 		bot_think();
+
+	self.items &~= IT_USING_JETPACK;
 
 	if (self.movetype == MOVETYPE_NONE && self.disableclientprediction != 2)
 		return;
@@ -476,7 +480,7 @@ void SV_PlayerPhysics()
 
 	// if dead, behave differently
 	if (self.deadflag)
-		return;
+		goto end;
 
 	if (!self.fixangle && !g_bugrigs)
 	{
@@ -634,8 +638,63 @@ void SV_PlayerPhysics()
 				self.velocity = self.velocity + wishdir * min(f, sv_accelerate*maxspd_mod * frametime * wishspeed);
 		}
 	}
+	else if (g_jetpack && self.BUTTON_HOOK && (!cvar("g_jetpack_ammo") || self.ammo_cells >= 0.01 || self.items & IT_UNLIMITED_WEAPON_AMMO))
+	{
+		//makevectors(self.v_angle_y * '0 1 0');
+		makevectors(self.v_angle);
+		wishvel = v_forward * self.movement_x + v_right * self.movement_y;
+		// add remaining speed as Z component
+		maxairspd = sv_maxairspeed*max(1, maxspd_mod);
+		// fix speedhacks :P
+		wishvel = normalize(wishvel) * min(vlen(wishvel) / maxairspd, 1);
+		// add the unused velocity as up component
+		wishvel_z = 0;
+		wishvel_z = sqrt(max(0, 1 - wishvel * wishvel));
+		// it is now normalized, so...
+		wishvel_x *= cvar("g_jetpack_acceleration_side");
+		wishvel_y *= cvar("g_jetpack_acceleration_side");
+		wishvel_z *= cvar("g_jetpack_acceleration_up");
+		wishvel_z += cvar("g_jetpack_antigravity") * sv_gravity;
+
+		float fxy, fz;
+		fxy = bound(0, 1 - (self.velocity * normalize(wishvel_x * '1 0 0' + wishvel_y * '0 1 0')) / cvar("g_jetpack_maxspeed_side"), 1);
+		if(wishvel_z - sv_gravity > 0)
+			fz = bound(0, 1 - self.velocity_z / cvar("g_jetpack_maxspeed_up"), 1);
+		else
+			fz = bound(0, 1 + self.velocity_z / cvar("g_jetpack_maxspeed_up"), 1);
+
+		float fvel;
+		fvel = vlen(wishvel);
+		wishvel_x *= fxy;
+		wishvel_y *= fxy;
+		wishvel_z = (wishvel_z - sv_gravity) * fz + sv_gravity;
+		fvel = min(1, vlen(wishvel) / fvel);
+
+		if(cvar("g_jetpack_ammo") && !(self.items & IT_UNLIMITED_WEAPON_AMMO))
+		{
+			if(self.ammo_cells < 0.01)
+				f = 0;
+			else
+				f = min(1, self.ammo_cells / (cvar("g_jetpack_ammo") * frametime * fvel));
+		}
+		else
+			f = 1;
+
+		if (f > 0 && wishvel != '0 0 0')
+		{
+			self.velocity = self.velocity + wishvel * f * frametime;
+			if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
+				self.ammo_cells -= cvar("g_jetpack_ammo") * frametime * fvel * f;
+			self.flags &~= FL_ONGROUND;
+			self.items |= IT_USING_JETPACK;
+		}
+	}
 	else if (self.flags & FL_ONGROUND)
 	{
+		// we get here if we ran out of ammo
+		if(g_jetpack && self.BUTTON_HOOK && !(buttons_prev & 32))
+			sprint(self, "You don't have any fuel for the ^2Jetpack\n");
+
 		// walking
 		makevectors(self.v_angle_y * '0 1 0');
 		wishvel = v_forward * self.movement_x + v_right * self.movement_y;
@@ -682,6 +741,10 @@ void SV_PlayerPhysics()
 	}
 	else
 	{
+		// we get here if we ran out of ammo
+		if(g_jetpack && self.BUTTON_HOOK && !(buttons_prev & 32))
+			sprint(self, "You don't have any fuel for the ^2Jetpack\n");
+
 		if(maxspd_mod < 1)
 		{
 			maxairspd = sv_maxairspeed*maxspd_mod;
@@ -734,6 +797,7 @@ void SV_PlayerPhysics()
 		}
 	}
 
+:end
 	if(self.flags & FL_ONGROUND)
 		self.lastground = time;
 
