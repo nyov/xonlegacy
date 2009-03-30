@@ -6,6 +6,7 @@ floatfield Item_CounterField(float it)
 		case IT_NAILS:       return ammo_nails;
 		case IT_ROCKETS:     return ammo_rockets;
 		case IT_CELLS:       return ammo_cells;
+		case IT_FUEL:        return ammo_fuel;
 		case IT_5HP:         return health;
 		case IT_25HP:        return health;
 		case IT_HEALTH:      return health;
@@ -24,6 +25,7 @@ string Item_CounterFieldName(float it)
 		case IT_NAILS:       return "nails";
 		case IT_ROCKETS:     return "rockets";
 		case IT_CELLS:       return "cells";
+		case IT_FUEL:        return "fuel";
 
 		// add more things here (health, armor)
 		default:             error("requested item has no counter field name");
@@ -158,6 +160,13 @@ float Item_GiveTo(entity item, entity player)
 			pickedup = TRUE;
 			player.ammo_cells = min (player.ammo_cells + item.ammo_cells, g_pickup_cells_max);
 		}
+		if (item.ammo_fuel)
+		if (player.ammo_fuel < g_pickup_fuel_max)
+		{
+			pickedup = TRUE;
+			player.ammo_fuel = min(player.ammo_fuel + item.ammo_fuel, g_pickup_fuel_max);
+			player.pauserotfuel_finished = max(player.pauserotfuel_finished, time + cvar("g_balance_pause_fuel_rot"));
+		}
 
 		if (item.flags & FL_WEAPON)
 		if ((it = item.weapons - (item.weapons & player.weapons)))
@@ -169,6 +178,12 @@ float Item_GiveTo(entity item, entity player)
 				if(it & e.weapons)
 					W_GiveWeapon (player, e.weapon, item.netname);
 			}
+		}
+
+		if((it = (item.items - (item.items & player.items)) & IT_PICKUPMASK))
+		{
+			pickedup = TRUE;
+			player.items |= it;
 		}
 
 		if (item.strength_finished)
@@ -1162,6 +1177,7 @@ void target_items_use (void)
 		target_item_change(0, ammo_nails, target_item_func_set, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_rockets, target_item_func_set, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_cells, target_item_func_set, "misc/itempickup.wav", "");
+		target_item_change(0, ammo_fuel, target_item_func_set, "misc/itempickup.wav", "");
 		target_item_change(0, health, target_item_func_set, "misc/megahealth.wav", "");
 		target_item_change(0, armorvalue, target_item_func_set, "misc/armor25.wav", "");
 		target_item_change(1, items, target_item_func_itembitset, "misc/powerup.wav", "");
@@ -1178,6 +1194,7 @@ void target_items_use (void)
 		target_item_change(0, ammo_nails, target_item_func_min, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_rockets, target_item_func_min, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_cells, target_item_func_min, "misc/itempickup.wav", "");
+		target_item_change(0, ammo_fuel, target_item_func_min, "misc/itempickup.wav", "");
 		target_item_change(0, health, target_item_func_min, "misc/megahealth.wav", "");
 		target_item_change(0, armorvalue, target_item_func_min, "misc/armor25.wav", "");
 		target_item_change(1, items, target_item_func_itemand, "misc/powerup.wav", "");
@@ -1194,6 +1211,7 @@ void target_items_use (void)
 		target_item_change(0, ammo_nails, target_item_func_max, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_rockets, target_item_func_max, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_cells, target_item_func_max, "misc/itempickup.wav", "");
+		target_item_change(0, ammo_fuel, target_item_func_max, "misc/itempickup.wav", "");
 		target_item_change(0, health, target_item_func_max, "misc/megahealth.wav", "");
 		target_item_change(0, armorvalue, target_item_func_max, "misc/armor25.wav", "");
 		target_item_change(1, items, target_item_func_or, "misc/powerup.wav", "");
@@ -1210,6 +1228,7 @@ void target_items_use (void)
 		target_item_change(0, ammo_nails, target_item_func_min, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_rockets, target_item_func_min, "misc/itempickup.wav", "");
 		target_item_change(0, ammo_cells, target_item_func_min, "misc/itempickup.wav", "");
+		target_item_change(0, ammo_fuel, target_item_func_min, "misc/itempickup.wav", "");
 		target_item_change(0, health, target_item_func_min, "misc/megahealth.wav", "");
 		target_item_change(0, armorvalue, target_item_func_min, "misc/armor25.wav", "");
 		target_item_change(1, items, target_item_func_andnot, "misc/powerup.wav", "");
@@ -1270,6 +1289,8 @@ void spawnfunc_target_items (void)
 		if(argv(i) == "unlimited_superweapons") self.items |= IT_UNLIMITED_SUPERWEAPONS;
 		if(argv(i) == "strength")               self.items |= IT_STRENGTH;
 		if(argv(i) == "invincible")             self.items |= IT_INVINCIBLE;
+		if(argv(i) == "jetpack")                self.items |= IT_JETPACK;
+		if(argv(i) == "fuel_regen")             self.items |= IT_FUEL_REGEN;
 		for(j = WEP_FIRST; j <= WEP_LAST; ++j)
 		{
 			e = get_weaponinfo(j);
@@ -1281,4 +1302,23 @@ void spawnfunc_target_items (void)
 			}
 		}
 	}
+}
+
+void spawnfunc_item_fuel(void)
+{
+	if(!self.ammo_fuel)
+		self.ammo_fuel = g_pickup_fuel;
+	StartItem ("models/items/g_fuel.md3", "misc/itempickup.wav", g_pickup_respawntime_ammo, "Fuel", IT_FUEL, 0, 0, commodity_pickupevalfunc, BOT_PICKUP_RATING_LOW);
+}
+
+void spawnfunc_item_fuel_regen(void)
+{
+	StartItem ("models/items/g_fuelregen.md3", "misc/itempickup.wav", g_pickup_respawntime_powerup, "Fuel regenerator", IT_FUEL_REGEN, 0, FL_POWERUP, commodity_pickupevalfunc, BOT_PICKUP_RATING_LOW);
+}
+
+void spawnfunc_item_jetpack(void)
+{
+	if(!self.ammo_fuel)
+		self.ammo_fuel = g_pickup_fuel_jetpack;
+	StartItem ("models/items/g_jetpack.md3", "misc/itempickup.wav", g_pickup_respawntime_powerup, "Jet pack", IT_JETPACK, 0, FL_POWERUP, commodity_pickupevalfunc, BOT_PICKUP_RATING_LOW);
 }

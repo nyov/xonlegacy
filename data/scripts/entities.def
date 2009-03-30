@@ -1236,12 +1236,13 @@ For the number fields, not specifying a value means not changing it. To clear ar
 You may want to target this by a race checkpoint, a teleporter, or a trigger_multiple with ALLENTS set (so it removes weapons thrown through the field to avoid getting a weapon through it).
 -------- KEYS --------
 targetname: used to trigger this
-netname: space separated list of items (either weapon short names (like in g_start_weapon_* cvars), or item short names "unlimited_ammo", "unlimited_weapon_ammo", "unlimited_superweapons", "invincible" and "strength"
+netname: space separated list of items (either weapon short names (like in g_start_weapon_* cvars), or item short names "unlimited_ammo", "unlimited_weapon_ammo", "unlimited_superweapons", "invincible", "strength", "jetpack" and "fuel_regen"
 message: message to print
 ammo_shells: amount of shells
 ammo_nails: amount of bullets
 ammo_rockets: amount of rockets
 ammo_cells: amount of cells
+ammo_fuel: amount of fuel
 health: amount of health
 armorvalue: amount of armor
 strength_finished: if "strength" is specified, the time in seconds for which the strength will hold
@@ -1454,4 +1455,42 @@ Disables a trigger_relay temporarily (until triggered again)
 -------- KEYS --------
 target: disable/enable all relays with this targetname when triggered
 targetname: name that identifies this entity so it can be triggered
+*/
+
+/*QUAKED item_fuel (.3 .3 1) (-30 -30 0) (30 30 32) FLOATING
+Jetpack fuel
+-------- KEYS --------
+ammo_fuel: fuel units gained by this item (if unset, g_pickup_fuel is used)
+respawntime: time till it respawns (default: 15)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
+cnt: weight of this item for random selection using "team". Set to a lower value for items you want to see less likely.
+-------- SPAWNFLAGS --------
+FLOATING: the item will float in air, instead of aligning to the floor by falling
+-------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
+model="models/items/g_fuel.md3"
+*/
+
+/*QUAKED item_fuel_regen (1 .3 1) (-30 -30 0) (30 30 48) FLOATING
+Fuel regenerator
+-------- KEYS --------
+respawntime: time till it respawns (default: 120)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
+cnt: weight of this item for random selection using "team". Set to a lower value for items you want to see less likely.
+-------- SPAWNFLAGS --------
+FLOATING: the item will float in air, instead of aligning to the floor by falling
+-------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
+model="models/items/g_fuelregen.md3"
+*/
+
+/*QUAKED item_jetpack (.3 .3 1) (-30 -30 0) (30 30 48) FLOATING
+Jetpack
+-------- KEYS --------
+ammo_fuel: fuel units gained by this item (if unset, g_pickup_fuel_jetpack is used)
+respawntime: time till it respawns (default: 120)
+team: out of items with the same value here, only one (random one) will spawn. Useful to put multiple items on one spot.
+cnt: weight of this item for random selection using "team". Set to a lower value for items you want to see less likely.
+-------- SPAWNFLAGS --------
+FLOATING: the item will float in air, instead of aligning to the floor by falling
+-------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
+model="models/items/g_jetpack.md3"
 */

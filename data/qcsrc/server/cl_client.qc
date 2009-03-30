@@ -746,6 +746,7 @@ void PutClientInServer (void)
 			self.ammo_nails = warmup_start_ammo_nails;
 			self.ammo_rockets = warmup_start_ammo_rockets;
 			self.ammo_cells = warmup_start_ammo_cells;
+			self.ammo_fuel = warmup_start_ammo_fuel;
 			self.health = warmup_start_health;
 			self.armorvalue = warmup_start_armorvalue;
 			self.weapons = warmup_start_weapons;
@@ -756,6 +757,7 @@ void PutClientInServer (void)
 			self.ammo_nails = start_ammo_nails;
 			self.ammo_rockets = start_ammo_rockets;
 			self.ammo_cells = start_ammo_cells;
+			self.ammo_fuel = start_ammo_fuel;
 			self.health = start_health;
 			self.armorvalue = start_armorvalue;
 			self.weapons = start_weapons;
@@ -769,6 +771,7 @@ void PutClientInServer (void)
 		self.spawnshieldtime = time + cvar("g_spawnshieldtime");
 		self.pauserotarmor_finished = time + cvar("g_balance_pause_armor_rot_spawn");
 		self.pauserothealth_finished = time + cvar("g_balance_pause_health_rot_spawn");
+		self.pauserotfuel_finished = time + cvar("g_balance_pause_fuel_rot_spawn");
 		self.pauseregen_finished = time + cvar("g_balance_pause_health_regen_spawn");
 		//extend the pause of rotting if client was reset at the beginning of the countdown
 		if(!cvar("sv_ready_restart_after_countdown") && time < game_starttime) { // TODO why is this cvar NOTted?
@@ -1700,11 +1703,13 @@ float CalcRegen(float current, float stable, float regenfactor)
 
 void player_regen (void)
 {
-	float maxh, maxa, limith, limita, max_mod, regen_mod, rot_mod, limit_mod;
+	float maxh, maxa, maxf, limith, limita, limitf, max_mod, regen_mod, rot_mod, limit_mod;
 	maxh = cvar("g_balance_health_stable");
 	maxa = cvar("g_balance_armor_stable");
+	maxf = cvar("g_balance_fuel_stable");
 	limith = cvar("g_balance_health_limit");
 	limita = cvar("g_balance_armor_limit");
+	limitf = cvar("g_balance_fuel_limit");
 
 	if (g_minstagib || (g_lms && !cvar("g_lms_regenerate")))
 		return;
@@ -1739,8 +1744,10 @@ void player_regen (void)
 	}
 	maxh = maxh * max_mod;
 	//maxa = maxa * max_mod;
+	//maxf = maxf * max_mod;
 	limith = limith * limit_mod;
 	limita = limita * limit_mod;
+	//limitf = limitf * limit_mod;
 
 	if (self.armorvalue > maxa)
 	{
@@ -1774,11 +1781,32 @@ void player_regen (void)
 			self.health = min(maxh, self.health + regen_mod*cvar("g_balance_health_regenlinear") * frametime);
 		}
 	}
+	if (self.ammo_fuel > maxf)
+	{
+		if (time > self.pauserotfuel_finished)
+		{
+			self.ammo_fuel = max(maxf, self.ammo_fuel + (maxf - self.ammo_fuel) * rot_mod*cvar("g_balance_fuel_rot") * frametime);
+			self.ammo_fuel = max(maxf, self.ammo_fuel - rot_mod*cvar("g_balance_fuel_rotlinear") * frametime);
+		}
+	}
+	else if (self.ammo_fuel < maxf)
+	{
+		if(self.items & IT_FUEL_REGEN)
+		{
+			if (time > self.pauseregen_finished)
+			{
+				self.ammo_fuel = CalcRegen(self.ammo_fuel, maxf, regen_mod * cvar("g_balance_fuel_regen"));
+				self.ammo_fuel = min(maxf, self.ammo_fuel + regen_mod*cvar("g_balance_fuel_regenlinear") * frametime);
+			}
+		}
+	}
 
 	if (self.health > limith)
 		self.health = limith;
 	if (self.armorvalue > limita)
 		self.armorvalue = limita;
+	if (self.ammo_fuel > limitf)
+		self.ammo_fuel = limitf;
 
 	// if player rotted to death...  die!
 	if(self.health < 1)
@@ -1848,6 +1876,7 @@ void SpectateCopy(entity spectatee) {
 	self.ammo_shells = spectatee.ammo_shells;
 	self.ammo_nails = spectatee.ammo_nails;
 	self.ammo_rockets = spectatee.ammo_rockets;
+	self.ammo_fuel = spectatee.ammo_fuel;
 	self.effects = spectatee.effects & EFMASK_CHEAP; // eat performance
 	self.health = spectatee.health;
 	self.impulse = 0;
@@ -2337,7 +2366,14 @@ void PlayerPreThink (void)
 		GrapplingHookFrame();
 
 		if(frametime)
+		{
 			W_WeaponFrame();
+
+			self.items &~= IT_FUEL; // TODO don't do this if the current weapon actually USES fuel...
+			if(self.items & IT_JETPACK)
+				if(self.items & IT_FUEL_REGEN || self.ammo_fuel >= 0.01)
+					self.items |= IT_FUEL;
+		}
 
 		player_regen();
 		if(frametime)
