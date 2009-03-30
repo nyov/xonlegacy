@@ -30,15 +30,21 @@ void drawNexuizPlayerSettingsTab(entity me)
 }
 void fillNexuizPlayerSettingsTab(entity me)
 {
-	entity e, pms, sl, e0, box;
-	float i, n;
+	entity e, pms, sl, label, e0, box;
+	float i, r, m, n;
 
 	me.TR(me);
-		me.TD(me, 1, 1, me.playerNameLabel = makeNexuizTextLabel(0, "Player Name:"));
+		me.TD(me, 1, 0.5, me.playerNameLabel = makeNexuizTextLabel(0, "Name:"));
 			me.playerNameLabelAlpha = me.playerNameLabel.alpha;
-		me.TD(me, 1, 2, box = makeNexuizInputBox(1, "_cl_name"));
+		me.TD(me, 1, 2.5, label = makeNexuizTextLabel(0, string_null));
+			label.allowCut = 1;
+			label.allowColors = 1;
+			label.alpha = 1;
+	me.TR(me);
+		me.TD(me, 1, 3.0, box = makeNexuizInputBox(1, "_cl_name"));
 			box.forbiddenCharacters = "\r\n\\\"$"; // don't care, isn't getting saved
 			box.maxLength = 63;
+			label.textEntity = box;
 	me.TR(me);
 		me.TD(me, 5, 1, e = makeNexuizColorpicker(box));
 		me.TD(me, 5, 2, e = makeNexuizCharmap(box));
@@ -47,23 +53,32 @@ void fillNexuizPlayerSettingsTab(entity me)
 	me.TR(me);
 	me.TR(me);
 	me.TR(me);
-		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "First Color:"));
-		n = 16 - !cvar("developer");
-		for(i = 0; i < n; ++i)
-			me.TDNoMargin(me, 1, 2 / n, e = makeNexuizColorButton(1, 0, i), '1 0 0');
 	me.TR(me);
-		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Second Color:"));
-		for(i = 0; i < n; ++i)
-			me.TDNoMargin(me, 1, 2 / n, e = makeNexuizColorButton(2, 1, i), '1 0 0');
-	me.TR(me);
+	me.gotoRC(me, 8, 0.0);
 		pms = makeNexuizPlayerModelSelector();
+		me.TD(me, 1, 0.6, e = makeNexuizTextLabel(1, "Model:"));
 		me.TD(me, 1, 0.3, e = makeNexuizButton("<<", '0 0 0'));
 			e.onClick = PlayerModelSelector_Prev_Click;
 			e.onClickEntity = pms;
-		me.TD(me, me.rows - me.currentRow - 1, 2.4, pms);
+		me.TD(me, me.rows - me.currentRow - 1, 1.8, pms);
 		me.TD(me, 1, 0.3, e = makeNexuizButton(">>", '0 0 0'));
 			e.onClick = PlayerModelSelector_Next_Click;
 			e.onClickEntity = pms;
+	me.TR(me);
+		r = me.currentRow;
+		m = me.rows - r - 2;
+		n = 16 - !cvar("developer");
+		m = m / (n - 1);
+		for(i = 0; i < n; ++i)
+		{
+			me.gotoRC(me, r + i * m, 0.1);
+			me.TDNoMargin(me, m, 0.2, e = makeNexuizColorButton(1, 0, i), '0 1 0');
+		}
+		for(i = 0; i < n; ++i)
+		{
+			me.gotoRC(me, r + i * m, 0.4);
+			me.TDNoMargin(me, m, 0.2, e = makeNexuizColorButton(2, 1, i), '0 1 0');
+		}
 
 	me.gotoRC(me, 0, 3.5); me.setFirstColumn(me, me.currentColumn);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Field of View:"));
@@ -100,13 +115,13 @@ void fillNexuizPlayerSettingsTab(entity me)
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair:"));
 		for(i = 1; i <= 10; ++i) {
-			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '0 0 0');
+			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '1 1 0');
 			setDependent(e, "crosshair_per_weapon", 0, 0);
 		}
 	me.TR(me);
 		me.TDempty(me, 1);
 		for(i = 11; i <= 20; ++i) {
-			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '0 0 0');
+			me.TDNoMargin(me, 1, 2 / 10, e = makeNexuizCrosshairButton(3, i), '1 1 0');
 			setDependent(e, "crosshair_per_weapon", 0, 0);
 		}
 	me.TR(me);
