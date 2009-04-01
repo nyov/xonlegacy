@@ -1,1 +1,0 @@
-Syntax Highlight support for QuakeC in Code::Blocks
