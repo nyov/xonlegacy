@@ -233,7 +233,8 @@ float Item_GiveTo(entity item, entity player)
 
 	sound (player, CHAN_AUTO, item.item_pickupsound, VOL_BASE, ATTN_NORM);
 	if (_switchweapon)
-		W_SwitchWeapon_Force(player, w_getbestweapon(player));
+		if (player.switchweapon != w_getbestweapon(player))
+			W_SwitchWeapon_Force(player, w_getbestweapon(player));
 
 	return 1;
 }
@@ -1095,12 +1096,12 @@ float target_item_func_and(float a, float b)
 
 float target_item_func_itembitset(float a, float b)
 {
-	return (a - (a & (IT_UNLIMITED_WEAPON_AMMO | IT_STRENGTH | IT_INVINCIBLE))) | b;
+	return (a - (a & (IT_PICKUPMASK | IT_STRENGTH | IT_INVINCIBLE))) | b;
 }
 
 float target_item_func_itemand(float a, float b)
 {
-	return (a - (a & (IT_UNLIMITED_WEAPON_AMMO | IT_STRENGTH | IT_INVINCIBLE))) | (a & b);
+	return (a - (a & (IT_PICKUPMASK | IT_STRENGTH | IT_INVINCIBLE))) | (a & b);
 }
 
 float target_item_func_or(float a, float b)
@@ -1150,6 +1151,14 @@ void target_item_change(float binary, .float field, float(float a, float b) func
 void target_items_use (void)
 {
 	float h0, a0;
+
+	if(activator.classname == "droppedweapon")
+	{
+		EXACTTRIGGER_TOUCH;
+		remove(activator);
+		return;
+	}
+
 	if(activator.classname != "player")
 		return;
 	if(activator.deadflag != DEAD_NO)

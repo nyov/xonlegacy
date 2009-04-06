@@ -3,6 +3,9 @@ void() havocbot_chooserole;
 .float havocbot_keyboardskill;
 .float facingwalltime, ignoregoaltime;
 .entity ignoregoal;
+.float lastfiredweapon;
+.float lastcombotime;
+.float havocbot_blockhead;
 
 #ifdef DEBUG_BOT_GOALSTACK
 void debuggoalstack();
@@ -142,14 +145,19 @@ void havocbot_bunnyhop(vector dir)
 {
 	local float bunnyhopdistance;
 	local vector deviation;
+	local float maxspeed;
 
 	if(self.goalcurrent.classname == "player")
 		return;
+
+	maxspeed = cvar("sv_maxspeed");
 
 	if(self.aistatus & AI_STATUS_DANGER_AHEAD)
 	{
 		self.aistatus &~= AI_STATUS_RUNNING;
 		self.BUTTON_JUMP = FALSE;
+		self.bot_canruntogoal = 0;
+		self.bot_timelastseengoal = 0;
 		return;
 	}
 
@@ -168,9 +176,9 @@ void havocbot_bunnyhop(vector dir)
 	bunnyhopdistance = vlen(self.origin - self.goalcurrent.origin);
 
 	// Run only to visible goals
-	traceline(self.origin + self.view_ofs , self.goalcurrent.origin, TRUE, world);
 	if(self.flags & FL_ONGROUND)
-	if(trace_fraction == 1)
+	if(self.speed==maxspeed)
+	if(checkpvs(self.origin + self.view_ofs, self.goalcurrent))
 	{
 			self.bot_lastseengoal = self.goalcurrent;
 
@@ -200,17 +208,16 @@ void havocbot_bunnyhop(vector dir)
 					if(fabs(self.goalcurrent.origin_z - self.origin_z) < self.maxs_z - self.mins_z)
 					if(self.goalstack01!=world)
 					{
-						deviation = self.goalstack01.origin - (self.origin + self.view_ofs);
-						deviation = vectoangles(deviation) - self.v_angle;
+						deviation = vectoangles(self.goalstack01.origin - self.origin) - vectoangles(self.goalcurrent.origin - self.origin);
 						while (deviation_y < -180) deviation_y = deviation_y + 360;
 						while (deviation_y > 180) deviation_y = deviation_y - 360;
 
-						if(fabs(deviation_y) < 15)
+						if(fabs(deviation_y) < 20)
 						if(bunnyhopdistance < vlen(self.origin - self.goalstack01.origin))
 						if(fabs(self.goalstack01.origin_z - self.goalcurrent.origin_z) < self.maxs_z - self.mins_z)
 						{
-							traceline(self.origin + self.view_ofs , self.goalstack01.origin, TRUE, world);
-							if(trace_fraction==1)
+							if(vlen(self.goalcurrent.origin - self.goalstack01.origin) > cvar("bot_ai_bunnyhop_startdistance"))
+							if(checkpvs(self.origin + self.view_ofs, self.goalstack01))
 							{
 								checkdistance = FALSE;
 							}
@@ -243,24 +250,25 @@ void havocbot_bunnyhop(vector dir)
 	// Release jump button
 	if(self.flags & FL_ONGROUND == 0)
 	{
-		if(self.velocity_z < 0)
+		if(self.velocity_z < 0 || vlen(self.velocity)<maxspeed)
 			self.BUTTON_JUMP = FALSE;
 
 		// Strafe
-		local float maxspeed;
-		maxspeed = cvar("sv_maxspeed");
-
 		if(self.aistatus & AI_STATUS_RUNNING)
 		if(vlen(self.velocity)>maxspeed)
 		{
-			deviation = vectoangles(dir) - self.v_angle;
+			deviation = vectoangles(dir) - vectoangles(self.velocity);
 			while (deviation_y < -180) deviation_y = deviation_y + 360;
 			while (deviation_y > 180) deviation_y = deviation_y - 360;
 
-			if ( deviation_y > 2 )
-				self.movement_y = maxspeed;
-			if ( deviation_y < -2 )
+			if(fabs(deviation_y)>10)
+				self.movement_x = 0;
+
+			if(deviation_y>10)
 				self.movement_y = maxspeed * -1;
+			else if(deviation_y<10)
+				self.movement_y = maxspeed;
+
 		}
 	}
 };
@@ -271,6 +279,7 @@ void havocbot_bunnyhop(vector dir)
 //.float bot_dodgevector_jumpbutton;
 .float ladder_time;
 .entity ladder_entity;
+.float rocketjumptime;
 void havocbot_movetogoal()
 {
 	local vector destorg;
@@ -349,6 +358,84 @@ void havocbot_movetogoal()
 					self.aistatus |= AI_STATUS_OUT_JUMPPAD;
 				return;
 			}
+		}
+	}
+
+	// If there is a trigger_hurt right below try to use the jetpack or make a rocketjump
+	if(skill>6)
+	if not(self.flags & FL_ONGROUND)
+	{
+		tracebox(self.origin, self.mins, self.maxs, self.origin + '0 0 -65536', MOVE_NOMONSTERS, self);
+		if(tracebox_hits_trigger_hurt(self.origin, self.mins, self.maxs, trace_endpos ))
+		if(self.items & IT_JETPACK)
+		{
+			tracebox(self.origin, self.mins, self.maxs, self.origin + '0 0 65536', MOVE_NOMONSTERS, self);
+			if(tracebox_hits_trigger_hurt(self.origin, self.mins, self.maxs, trace_endpos + '0 0 1' ))
+			{
+				if(self.velocity_z<0)
+				{
+					self.BUTTON_HOOK = TRUE;
+				}
+			}
+			else
+				self.BUTTON_HOOK = TRUE;
+
+			// If there is no goal try to move forward
+			
+			if(self.goalcurrent==world)
+				dir = v_forward;
+			else
+				dir = normalize(self.goalcurrent.origin - self.origin);
+
+			local vector xyvelocity = self.velocity; xyvelocity_z = 0;
+			local float xyspeed = xyvelocity * dir;
+
+			if(xyspeed < (maxspeed / 2))
+			{
+				makevectors(self.v_angle_y * '0 1 0');
+				tracebox(self.origin, self.mins, self.maxs, self.origin + (dir * maxspeed * 3), MOVE_NOMONSTERS, self);
+				if(trace_fraction==1)
+				{
+					self.movement_x = dir * v_forward * maxspeed;
+					self.movement_y = dir * v_right * maxspeed;
+					if (skill < 10)
+						havocbot_keyboard_movement(self.origin + dir * 100);
+				}
+			}
+
+			self.havocbot_blockhead = TRUE;
+
+			return;
+		}
+		else if(self.health>cvar("g_balance_rocketlauncher_damage")*0.5)
+		{
+			if(self.velocity_z < 0)
+			if(client_hasweapon(self, WEP_ROCKET_LAUNCHER, TRUE, FALSE))
+			{
+				self.movement_x = maxspeed;
+
+				if(self.rocketjumptime)
+				{
+					if(time > self.rocketjumptime)
+					{
+						self.BUTTON_ATCK2 = TRUE;
+						self.rocketjumptime = 0;
+					}
+					return;
+				}
+
+				self.switchweapon = WEP_ROCKET_LAUNCHER;
+				self.v_angle_x = 90;
+				self.BUTTON_ATCK = TRUE;
+				self.rocketjumptime = time + cvar("g_balance_rocketlauncher_detonatedelay");
+				return;
+			}
+		}
+		else
+		{
+			// If there is no goal try to move forward
+			if(self.goalcurrent==world)
+				self.movement_x = maxspeed;
 		}
 	}
 
@@ -462,7 +549,8 @@ void havocbot_movetogoal()
 
 			// avoiding dangers and obstacles
 			local vector dst_ahead, dst_down;
-			dst_ahead = self.origin + self.view_ofs + (self.velocity * 0.32);
+			makevectors(self.v_angle_y * '0 1 0');
+			dst_ahead = self.origin + self.view_ofs + (self.velocity * 0.4) + (v_forward * 32 * 2);
 			dst_down = dst_ahead + '0 0 -1500';
 
 			// Look ahead
@@ -502,8 +590,8 @@ void havocbot_movetogoal()
 			{
 				// Look downwards
 				traceline(dst_ahead , dst_down, TRUE, world);
-				//	te_lightning2(world, self.origin, dst_ahead);	// Draw "ahead" look
-				//	te_lightning2(world, dst_ahead, dst_down);		// Draw "downwards" look
+			//	te_lightning2(world, self.origin, dst_ahead);	// Draw "ahead" look
+			//	te_lightning2(world, dst_ahead, dst_down);		// Draw "downwards" look
 				if(trace_endpos_z < self.origin_z + self.mins_z)
 				{
 					s = pointcontents(trace_endpos + '0 0 1');
@@ -659,14 +747,33 @@ void havocbot_chooseenemy()
 float(entity e) w_getbestweapon;
 void havocbot_chooseweapon()
 {
+	local float i;
+
 	// TODO: clean this up by moving it to weapon code
 	if(self.enemy.classname!="player")
 	{
-	//	self.switchweapon = w_getbestweapon(self);
-		if(client_hasweapon(self, WEP_LASER, TRUE, FALSE))
-			self.switchweapon = WEP_LASER;
+		// If no weapon was chosen get the first available weapon
+		if(self.weapon==0)
+		for(i=WEP_LASER + 1; i < WEP_COUNT ; ++i)
+		{
+			if(client_hasweapon(self, i, TRUE, FALSE))
+			{
+				self.switchweapon = i;
+				return;
+			}
+		}
 		return;
 	}
+
+	// Do not change weapon during the next second after a combo
+	i = time - self.lastcombotime;
+	if(i < 1)
+		return;
+
+	// Workaround for rifle reloading (..)
+	if(self.weapon == WEP_CAMPINGRIFLE)
+	if(i < cvar("g_balance_campingrifle_reloadtime") + 1)
+		return;
 
 	local float w, s;
 	local float rocket  ; rocket   =-1000;
@@ -688,10 +795,8 @@ void havocbot_chooseweapon()
 	local float spreadpenalty=10;
 	local float distancefromfloor;
 
-	local float af, ct, combo_time;
-
-	traceline(self.enemy.origin,self.enemy.origin-'0 0 1000',TRUE,world);
-	distancefromfloor = self.enemy.origin_z - trace_endpos_z;
+	// Should it do a weapon combo?
+	local float af, ct, combo_time, combo;
 
 	af = ATTACK_FINISHED(self);
 	ct = cvar("bot_ai_weapon_combo_threshold");
@@ -700,8 +805,17 @@ void havocbot_chooseweapon()
 	// Ideally this 4 should be calculated as longest_weapon_refire / bot_ai_weapon_combo_threshold
 	combo_time = time + ct + (ct * ((-0.3*skill)+3));
 
+	combo = FALSE;
+
+	if(cvar("bot_ai_weapon_combo"))
+	if(self.weapon == self.lastfiredweapon)
+	if(af > combo_time)
+	{
+		combo = TRUE;
+		self.lastcombotime = time;
+	}
+
 	// Custom weapon list based on distance to the enemy
-	local float i; i = 0;
 	if(bot_custom_weapon){
 
 		// Choose weapons for far distance
@@ -709,12 +823,9 @@ void havocbot_chooseweapon()
 			for(i=0; i < WEP_COUNT && bot_weapons_far[i] != -1 ; ++i){
 				w = bot_weapons_far[i];
 				if ( client_hasweapon(self, w, TRUE, FALSE) ){
-					if ( self.weapon == w){
-						if( cvar("bot_ai_weapon_combo") && af > combo_time)
-							continue;
-					} else {
-						self.switchweapon = w;
-					}
+					if ( self.weapon == w && combo)
+						continue;
+					self.switchweapon = w;
 					return;
 				}
 			}
@@ -722,30 +833,24 @@ void havocbot_chooseweapon()
 
 		// Choose weapons for mid distance
 		if ( distance > bot_distance_close ) {
-			for(i= 0; i < WEP_COUNT && bot_weapons_mid[i] != -1 ; ++i){
+			for(i=0; i < WEP_COUNT && bot_weapons_mid[i] != -1 ; ++i){
 				w = bot_weapons_mid[i];
 				if ( client_hasweapon(self, w, TRUE, FALSE) ){
-					if ( self.weapon == w){
-						if( cvar("bot_ai_weapon_combo") && af > combo_time)
-							continue;
-					} else {
-						self.switchweapon = w;
-					}
+					if ( self.weapon == w && combo)
+						continue;
+					self.switchweapon = w;
 					return;
 				}
 			}
 		}
 
 		// Choose weapons for close distance
-		for(i= 0; i < WEP_COUNT && bot_weapons_close[i] != -1 ; ++i){
+		for(i=0; i < WEP_COUNT && bot_weapons_close[i] != -1 ; ++i){
 			w = bot_weapons_close[i];
 			if ( client_hasweapon(self, w, TRUE, FALSE) ){
-				if ( self.weapon == w){
-					if( cvar("bot_ai_weapon_combo") && af > combo_time)
-						continue;
-				} else {
-					self.switchweapon = w;
-				}
+				if ( self.weapon == w && combo)
+					continue;
+				self.switchweapon = w;
 				return;
 			}
 		}
@@ -758,6 +863,10 @@ void havocbot_chooseweapon()
 	//	*(Spread change of hit) // if it applies
 	//	*(Penality for target beeing in air)
 	// %weaponaddpoint
+
+	traceline(self.enemy.origin,self.enemy.origin-'0 0 1000',TRUE,world);
+	distancefromfloor = self.enemy.origin_z - trace_endpos_z;
+
 	if (client_hasweapon(self, WEP_MINSTANEX, TRUE, FALSE))
 		minstanex = (1000/cvar("g_balance_minstanex_refire")*1.0)
 			* (0.5);
@@ -894,7 +1003,14 @@ void havocbot_ai()
 	if (bot_strategytoken == self)
 	if (!bot_strategytoken_taken)
 	{
-		self.havocbot_role();
+		if(self.havocbot_blockhead)
+		{
+			self.havocbot_blockhead = FALSE;
+		}
+		else
+		{
+			self.havocbot_role();
+		}
 
 		// TODO: tracewalk() should take care of this job (better path finding under water)
 		// if we don't have a goal and we're under water look for a waypoint near the "shore" and push it
@@ -962,6 +1078,11 @@ void havocbot_ai()
 		{
 			self.BUTTON_ATCK = FALSE;
 			self.BUTTON_ATCK2 = FALSE;
+		}
+		else
+		{
+			if(self.BUTTON_ATCK||self.BUTTON_ATCK2)
+				self.lastfiredweapon = self.weapon;
 		}
 	}
 	else if (self.goalcurrent)

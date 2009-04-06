@@ -45,6 +45,8 @@ float PointInBrush(entity brush, vector point)
 .float glow_color; // palette color
 .float impulse; // density
 .string noise; // sound
+.float atten;
+.float volume;
 .float absolute;
 .vector movedir; // trace direction
 
@@ -79,7 +81,7 @@ void Draw_PointParticles()
 			if(self.noise != "")
 			{
 				self.origin = p;
-				sound(self, CHAN_AUTO, self.noise, 1, ATTN_NORM);
+				sound(self, CHAN_AUTO, self.noise, VOL_BASE * self.volume, self.atten);
 			}
 		}
 		else if(self.absolute)
@@ -101,13 +103,11 @@ void Ent_PointParticles_Remove()
 void Ent_PointParticles()
 {
 	float f;
+	vector v;
 	f = ReadByte();
 	if(f & 2)
 	{
 		self.impulse = ReadCoord(); // density (<0: point, >0: volume)
-		self.absolute = (self.impulse >= 0);
-		if(!self.absolute)
-			self.impulse *= -self.maxs_x * self.maxs_y * self.maxs_z / 262144; // relative: particles per 64^3 cube
 	}
 	if(f & 4)
 	{
@@ -145,6 +145,21 @@ void Ent_PointParticles()
 		if(self.noise)
 			strunzone(self.noise);
 		self.noise = strzone(ReadString());
+		if(self.noise != "")
+		{
+			self.atten = ReadByte() / 64.0;
+			self.volume = ReadByte() / 255.0;
+		}
+	}
+
+	if(f & 2)
+	{
+		self.absolute = (self.impulse >= 0);
+		if(!self.absolute)
+		{
+			v = self.maxs - self.mins;
+			self.impulse *= -v_x * v_y * v_z / 262144; // relative: particles per 64^3 cube
+		}
 	}
 
 	setorigin(self, self.origin);

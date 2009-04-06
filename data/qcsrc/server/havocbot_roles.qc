@@ -257,8 +257,11 @@ void havocbot_goalrating_enemyplayers(float ratingscale, vector org, float sradi
 	local float t, noteam, distance;
 	noteam = ((self.team == 0) || !teams_matter); // fteqcc sucks
 
+	if (cvar("bot_nofire"))
+		return;
+
 	// don't chase players if we're under water
-	if(self.waterlevel>1)
+	if(self.waterlevel>WATERLEVEL_WETFEET)
 		return;
 
 	FOR_EACH_PLAYER(head)
@@ -437,8 +440,10 @@ void havocbot_role_ctf_carrier()
 		{
 			// can't navigate to our own flag :(
 			Damage(self, self, self, 100000, DEATH_KILL, self.origin, '0 0 0');
+			return;
 		}
-		havocbot_goalrating_ctf_carrieritems(1000, self.origin, 1000);
+		if(self.health<100)
+			havocbot_goalrating_ctf_carrieritems(1000, self.origin, 1000);
 		navigation_goalrating_end();
 	}
 };
