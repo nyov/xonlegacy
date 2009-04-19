@@ -73,7 +73,7 @@ health: (default 0) if set to any non-zero value, the button must take damage (a
 
 /*QUAKED func_door (0 .5 .8) ? START_OPEN - DOOR_DONT_LINK - - TOGGLE
 Normal sliding door entity. By default, the door will activate when player walks close to it or when damage is inflicted to it.
-If DOOR_DONT_LINK is not set, the door will be linked with all doors it touches.
+If DOOR_DONT_LINK is not set, the door will be linked with all doors it touches. Note however that for linked doors to work properly, it is necessary that ALL linked doors have SOME volume of common area (that is, there must be a point that is part of ALL doors).
 -------- KEYS --------
 message: is printed when the door is touched if it is a trigger door and it hasn't been fired yet, or death message if dmg is set
 message2: death message when someone gets pushed into this (default: "was thrown into a world of hurt by"). The # character is replaced by the attacker name if present (and it instead does not get appended to the end)
@@ -582,7 +582,7 @@ NOANGLE: Ignore angle attenuation.
 */
 
 /*QUAKED misc_laser (.5 .5 .5) (-8 -8 -8) (8 8 8) START_ON FINITE
-Laser beam emitter
+Laser beam emitter. Note that for the laser to be deadly, it has to start OUTSIDE the player's collision box. To ensure this, you may want to put this entity inside the walls (or directly on their surface), or cover it with a playerclip brush.
 -------- KEYS --------
 target: target_position the laser targets (may be another entity, preferably target_position, possibly controlled by misc_follow)
 mdl: name of particle effect for the beam end point (see effectinfo.txt; default is laser_deadly if dmg is set, and none if not)
@@ -647,18 +647,13 @@ originjitter: a vector describing a random offset this entity will be moved on i
 anglesjitter: a vector in the order "pitch yaw roll" describing a random angles change on this entity on initial spawn. The value 180 180 180 makes the angles entirely random and uniformly distributed (among euler angles). This corresponds to the "angles" field. Works on any non-q3map2-only entity.
 anglejitter: a float describing a random yaw angle change on this entity on initial spawn. The value 180 makes the yaw angle entirely random (maybe good for items). This corresponds to the "angle" field. Works on any non-q3map2-only entity.
 gametypefilter: either a + sign and a comma separated list of game types or the aliases "teams" and "noteams" to ONLY show the entity in the listed game types, or a - sign and a comma separated list of game types or the aliases "teams" and "noteams" to NOT show the entity in the listed game types. The syntax is the same as in sbar_columns_set strings. Works on any non-q3map2-only entity.
--------- Q3MAP2 KEYS --------
-_frame: frame of model to include (set equal to frame if _castshadows is set)
-_castshadows: Allows per-entity control over shadow casting. Defaults to 0 on entities, 1 on world. 0 = no shadow casting. 1 = cast shadows on world. > 1 = cast shadows on entities with _rs (or _receiveshadows) with the corresponding value, AND world. Negative values imply same, but DO NOT cast shadows on world.
-targetname: if targeted by a misc_model, its brushes get inserted into this
-_celshader: Sets the cel shader used for this geometry. Note: omit the "textures/" prefix.
 -------- SPAWNFLAGS --------
 ALIGN_ORIGN: align the origin to the surface below the model
 ALIGN_BOTTOM: align the bottom of the model to the surface below it
 */
 
 /*QUAKED func_illusionary (0 .5 .8) ? 
-NOTE: THIS ENTITY IS BROKEN REGARDING CLIENT AND PROJECTILE PREDICTION. DO NOT USE IT. USE NONSOLID SHADERS INSTEAD.
+NOTE: THIS ENTITY IS BROKEN REGARDING CLIENT AND PROJECTILE PREDICTION. DO NOT USE IT. USE NONSOLID SHADERS OR FUNC_CLIENTILLUSIONARY INSTEAD.
 A non-solid brush entity. Use func_wall if you want it solid.
 The keys below actually apply to most brush entities as they are engine features; however, they are described here as they aren't overridden by game code in misc_models. Its q3map2 keys below will work on any brush entity!
 -------- KEYS --------
@@ -690,7 +685,7 @@ _celshader: Sets the cel shader used for this geometry. Note: omit the "textures
 */
 
 /*QUAKED func_wall (0 .5 .8) ? 
-A solid brush entity. Use func_illusionary if you want it solid.
+A solid brush entity. Use func_clientillusionary if you want it non-solid.
 The keys below actually apply to most brush entities as they are engine features; however, they are described here as they aren't overridden by game code in misc_models. Its q3map2 keys below will work on any brush entity!
 -------- KEYS --------
 movetype: way in which it moves: one of 0 = NONE, 1 = ANGLENOCLIP, 2 = ANGLECLIP, 3 = WALK, 4 = STEP, 5 = FLY, 6 = TOSS, 7 = PUSH, 8 = NOCLIP, 9 = FLYMISSILE, 10 = BOUNCE, 11 = BOUNCEMISSILE
@@ -706,6 +701,90 @@ loddistance2: distance after which to show the second LOD model replacement (def
 lodtarget1: targetname of the first LOD model entity (can be used instead of lodmodel1 to use a brush model instead)
 lodtarget2: targetname of the second LOD model entity (can be used instead of lodmodel2 to use a brush model instead)
 targetname: when invoking it by a button etc., it changes the color to the initiator of the action (e.g. the one pressing a button). In Onslaught, this can be used to color control points for team who owns them. In other game types, this can be used as a fun feature. Works only with _shirt and _pants textures.
+originjitter: a vector describing a random offset this entity will be moved on initial spawn. This corresponds to the "origin" field. Works on any non-q3map2-only entity.
+anglesjitter: a vector in the order "pitch yaw roll" describing a random angles change on this entity on initial spawn. The value 180 180 180 makes the angles entirely random and uniformly distributed (among euler angles). This corresponds to the "angles" field. Works on any non-q3map2-only entity.
+anglejitter: a float describing a random yaw angle change on this entity on initial spawn. The value 180 makes the yaw angle entirely random (maybe good for items). This corresponds to the "angle" field. Works on any non-q3map2-only entity.
+gametypefilter: either a + sign and a comma separated list of game types or the aliases "teams" and "noteams" to ONLY show the entity in the listed game types, or a - sign and a comma separated list of game types or the aliases "teams" and "noteams" to NOT show the entity in the listed game types. The syntax is the same as in sbar_columns_set strings. Works on any non-q3map2-only entity.
+-------- Q3MAP2 KEYS --------
+_castshadows: Allows per-entity control over shadow casting. Defaults to 0 on entities, 1 on world. 0 = no shadow casting. 1 = cast shadows on world. > 1 = cast shadows on entities with _rs (or _receiveshadows) with the corresponding value, AND world. Negative values imply same, but DO NOT cast shadows on world.
+_receiveshadows: Allows per-entity control over shadow reception. Defaults to 1 on everything (world shadows). 0 = receives NO shadows. > 1 = receive shadows only from corresponding keyed entities (see above) and world. < 1 = receive shadows ONLY from corresponding keyed entities.
+_clone: copies brushes from entity with identical _clonename. Still needs a single brush that will get replaced.
+_clonename: template name so one can clone from it
+min: override automatically found minimum coordinate bounds
+max: override automatically found maximum coordinate bounds
+targetname: if targeted by a misc_model, its brushes get inserted into this
+_celshader: Sets the cel shader used for this geometry. Note: omit the "textures/" prefix.
+*/
+
+/*QUAKED misc_clientmodel (0 .5 .8) (-8 -8 -8) (8 8 8) ALIGN_ORIGIN ALIGN_BOTTOM
+A way to load models from a map by the engine (e.g. self-animated zym models) on client side.
+Is non-solid by default.
+-------- KEYS --------
+scale: scale factor of the model (range: 0.0625 to 15.9375)
+colormap: 1024 + 16 * pantscolor + shirtcolor
+angles: initial looking direction
+targetname: when invoking it by a button etc., it changes the color to the initiator of the action (e.g. the one pressing a button). In Onslaught, this can be used to color control points for team who owns them. In other game types, this can be used as a fun feature. Works only with _shirt and _pants textures.
+bgmscript: emitter class from the BGM script
+bgmscriptattack: attack time of the effect strength (0 to 3.9)
+bgmscriptdecay: decay time of the effect strength (0 to 3.9)
+bgmscriptsustain: sustain level of the effect strength (0.1 to 1, set to -1 to disable sustain)
+bgmscriptrelease: release time of the effect strength (0 to 3.9)
+movedir: vector by which the entity moves when "pressed" by the bgmscript
+lip: alpha change when "pressed" by the bgmscript (if > 0, it fades in when pressed, if < 0, it fades out when pressed)
+originjitter: a vector describing a random offset this entity will be moved on initial spawn. This corresponds to the "origin" field. Works on any non-q3map2-only entity.
+anglesjitter: a vector in the order "pitch yaw roll" describing a random angles change on this entity on initial spawn. The value 180 180 180 makes the angles entirely random and uniformly distributed (among euler angles). This corresponds to the "angles" field. Works on any non-q3map2-only entity.
+anglejitter: a float describing a random yaw angle change on this entity on initial spawn. The value 180 makes the yaw angle entirely random (maybe good for items). This corresponds to the "angle" field. Works on any non-q3map2-only entity.
+gametypefilter: either a + sign and a comma separated list of game types or the aliases "teams" and "noteams" to ONLY show the entity in the listed game types, or a - sign and a comma separated list of game types or the aliases "teams" and "noteams" to NOT show the entity in the listed game types. The syntax is the same as in sbar_columns_set strings. Works on any non-q3map2-only entity.
+-------- SPAWNFLAGS --------
+ALIGN_ORIGN: align the origin to the surface below the model
+ALIGN_BOTTOM: align the bottom of the model to the surface below it
+*/
+
+/*QUAKED func_clientillusionary (0 .5 .8) ? 
+A client-side non-solid brush entity. Use func_wall if you want it solid.
+-------- KEYS --------
+scale: scale factor of the model (range: 0.0625 to 15.9375)
+colormap: 1024 + 16 * pantscolor + shirtcolor
+angles: initial looking direction
+targetname: when invoking it by a button etc., it changes the color to the initiator of the action (e.g. the one pressing a button). In Onslaught, this can be used to color control points for team who owns them. In other game types, this can be used as a fun feature. Works only with _shirt and _pants textures.
+bgmscript: emitter class from the BGM script
+bgmscriptattack: attack time of the effect strength (0 to 3.9)
+bgmscriptdecay: decay time of the effect strength (0 to 3.9)
+bgmscriptsustain: sustain level of the effect strength (0.1 to 1, set to -1 to disable sustain)
+bgmscriptrelease: release time of the effect strength (0 to 3.9)
+movedir: vector by which the entity moves when "pressed" by the bgmscript
+lip: alpha change when "pressed" by the bgmscript (if > 0, it fades in when pressed, if < 0, it fades out when pressed)
+originjitter: a vector describing a random offset this entity will be moved on initial spawn. This corresponds to the "origin" field. Works on any non-q3map2-only entity.
+anglesjitter: a vector in the order "pitch yaw roll" describing a random angles change on this entity on initial spawn. The value 180 180 180 makes the angles entirely random and uniformly distributed (among euler angles). This corresponds to the "angles" field. Works on any non-q3map2-only entity.
+anglejitter: a float describing a random yaw angle change on this entity on initial spawn. The value 180 makes the yaw angle entirely random (maybe good for items). This corresponds to the "angle" field. Works on any non-q3map2-only entity.
+gametypefilter: either a + sign and a comma separated list of game types or the aliases "teams" and "noteams" to ONLY show the entity in the listed game types, or a - sign and a comma separated list of game types or the aliases "teams" and "noteams" to NOT show the entity in the listed game types. The syntax is the same as in sbar_columns_set strings. Works on any non-q3map2-only entity.
+-------- Q3MAP2 KEYS --------
+_castshadows: Allows per-entity control over shadow casting. Defaults to 0 on entities, 1 on world. 0 = no shadow casting. 1 = cast shadows on world. > 1 = cast shadows on entities with _rs (or _receiveshadows) with the corresponding value, AND world. Negative values imply same, but DO NOT cast shadows on world.
+_receiveshadows: Allows per-entity control over shadow reception. Defaults to 1 on everything (world shadows). 0 = receives NO shadows. > 1 = receive shadows only from corresponding keyed entities (see above) and world. < 1 = receive shadows ONLY from corresponding keyed entities.
+_clone: copies brushes from entity with identical _clonename. Still needs a single brush that will get replaced.
+_clonename: template name so one can clone from it
+min: override automatically found minimum coordinate bounds
+max: override automatically found maximum coordinate bounds
+targetname: if targeted by a misc_model, its brushes get inserted into this
+_celshader: Sets the cel shader used for this geometry. Note: omit the "textures/" prefix.
+*/
+
+/*QUAKED func_clientwall (0 .5 .8) ? 
+NOTE: THIS ENTITY IS IN MOST USE CASES BROKEN REGARDING CLIENT AND PROJECTILE PREDICTION. DO NOT USE IT. USE FUNC_WALL INSTEAD.
+A client-side solid brush entity. Use func_clientillusionary if you want it non-solid.
+-------- KEYS --------
+solid: solidity: one of 1 = TRIGGER, 2 = BBOX, 3 = SLIDEBOX, 4 = BSP, 5 = CORPSE (default: 4, any other value causes prediction problems and should not be used until further notice)
+scale: scale factor of the model (range: 0.0625 to 15.9375)
+colormap: 1024 + 16 * pantscolor + shirtcolor
+angles: initial looking direction
+targetname: when invoking it by a button etc., it changes the color to the initiator of the action (e.g. the one pressing a button). In Onslaught, this can be used to color control points for team who owns them. In other game types, this can be used as a fun feature. Works only with _shirt and _pants textures.
+bgmscript: emitter class from the BGM script
+bgmscriptattack: attack time of the effect strength (0 to 3.9)
+bgmscriptdecay: decay time of the effect strength (0 to 3.9)
+bgmscriptsustain: sustain level of the effect strength (0.1 to 1, set to -1 to disable sustain)
+bgmscriptrelease: release time of the effect strength (0 to 3.9)
+movedir: vector by which the entity moves when "pressed" by the bgmscript
+lip: alpha change when "pressed" by the bgmscript (if > 0, it fades in when pressed, if < 0, it fades out when pressed)
 originjitter: a vector describing a random offset this entity will be moved on initial spawn. This corresponds to the "origin" field. Works on any non-q3map2-only entity.
 anglesjitter: a vector in the order "pitch yaw roll" describing a random angles change on this entity on initial spawn. The value 180 180 180 makes the angles entirely random and uniformly distributed (among euler angles). This corresponds to the "angles" field. Works on any non-q3map2-only entity.
 anglejitter: a float describing a random yaw angle change on this entity on initial spawn. The value 180 makes the yaw angle entirely random (maybe good for items). This corresponds to the "angle" field. Works on any non-q3map2-only entity.
@@ -1133,7 +1212,7 @@ cnt: weight of spawn point for random selection. Set to a lower value if you hav
 race_place: if target points to the trigger_race_checkpoint with cnt 0 (finish line), this sets which place the spawn corresponds to; the special value 0 stands for spawns for players who come in later (have to be behind the ones with race_place set to an actual place), and -1 marks the spawnpoint for qualifying mode only
 */
 
-/*QUAKED func_pointparticles (.5 .5 .5) ? START_ON
+/*QUAKED func_pointparticles (.5 .5 .5) ? START_ON IMPULSE
 A brush that emits particles.
 -------- KEYS --------
 mdl: particle effect name from effectinfo.txt
@@ -1142,15 +1221,26 @@ velocity: particle direction and speed
 waterlevel: extra velocity jitter amount
 count: particle count multiplier (per spawned particle)
 movedir: when set, trace direction (particles will then be emitted from the surface the trace hits); the length of the vector is used as strength of taking the normal of the trace into account
-glow_color: particle palette color
 noise: sound to play when the particle is emitted
 atten: distance attenuation of the sound (a value from 0.1 to 3.9), default is 0.5; set to -1 for no attenuation (global sound)
 volume: volume of the sound
 targetname: name to target this (then its state is toggled)
+bgmscript: emitter class from the BGM script
+bgmscriptattack: attack time of the effect strength (0 to 3.9)
+bgmscriptdecay: decay time of the effect strength (0 to 3.9)
+bgmscriptsustain: sustain level of the effect strength (0.1 to 1, set to -1 to disable sustain)
+bgmscriptrelease: release time of the effect strength (0 to 3.9)
 -------- SPAWNFLAGS --------
 START_ON: when targeted, the particle emitter will start switched on
+IMPULSE: only send the full amount of impulse particles when the entity is triggered
 -------- NOTES --------
-Use trigger_monoflop if you want the particles to turn off for a while, then turn back on
+Use trigger_monoflop if you want the particles to turn off for a while, then turn back on.
+A BGM script is a .bgs file named like the map, in the maps directory. Its format is lines of the form
+  <emitter class> <time since start of background music> <0 if the emitters are to be switched off, >0 and <=1 if they are to be switched on>
+e.g.
+  smokers 4.7 1
+  smokers 4.9 0
+The lines MUST be sorted by emitter class as primary key, and by the time since start of the BGM as secondary key.
 */
 
 /*QUAKED trigger_flipflop (.5 .5 .5) (-8 -8 -8) (8 8 8) START_ON

@@ -125,15 +125,16 @@ float Spawn_Score(entity spot, entity playerlist, float teamcheck)
 		float good, found;
 		ent = find(world, targetname, spot.target);
 		while(ent) {
-			found = 1;
 			if(ent.classname == "target_objective")
 			{
+				found = 1;
 				if(ent.health < 0 || ent.health >= ASSAULT_VALUE_INACTIVE)
 					return -1;
 				good = 1;
 			}
 			else if(ent.classname == "trigger_race_checkpoint")
 			{
+				found = 1;
 				if(self.classname == "player") // spectators may spawn everywhere
 				{
 					if(g_race_qualifying)
@@ -157,9 +158,6 @@ float Spawn_Score(entity spot, entity playerlist, float teamcheck)
 					}
 				}
 				good = 1;
-			}
-			else
-			{
 			}
 			ent = find(ent, targetname, spot.target);
 		}
@@ -1315,7 +1313,7 @@ void ClientConnect (void)
 		ctf_clientconnect();
 	}*/
 
-	if(teams_matter)
+	if(teams_matter || sv_cheats)
 		attach_entcs();
 
 	bot_relinkplayerlist();
@@ -1372,7 +1370,7 @@ void ClientDisconnect (void)
 
 	bot_clientdisconnect();
 
-	if(teams_matter)
+	if(self.entcs)
 		detach_entcs();
 	
 	if(cvar("sv_eventlog"))

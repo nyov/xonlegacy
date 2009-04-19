@@ -669,6 +669,20 @@ void SetBrushEntityModel()
 		setsize(self, self.mins, self.maxs);
 }
 
+void SetBrushEntityModelNoLOD()
+{
+ 	if(self.model != "")
+ 	{
+ 		precache_model(self.model);
+ 		setmodel(self, self.model); // no precision needed
+ 	}
+	setorigin(self, self.origin);
+	if(self.scale)
+		setsize(self, self.mins * self.scale, self.maxs * self.scale);
+	else
+		setsize(self, self.mins, self.maxs);
+}
+
 /*
 ================
 InitTrigger
@@ -681,15 +695,8 @@ void SetMovedir()
 		self.movedir = normalize(self.movedir);
 	else
 	{
-		if (self.angles == '0 -1 0')
-			self.movedir = '0 0 1';
-		else if (self.angles == '0 -2 0')
-			self.movedir = '0 0 -1';
-		else
-		{
-			makevectors (self.angles);
-			self.movedir = v_forward;
-		}
+		makevectors (self.angles);
+		self.movedir = v_forward;
 	}
 
 	self.angles = '0 0 0';
