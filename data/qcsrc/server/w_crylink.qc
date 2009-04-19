@@ -2,6 +2,7 @@
 
 .entity realowner;
 
+// NO bounce protection, as bounces are limited!
 void W_Crylink_Touch (void)
 {
 	float finalhit;
@@ -24,7 +25,9 @@ void W_Crylink_Touch (void)
 	self.angles = vectoangles(self.velocity);
 	self.owner = world;
 	self.projectiledeathtype |= HITTYPE_BOUNCE;
-	//self.scale = 1 + self.cnt;
+	// commented out as it causes a little hitch...
+	//if(proj.cnt == 0)
+	//	CSQCProjectile(proj, TRUE, PROJECTILE_CRYLINK, TRUE);
 }
 
 void W_Crylink_Touch2 (void)
@@ -49,7 +52,9 @@ void W_Crylink_Touch2 (void)
 	self.angles = vectoangles(self.velocity);
 	self.owner = world;
 	self.projectiledeathtype |= HITTYPE_BOUNCE;
-//	self.scale = 1 + 1 * self.cnt;
+	// commented out as it causes a little hitch...
+	//if(proj.cnt == 0)
+	//	CSQCProjectile(proj, TRUE, PROJECTILE_CRYLINK, TRUE);
 }
 
 void W_Crylink_Attack (void)
@@ -114,7 +119,7 @@ void W_Crylink_Attack (void)
 
 		proj.flags = FL_PROJECTILE;
 
-		CSQCProjectile(proj, TRUE, PROJECTILE_CRYLINK, TRUE);
+		CSQCProjectile(proj, TRUE, (proj.cnt ? PROJECTILE_CRYLINK_BOUNCING : PROJECTILE_CRYLINK), TRUE);
 
 		counter = counter + 1;
 	}
@@ -163,7 +168,7 @@ void W_Crylink_Attack2 (void)
 
 		proj.flags = FL_PROJECTILE;
 
-		CSQCProjectile(proj, TRUE, PROJECTILE_CRYLINK, TRUE);
+		CSQCProjectile(proj, TRUE, (proj.cnt ? PROJECTILE_CRYLINK_BOUNCING : PROJECTILE_CRYLINK), TRUE);
 
 		counter = counter + 1;
 	}
