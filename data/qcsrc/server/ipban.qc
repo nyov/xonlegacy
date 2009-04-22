@@ -132,7 +132,7 @@ void OnlineBanList_URI_Get_Callback(float id, float status, string data)
 		return;
 	}
 
-	print("OK\n");
+	print("OK, ", ftos(n), " items\n");
 
 	for(i = 0; i < n; i += 4)
 	{
@@ -140,6 +140,10 @@ void OnlineBanList_URI_Get_Callback(float id, float status, string data)
 		timeleft = stof(argv(i + 1));
 		reason = argv(i + 2);
 		serverip = argv(i + 3);
+
+		dprint("received ban list item ", ftos(i), ": ip=", ip);
+		dprint(" timeleft=", ftos(timeleft), " reason=", reason);
+		dprint(" serverip=", serverip, "\n");
 
 		timeleft -= 1.5 * cvar("g_ban_sync_timeout");
 		if(timeleft < 0)
@@ -155,7 +159,7 @@ void OnlineBanList_URI_Get_Callback(float id, float status, string data)
 
 		if(cvar("g_ban_sync_trusted_servers_verify"))
 			if((strstrofs(strcat(";", OnlineBanList_Servers, ";"), strcat(";", serverip, ";"), 0) == -1))
-				goto skip;
+				continue;
 
 		if(syncinterval > 0)
 			timeleft = min(syncinterval + (OnlineBanList_Timeout - time) + 5, timeleft);
@@ -165,7 +169,6 @@ void OnlineBanList_URI_Get_Callback(float id, float status, string data)
 		print("Ban list syncing: accepted ban of ", ip, " by ", serverip, " at ", uri, ": ");
 		print(reason, "\n");
 
-		continue;
 :skip
 	}
 }
@@ -436,8 +439,12 @@ float Ban_Insert(string ip, float bantime, string reason, float dosync)
 	}
 	// if we replace someone, will we be banned longer than him (so long-term
 	// bans never get overridden by short-term bans)
+	if(i < ban_count)
 	if(ban_expire[i] > time + bantime)
+	{
+		print(ip, " could not get banned due to no free ban slot\n");
 		return FALSE;
+	}
 	// okay, insert our new victim as i
 	Ban_Delete(i);
 	print(ip, " has been banned for ", ftos(bantime), " seconds\n");
