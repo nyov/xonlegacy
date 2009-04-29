@@ -8,7 +8,7 @@ entity verb;
 
 /// Execure this verb
 #define VCM_DO     0
-/// Return teh value of this verb. Return VS_CALL_REMOVE to delete it.
+/// Return the value of this verb. Return VS_CALL_REMOVE to delete it.
 #define VCM_EVAL   1
 /// This verb is beeing removed NOW (not sent when verb_call returns VS_CALL_REMOVE)
 #define VCM_REMOVE 2
@@ -34,7 +34,7 @@ entity verb;
 /**
     Push a new verb onto the specified stack. Set vrb_life to make it time-limited.
 **/
-entity verbstack_push(entity stack, float(float eval) vrb_call, float val_static, float vrb_life)
+entity verbstack_push(entity stack, float(float eval) vrb_call, float val_static, float vrb_life,entity verb_owner)
 {
     entity vrb;
 
@@ -45,7 +45,7 @@ entity verbstack_push(entity stack, float(float eval) vrb_call, float val_static
         return world;
 
     vrb                   = spawn();
-    vrb.owner             = self;
+    vrb.owner             = verb_owner;
     vrb.verbstack         = stack;
     vrb.verb_call         = vrb_call;
     vrb.verb_static_value = val_static;
@@ -108,6 +108,28 @@ float verbstack_pop(entity stack)
     return value;
 }
 
+float verbstack_popfifo(entity stack)
+{
+    entity oldself;
+    float ret;
+
+    oldself = self;
+    verb = findentity(stack,verbstack,stack);
+    if not (verb)
+        ret = 0;
+    else
+    {
+        self = verb.owner;
+        ret = verb.verb_call(VCM_DO);
+
+        if(ret == VS_CALL_REMOVE)
+            remove(verb);
+    }
+
+    self = oldself;
+    return ret;
+}
+
 /**
     Find the best verb in this stack and return it.
     ALso remove any verbs returning VS_CALL_REMOVE on VCM_EVAL.
@@ -147,6 +169,11 @@ entity verbstack_pull(entity stack)
     self = oldself;
 
     return bestverb;
+}
+
+entity verbstack_pullfifo(entity stack)
+{
+    return findentity(stack,verbstack,stack);
 }
 
 /**

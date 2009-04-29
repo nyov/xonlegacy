@@ -23,6 +23,20 @@ sub OutputOf($@)
 	return $ret;
 }
 
+sub StatusOf($@)
+{
+	my ($cmd, @args) = @_;
+	$cmd =~ s/#(\d)/"\$ARG$1"/g;
+	$ENV{"ARG$_"} = $args[$_-1]
+		for 1..@args;
+	my $ret = system $cmd;
+
+	$ENV{"ARG$_"} = ''
+		for 1..@args;
+
+	return $ret;
+}
+
 my %conf = 
 (
 	master => '',
@@ -264,7 +278,7 @@ elsif($cmd eq 'merge')
 	LoadSettings();
 	AddPatch $first, $last;
 
-	print OutputOf 'svn merge -r#1:#2 #3', ($first - 1), $last, $conf{master};
+	StatusOf 'svn merge -r#1:#2 #3', ($first - 1), $last, $conf{master};
 	print "You may also want to run $0 unmerged to fill possible revision holes\n";
 	print "Make sure there are no conflicts, then run $0 commit\n";
 	print "To abort, use $0 revert\n";
