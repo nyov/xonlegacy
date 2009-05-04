@@ -144,7 +144,7 @@ void func_breakable_destroy() {
 	activator = self.owner;
 
 	// now throw around the debris
-	n = tokenize_sane(self.debris);
+	n = tokenize_console(self.debris);
 	for(i = 0; i < n; ++i)
 		LaunchDebris(argv(i), debrisforce);
 
