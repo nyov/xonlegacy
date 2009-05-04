@@ -344,7 +344,8 @@ void havocbot_movetogoal()
 				{
 					self.ignoregoal = self.goalcurrent;
 					self.ignoregoaltime = time + cvar("bot_ai_ignoregoal_timeout");
-					navigation_routetogoal(newgoal);
+					navigation_clearroute();
+					navigation_routetogoal(newgoal, self.origin);
 					self.aistatus &~= AI_STATUS_OUT_JUMPPAD;
 				}
 			}
@@ -468,21 +469,8 @@ void havocbot_movetogoal()
 
 	// if ran out of goals try to use an alternative goal or get a new strategy asap
 	if(self.goalcurrent == world)
-	if(self.flags & FL_ONGROUND || self.aistatus & AI_STATUS_RUNNING || self.BUTTON_JUMP == TRUE)
 	{
-		if(self.alternativegoal==world)
-		{
-			// ran out of goals
-			self.bot_strategytime = 0;
-			return;
-		}
-
-		// use the alternative goal
-		navigation_findnearestwaypoint(self.alternativegoal, TRUE);
-		navigation_routetogoal(self.alternativegoal);
-		self.alternativegoal = world;
-		bot_strategytoken_taken = TRUE;
-
+		self.bot_strategytime = 0;
 		return;
 	}
 
@@ -553,20 +541,22 @@ void havocbot_movetogoal()
 			// avoiding dangers and obstacles
 			local vector dst_ahead, dst_down;
 			makevectors(self.v_angle_y * '0 1 0');
-			dst_ahead = self.origin + self.view_ofs + (self.velocity * 0.4) + (v_forward * 32 * 2);
+			dst_ahead = self.origin + self.view_ofs + (self.velocity * 0.4) + (v_forward * 32 * 3);
 			dst_down = dst_ahead + '0 0 -1500';
 
 			// Look ahead
 			traceline(self.origin + self.view_ofs , dst_ahead, TRUE, world);
 
 			// Check head-banging against walls
-			if(vlen(self.origin + self.view_ofs - trace_endpos) < 2 && !(self.aistatus & AI_STATUS_OUT_WATER))
+			if(vlen(self.origin + self.view_ofs - trace_endpos) < 25 && !(self.aistatus & AI_STATUS_OUT_WATER))
 			{
+				self.BUTTON_JUMP = TRUE;
 				if(self.facingwalltime && time > self.facingwalltime)
 				{
 					self.ignoregoal = self.goalcurrent;
 					self.ignoregoaltime = time + cvar("bot_ai_ignoregoal_timeout");
-					navigation_poproute();
+					self.bot_strategytime = 0;
+					return;
 				}
 				else
 				{
@@ -1102,8 +1092,12 @@ void havocbot_ai()
 		aimdistance = vlen(now);
 		//heading = self.velocity;
 		//dprint(self.goalstack01.classname,etos(self.goalstack01),"\n");
-		if(self.goalstack01 != self && self.goalstack01 != world && self.aistatus & AI_STATUS_RUNNING == 0)
+		if(
+			self.goalstack01 != self && self.goalstack01 != world && self.aistatus & AI_STATUS_RUNNING == 0 &&
+			!(self.goalcurrent.wpflags & WAYPOINTFLAG_TELEPORT)
+		)
 			next = self.goalstack01.origin - (self.origin + self.view_ofs);
+
 		skillblend=bound(0,(skill-2.5)*0.5,1); //lower skill player can't preturn
 		distanceblend=bound(0,aimdistance/cvar("bot_ai_keyboard_distance"),1);
 		blend = skillblend * (1-distanceblend);

@@ -791,7 +791,7 @@ void readplayerstartcvars()
 	}
 	else
 	{
-		t = tokenize_sane(s);
+		t = tokenize_console(s);
 		g_weaponarena_list = "";
 		for(i = 0; i < t; ++i)
 		{
@@ -2215,4 +2215,76 @@ void SoundEntity_Detach(entity pl)
 	float i;
 	for(i = 0; i <= 7; ++i)
 		SoundEntity_StopSound(pl, i);
+}
+
+
+float ParseCommandPlayerSlotTarget_firsttoken;
+entity GetCommandPlayerSlotTargetFromTokenizedCommand(float tokens, float idx) // idx = start index
+{
+	string s;
+	entity e, head;
+	float n;
+
+	s = string_null;
+
+	ParseCommandPlayerSlotTarget_firsttoken = -1;
+
+	if(tokens > idx)
+	{
+		if(substring(argv(idx), 0, 1) == "#")
+		{
+			s = substring(argv(idx), 1, -1);
+			++idx;
+			if(s == "")
+			if(tokens > idx)
+			{
+				s = argv(idx);
+				++idx;
+			}
+			if(s == ftos(stof(s)))
+			{
+				e = edict_num(stof(s));
+				if(e.flags & FL_CLIENT)
+				{
+					ParseCommandPlayerSlotTarget_firsttoken = idx;
+					return e;
+				}
+			}
+		}
+		else
+		{
+			// it must be a nick name
+			s = argv(idx);
+			++idx;
+
+			n = 0;
+			FOR_EACH_CLIENT(head)
+				if(head.netname == s)
+				{
+					e = head;
+					++n;
+				}
+			if(n == 1)
+			{
+				ParseCommandPlayerSlotTarget_firsttoken = idx;
+				return e;
+			}
+
+			s = strdecolorize(s);
+			n = 0;
+			FOR_EACH_CLIENT(head)
+				if(strdecolorize(head.netname) == s)
+				{
+					e = head;
+					++n;
+				}
+			if(n == 1)
+			{
+				ParseCommandPlayerSlotTarget_firsttoken = idx;
+				return e;
+			}
+		}
+	}
+
+	return world;
 }

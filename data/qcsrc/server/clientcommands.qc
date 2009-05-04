@@ -101,11 +101,12 @@ entity GetPlayer(string name)
 float readyrestart_happened;
 .float lms_spectate_warning;
 void SV_ParseClientCommand(string s) {
-	local string cmd, s1, s2;
-	local float tokens, f, effectnum;
-	local vector start, end;
+	string cmd;
+	float tokens, f, effectnum;
+	vector start, end;
+	entity e;
 
-	tokens = tokenize_sane(s);
+	tokens = tokenize_console(s);
 
 	if(GameCommand_Vote(s, self)) {
 		return;
@@ -146,14 +147,14 @@ void SV_ParseClientCommand(string s) {
 		if(substring(argv(2), 0, 1) == "$") // undefined cvar: use the default value on the server then
 		{
 			s = strcat(substring(s, argv_start_index(0), argv_end_index(1) - argv_start_index(0)), " \"", cvar_defstring(argv(1)), "\"");
-			tokens = tokenize_sane(s);
+			tokens = tokenize_console(s);
 		}
 		GetCvars(1);
 	} else if(argv(0) == "sentcvar") { // new system
 		if(tokens == 2) // undefined cvar: use the default value on the server then
 		{
 			s = strcat(substring(s, argv_start_index(0), argv_end_index(1) - argv_start_index(0)), " \"", cvar_defstring(argv(1)), "\"");
-			tokens = tokenize_sane(s);
+			tokens = tokenize_console(s);
 		}
 		GetCvars(1);
 	} else if(argv(0) == "spectate") {
@@ -259,20 +260,23 @@ void SV_ParseClientCommand(string s) {
 		sprint(self, records_reply);
 	} else if(argv(0) == "voice") {
 		if(tokens >= 3)
-		{
-			s1 = argv(1);
-			s2 = substring(s, argv_start_index(2), argv_end_index(-1) - argv_start_index(2));
-			VoiceMessage(s1, s2); // fteqcc sucks
-		}
+			VoiceMessage(argv(1), substring(s, argv_start_index(2), argv_end_index(-1) - argv_start_index(2)));
 		else
 			VoiceMessage(argv(1), "");
 	} else if(argv(0) == "say") {
 		if(tokens >= 2)
-			Say(self, FALSE, substring(s, argv_start_index(1), argv_end_index(-1) - argv_start_index(1)), 1);
+			Say(self, FALSE, world, substring(s, argv_start_index(1), argv_end_index(-1) - argv_start_index(1)), 1);
 		//clientcommand(self, formatmessage(s));
 	} else if(argv(0) == "say_team") {
 		if(tokens >= 2)
-			Say(self, TRUE, substring(s, argv_start_index(1), argv_end_index(-1) - argv_start_index(1)), 1);
+			Say(self, TRUE, world, substring(s, argv_start_index(1), argv_end_index(-1) - argv_start_index(1)), 1);
+		//clientcommand(self, formatmessage(s));
+	} else if(argv(0) == "tell") {
+		e = GetCommandPlayerSlotTargetFromTokenizedCommand(tokens, 1);
+		if(e && tokens > ParseCommandPlayerSlotTarget_firsttoken)
+			Say(self, FALSE, e, substring(s, argv_start_index(ParseCommandPlayerSlotTarget_firsttoken), argv_end_index(-1) - argv_start_index(ParseCommandPlayerSlotTarget_firsttoken)), 1);
+		else
+			sprint(self, "ERROR: usage: tell # playerid text...\n");
 		//clientcommand(self, formatmessage(s));
 	} else if(argv(0) == "info") {
 		cmd = cvar_string(strcat("sv_info_", argv(1)));

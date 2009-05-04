@@ -453,13 +453,12 @@ float lag_additem(float t, float f1, float f2, entity e1, vector v1, vector v2, 
 .float nearestwaypointtimeout;
 
 // used during navigation_goalrating_begin/end sessions
+#define MAX_BESTGOALS 3
+float bestgoalswindex;
+float bestgoalsrindex;
 float navigation_bestrating;
-entity navigation_bestgoal;
-entity navigation_alternativegoal;
-.entity alternativegoal;
-
-
-
+entity navigation_bestgoals[MAX_BESTGOALS];
+.float navigation_hasgoals;
 
 /////////////////////////////////////////////////////////////////////////////
 // spawnfunc_waypoint management
@@ -941,6 +940,100 @@ float waypoint_load_links()
 	return TRUE;
 };
 
+void waypoint_load_links_hardwired()
+{
+	local string filename, s;
+	local float file, tokens, c, found;
+	local entity wp_from, wp_to;
+	local vector wp_to_pos, wp_from_pos;
+	filename = strcat("maps/", mapname);
+	filename = strcat(filename, ".waypoints.hardwired");
+	file = fopen(filename, FILE_READ);
+
+	if (file < 0)
+	{
+		dprint("waypoint links load from ");
+		dprint(filename);
+		dprint(" failed\n");
+		return;
+	}
+
+	for (;;)
+	{
+		s = fgets(file);
+		if (!s)
+			break;
+
+		if(substring(s, 0, 2)=="//")
+			continue;
+
+		if(substring(s, 0, 1)=="#")
+			continue;
+
+		tokens = tokenizebyseparator(s, "*");
+
+		if (tokens!=2)
+			continue;
+
+		wp_from_pos	= stov(argv(0));
+		wp_to_pos	= stov(argv(1));
+
+		// Search "from" waypoint
+		if(wp_from.origin!=wp_from_pos)
+		{
+			wp_from = findradius(wp_from_pos, 1);
+			found = FALSE;
+			while(wp_from)
+			{
+				if(vlen(wp_from.origin-wp_from_pos)<1)
+				if(wp_from.classname == "waypoint")
+				{
+					found = TRUE;
+					break;
+				}
+				wp_from = wp_from.chain;
+			}
+
+			if(!found)
+			{
+				print(strcat("NOTICE: Can not find waypoint at ", vtos(wp_from_pos), ". Path skipped\n"));
+				continue;
+			}
+		}
+
+		// Search "to" waypoint
+		wp_to = findradius(wp_to_pos, 1);
+		found = FALSE;
+		while(wp_to)
+		{
+			if(vlen(wp_to.origin-wp_to_pos)<1)
+			if(wp_to.classname == "waypoint")
+			{
+				found = TRUE;
+				break;
+			}
+			wp_to = wp_to.chain;
+		}
+
+		if(!found)
+		{
+			print(strcat("NOTICE: Can not find waypoint at ", vtos(wp_to_pos), ". Path skipped\n"));
+			continue;
+		}
+
+		++c;
+		waypoint_addlink(wp_from, wp_to);
+	}
+
+	fclose(file);
+
+	dprint("loaded ");
+	dprint(ftos(c));
+	dprint(" waypoint links from maps/");
+	dprint(mapname);
+	dprint(".waypoints.hardwired\n");
+};
+
 
 // Save all waypoint links to a file
 void waypoint_save_links()
@@ -1122,8 +1215,16 @@ void waypoint_spawnforitem(entity e)
 	if(!bot_waypoints_for_items)
 		return;
 
+	// Center of entity
 	org = e.origin + (e.mins + e.maxs) * 0.5;
-	org_z = e.origin_z + e.mins_z - PL_MIN_z + 1;
+
+	// Calculate the altitude where the waypoint will be placed
+	traceline(e.origin, e.origin + '0 0 -65535', TRUE, e);
+	if(e.origin_z + e.mins_z - trace_endpos_z < PL_MAX_z - PL_MIN_z + 10)
+		org_z = trace_endpos_z + PL_MAX_z - PL_MIN_z;
+	else
+		org_z = e.origin_z;
+
 	e.nearestwaypointtimeout = time + 1000000000;
 	// don't spawn an item spawnfunc_waypoint if it already exists
 	w = findchain(classname, "waypoint");
@@ -1176,6 +1277,7 @@ void waypoint_spawnforteleporter(entity e, vector destination, float timetaken)
 // completely empty the goal stack, used when deciding where to go
 void navigation_clearroute()
 {
+	self.navigation_hasgoals = FALSE;
 	self.goalcurrent = world;
 	self.goalstack01 = world;
 	self.goalstack02 = world;
@@ -1515,6 +1617,59 @@ void navigation_markroutes()
 	}
 };
 
+void navigation_bestgoals_reset()
+{
+	local float i;
+
+	bestgoalswindex = 0;
+	bestgoalsrindex = 0;
+
+	for(i=0;i>MAX_BESTGOALS-1;++i)
+	{
+		navigation_bestgoals[i] = world;
+	}
+}
+
+void navigation_add_bestgoal(entity goal)
+{
+	local float i;
+
+	if(bestgoalsrindex>0)
+	{
+		++bestgoalsrindex;
+
+		if(bestgoalsrindex==MAX_BESTGOALS)
+			bestgoalsrindex = 0;
+	}
+
+	if(bestgoalswindex==MAX_BESTGOALS)
+	{
+		bestgoalswindex=0;
+		if(bestgoalsrindex==0)
+			bestgoalsrindex=1;
+	}
+
+	navigation_bestgoals[bestgoalswindex] = goal;
+
+	++bestgoalswindex;
+}
+
+entity navigation_get_bestgoal()
+{
+	local float i;
+	local entity ent;
+
+	ent = navigation_bestgoals[bestgoalsrindex];
+	navigation_bestgoals[bestgoalsrindex] = world;
+
+	++bestgoalsrindex;
+
+	if(bestgoalsrindex==MAX_BESTGOALS)
+		bestgoalsrindex = 0;
+
+	return ent;
+}
+
 // updates the best goal according to a weighted calculation of travel cost and item value of a new proposed item
 .void() havocbot_role;
 void() havocbot_role_ctf_offense;
@@ -1544,75 +1699,110 @@ void navigation_routerating(entity e, float f, float rangebias)
 		//dprint(ftos(f));
 		if (navigation_bestrating < f)
 		{
-			navigation_alternativegoal = navigation_bestgoal;
 			navigation_bestrating = f;
-			navigation_bestgoal = e;
+			navigation_add_bestgoal(e);
 		}
 	}
 	//dprint("\n");
 };
 
-// replaces the goal stack with the path to a given item
-void navigation_routetogoal(entity e)
+// adds an item to the the goal stack with the path to a given item
+float navigation_routetogoal(entity e, vector startposition)
 {
-	// if already going to this goal, don't stop
-	//if (self.goalentity == e)
-	//	return;
-	// clear the route and add the new one
-	navigation_clearroute();
 	self.goalentity = e;
+
 	// if there is no goal, just exit
 	if (!e)
-		return;
-	// put the entity on the goal stack as the only item
+		return FALSE;
+
+	self.navigation_hasgoals = TRUE;
+
+	// put the entity on the goal stack
 	navigation_pushroute(e);
-	//te_smallflash((e.absmin + e.absmax) * 0.5);
-	//bprint("navigation_routetogoal(");
-	//bprint(etos(e));
-	//bprint(") : ");
-	//bprint(etos(e));
-	//tracebox(self.origin, '-16 -16 0', '16 16 0', e.origin, TRUE, self);
-	//if (trace_fraction == 1)
-	if (tracewalk(self, self.origin, PL_MIN, PL_MAX, e.origin, MOVE_NORMAL))
-		return;
+
+	// if it can reach the goal there is nothing more to do
+	if (tracewalk(self, startposition, PL_MIN, PL_MAX, e.origin, MOVE_NORMAL))
+		return TRUE;
+
 	// see if there are waypoints describing a path to the item
 	e = e.nearestwaypoint;
-	while (e != world)
+	if(e == world)
+		return FALSE;
+
+	for (;;)
 	{
-		//bprint(" ");
-		//bprint(etos(e));
-		//te_smallflash((e.absmin + e.absmax) * 0.5);
-		//tracebox(self.origin, '-16 -16 0', '16 16 0', e.origin, TRUE, self);
-		//if (trace_fraction == 1)
-		//if (tracewalk(self, self.origin, PL_MIN, PL_MAX, e.origin, MOVE_NORMAL))
-		//	break;
 		// add the spawnfunc_waypoint to the path
 		navigation_pushroute(e);
 		e = e.enemy;
+
+		if(e==world)
+			break;
 	}
-	//bprint("\n");
+
+	return FALSE;
 };
+
+void navigation_routetogoals()
+{
+	entity g1, g2;
+
+	navigation_clearroute();
+
+	g1 = navigation_get_bestgoal();
+	for(;;)
+	{
+		if(g2==world)
+			g2 = navigation_get_bestgoal();
+
+		if(g2==world)
+		{
+			navigation_routetogoal(g1, self.origin);
+			return;
+		}
+
+		if(navigation_routetogoal(g1, g2.origin))
+		{
+			g1 = g2;
+			g2 = world;
+			continue;
+		}
+
+		navigation_clearroute();
+		g1 = g2;
+		g2 = world;
+	}
+}
 
 // removes any currently touching waypoints from the goal stack
 // (this is how bots detect if they have reached a goal)
+.float lastteleporttime;
+
 void navigation_poptouchedgoals()
 {
 	local vector org, m1, m2;
-	org = self.origin;// + self.velocity * 0.1;
+	org = self.origin;
 	m1 = org + self.mins;
 	m2 = org + self.maxs;
 
-	// Loose goal touching check for running state
+	if(self.goalcurrent.wpflags & WAYPOINTFLAG_TELEPORT)
+	{
+		if(self.lastteleporttime>0)
+		if(time-self.lastteleporttime<0.2)
+		{
+			navigation_poproute();
+			return;
+		}
+	}
+
+	// Loose goal touching check when running
 	if(self.aistatus & AI_STATUS_RUNNING)
 	if(self.goalcurrent.classname=="waypoint")
 	{
 		if(vlen(self.origin - self.goalcurrent.origin)<150)
 		{
-				traceline(self.origin + self.view_ofs , self.goalcurrent.origin, TRUE, world);
-				if(trace_fraction==1)
-				{
-					navigation_poproute();
-				}
+			traceline(self.origin + self.view_ofs , self.goalcurrent.origin, TRUE, world);
+			if(trace_fraction==1)
+				navigation_poproute();
 		}
 	}
 
@@ -1624,17 +1814,15 @@ void navigation_poptouchedgoals()
 void navigation_goalrating_start()
 {
 	navigation_bestrating = -1;
-	navigation_bestgoal = world;
+	self.navigation_hasgoals = FALSE;
+	navigation_bestgoals_reset();
 	navigation_markroutes();
 };
 
 // ends a goal selection session (updates goal stack to the best goal)
 void navigation_goalrating_end()
 {
-	if (self.havocbot_role == havocbot_role_ctf_offense)
-		dprint(navigation_bestgoal.classname, " (with rating ", ftos(navigation_bestrating), ")\n");
-	self.alternativegoal = navigation_alternativegoal;
-	navigation_routetogoal(navigation_bestgoal);
+	navigation_routetogoals();
 };
 
 
@@ -2634,7 +2822,9 @@ void bot_serverframe()
 	if (currentbots > 0 || cvar("g_waypointeditor"))
 	if (botframe_spawnedwaypoints)
 	{
-		if(!botframe_cachedwaypointlinks)
+		if(botframe_cachedwaypointlinks)
+			waypoint_load_links_hardwired();
+		else
 		{
 			// TODO: Make this check cleaner
 			local entity wp = findchain(classname, "waypoint");

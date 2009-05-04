@@ -665,16 +665,17 @@ void UpdateSelectedPlayer()
 
 .float floodcontrol_chat;
 .float floodcontrol_chatteam;
-void Say(entity source, float teamsay, string msgin, float floodcontrol)
+.float floodcontrol_chattell;
+void Say(entity source, float teamsay, entity privatesay, string msgin, float floodcontrol)
 {
-	string msgstr, colorstr, cmsgstr, namestr, fullmsgstr, sourcemsgstr, fullcmsgstr, sourcecmsgstr;
-	float flood;
+	string msgstr, colorstr, cmsgstr, namestr, fullmsgstr, sourcemsgstr, fullcmsgstr, sourcecmsgstr, privatemsgprefix;
+	float flood, privatemsgprefixlen;
 	entity head;
 
 	if(Ban_MaybeEnforceBan(source))
 		return;
-
-	if(!teamsay)
+	
+	if(!teamsay && !privatesay)
 		if(substring(msgin, 0, 1) == " ")
 			msgin = substring(msgin, 1, strlen(msgin) - 1); // work around DP say bug (say_team does not have this!)
 
@@ -708,7 +709,19 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 		namestr = playername(source);
 	else
 		namestr = source.netname;
-	if(teamsay)
+
+	if(privatesay)
+	{
+		msgstr = strcat("\{1}\{13}* ^3", namestr, "^3 tells you: ^7");
+		privatemsgprefixlen = strlen(msgstr);
+		msgstr = strcat(msgstr, msgin);
+		cmsgstr = strcat(colorstr, "^3", namestr, "^3 tells you:\n^7", msgin);
+		if(cvar("g_chat_teamcolors"))
+			privatemsgprefix = strcat("\{1}\{13}* ^3You tell ", playername(privatesay), ": ^7");
+		else
+			privatemsgprefix = strcat("\{1}\{13}* ^3You tell ", privatesay.netname, ": ^7");
+	}
+	else if(teamsay)
 	{
 		msgstr = strcat("\{1}\{13}", colorstr, "(^3", namestr, colorstr, ") ^7", msgin);
 		cmsgstr = strcat(colorstr, "(^3", namestr, colorstr, ")\n^7", msgin);
@@ -732,7 +745,14 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 		float flood_lmax;
 		var .float flood_field;
 		float lines;
-		if(teamsay)
+		if(privatesay)
+		{
+			flood_spl = cvar("g_chat_flood_spl_tell");
+			flood_burst = cvar("g_chat_flood_burst_tell");
+			flood_lmax = cvar("g_chat_flood_lmax_tell");
+			flood_field = floodcontrol_chattell;
+		}
+		else if(teamsay)
 		{
 			flood_spl = cvar("g_chat_flood_spl_team");
 			flood_burst = cvar("g_chat_flood_burst_team");
@@ -761,12 +781,20 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 		msgstr = substring(msgstr, 1, strlen(msgstr) - 1);
 
 		if(getWrappedLine_remaining != "")
+		{
+			msgstr = strcat(msgstr, "\n");
 			flood = 2;
+		}
 
-		if(time >= self.flood_field)
-			self.flood_field = max(time - flood_burst * flood_spl, self.flood_field) + lines * flood_spl;
+		if(time >= source.flood_field)
+		{
+			source.flood_field = max(time - flood_burst * flood_spl, source.flood_field) + lines * flood_spl;
+		}
 		else
+		{
 			flood = 1;
+			msgstr = fullmsgstr;
+		}
 	}
 
 	if(flood == 2)
@@ -789,6 +817,7 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 		sourcecmsgstr = cmsgstr;
 	}
 
+	if(!privatesay)
 	if(source.classname != "player")
 	{
 		if(teamsay || (cvar("g_chat_nospectators") == 1) || (cvar("g_chat_nospectators") == 2 && !inWarmupStage))
@@ -796,14 +825,25 @@ void Say(entity source, float teamsay, string msgin, float floodcontrol)
 	}
 
 	if(flood)
-		print("NOTE: ", playername(self), "^7 is flooding.\n");
+		print("NOTE: ", playername(source), "^7 is flooding.\n");
+	
+	// build sourcemsgstr by cutting off a prefix and replacing it by the other one
+	if(privatesay)
+		sourcemsgstr = strcat(privatemsgprefix, substring(sourcemsgstr, privatemsgprefixlen, -1));
 
 	if(flood == 1)
 	{
 		if(cvar("g_chat_flood_notify_flooder"))
-			sprint(self, strcat("^3FLOOD CONTROL: ^7wait ^1", ftos(self.flood_field - time), "^3 seconds\n"));
+			sprint(source, strcat("^3FLOOD CONTROL: ^7wait ^1", ftos(source.flood_field - time), "^3 seconds\n"));
 		else
-			sprint(self, fullmsgstr);
+			sprint(source, sourcemsgstr);
+	}
+	else if(privatesay)
+	{
+		sprint(source, sourcemsgstr);
+		sprint(privatesay, msgstr);
+		if(cmsgstr != "")
+			centerprint(privatesay, cmsgstr);
 	}
 	else if(teamsay > 0)
 	{
@@ -879,18 +919,16 @@ float GetPlayerSoundSampleField_fixed;
 void PrecacheGlobalSound(string samplestring)
 {
 	float n, i;
-	string s;
-	tokenize_sane(samplestring);
-	s = argv(0);
+	tokenize_console(samplestring);
 	n = stof(argv(1));
 	if(n > 0)
 	{
 		for(i = 1; i <= n; ++i)
-			precache_sound(strcat(s, ftos(i), ".wav")); // fteqcc sucks
+			precache_sound(strcat(argv(0), ftos(i), ".wav"));
 	}
 	else
 	{
-		precache_sound(strcat(s, ".wav"));
+		precache_sound(strcat(argv(0), ".wav"));
 	}
 }
 
@@ -903,7 +941,7 @@ void PrecachePlayerSounds(string f)
 		return;
 	while((s = fgets(fh)))
 	{
-		if(tokenize_sane(s) != 3)
+		if(tokenize_console(s) != 3)
 		{
 			dprint("Invalid sound info line: ", s, "\n");
 			continue;
@@ -939,7 +977,7 @@ void LoadPlayerSounds(string f, float first)
 		return;
 	while((s = fgets(fh)))
 	{
-		if(tokenize_sane(s) != 3)
+		if(tokenize_console(s) != 3)
 			continue;
 		field = GetPlayerSoundSampleField(argv(0));
 		if(GetPlayerSoundSampleField_notFound)
@@ -971,18 +1009,16 @@ void GlobalSound(string sample, float chan, float voicetype)
 {
 	float n;
 	float tauntrand;
-	string s;
 
 	if(sample == "")
 		return;
 
-	tokenize_sane(sample);
-	s = argv(0);
+	tokenize_console(sample);
 	n = stof(argv(1));
 	if(n > 0)
-		sample = strcat(s, ftos(floor(random() * n + 1)), ".wav"); // randomization, fteqcc sucks
+		sample = strcat(argv(0), ftos(floor(random() * n + 1)), ".wav"); // randomization
 	else
-		sample = strcat(s, ".wav"); // randomization
+		sample = strcat(argv(0), ".wav"); // randomization
 	
 	switch(voicetype)
 	{
@@ -1101,7 +1137,7 @@ void VoiceMessage(string type, string msg)
 		flood = 1;
 
 	if (msg != "")
-		Say(self, ownteam, msg, 0);
+		Say(self, ownteam, world, msg, 0);
 
 	if (!flood)
 		PlayerSound(sample, CHAN_VOICE, voicetype);

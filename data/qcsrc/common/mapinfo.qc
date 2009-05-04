@@ -586,7 +586,7 @@ float MapInfo_Get_ByName(string pFilename, float pAllowGenerate, float pGametype
 		}
 		else
 		{
-			n = tokenize_sane(cvar_string("g_cdtracks_remaplist"));
+			n = tokenize_console(cvar_string("g_cdtracks_remaplist"));
 			s = strcat(" ", cvar_string("g_cdtracks_dontusebydefault"), " ");
 			for(;;)
 			{
