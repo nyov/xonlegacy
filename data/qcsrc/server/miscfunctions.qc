@@ -1432,7 +1432,6 @@ void precache()
 	precache_sound ("announcer/robotic/begin.wav");
 	precache_sound ("announcer/robotic/timeoutcalled.wav");
 	precache_sound ("announcer/robotic/1fragleft.wav");
-	precache_sound ("announcer/robotic/1minuteremains.wav");
 	precache_sound ("announcer/robotic/2fragsleft.wav");
 	precache_sound ("announcer/robotic/3fragsleft.wav");
 	if (g_minstagib)
