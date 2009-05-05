@@ -11,7 +11,13 @@ void Porto_Draw()
 	vector p, dir, ang, q, nextdir;
 	float idx, portal_number, portal1_idx;
 
-	if(activeweapon != WEP_PORTO)
+	if(activeweapon != WEP_PORTO || spectatee_status)
+		return;
+	if(intermission == 1)
+		return;
+	if(intermission == 2)
+		return;
+	if (getstati(STAT_HEALTH) <= 0)
 		return;
 
 	dir = view_forward;
@@ -108,7 +114,7 @@ void Porto_Init()
 float drawtime;
 
 float tan(float x)
-{ 
+{
 	return sin(x) / cos(x);
 }
 float atan2(float y, float x)
@@ -213,10 +219,11 @@ float TrueAimCheck()
 		case WEP_PORTO: // shoots from eye
 		case WEP_HOOK: // no trueaim
 		case WEP_GRENADE_LAUNCHER: // toss curve
-			return 1; 
+			return 1;
 		case WEP_CAMPINGRIFLE:
 			if(zoomscript_caught)
 				return 1; // shoots from eye when zoomed
+			break;
 		case WEP_ROCKET_LAUNCHER: // projectile has a size!
 			mi = '-3 -3 -3';
 			ma = '3 3 3';
@@ -236,15 +243,16 @@ float TrueAimCheck()
 		vecs_y = -vecs_y;
 	else
 		vecs = '0 0 0';
-	
+
 	w_shotorg = view_origin + view_right * vecs_y + view_up * vecs_z;
 
 	// now move the vecs forward as much as requested if possible
 	traceline(w_shotorg, w_shotorg + view_forward * (vecs_x + nudge), MOVE_NORMAL, trueaim); // FIXME this MOVE_NORMAL part will misbehave a little in csqc
 	w_shotorg = trace_endpos - view_forward * nudge;
-
+	
 	// now test whether we will actually hit the trueaimpoint...
 	tracebox(w_shotorg, mi, ma, trueaimpoint, MOVE_NOMONSTERS, trueaim);
+
 	return vlen(trace_endpos - trueaimpoint) <= vlen(ma - mi) + 1;
 		// yes, this is an ugly hack... but it seems good enough to find out whether the test hits the same place as the initial trace
 }
@@ -314,7 +322,7 @@ void CSQC_UpdateView(float w, float h)
 	// might even be better to add the gametype to TE_CSQC_INIT...?
 	if(!postinit)
 		PostInit();
-	
+
 	CheckForGamestartChange();
 	maptimeAnnouncer();
 
@@ -337,7 +345,7 @@ void CSQC_UpdateView(float w, float h)
 			ignore_minus_zoom += 1;
 		}
 	}
-	
+
 	sbar_alpha_fg = cvar("sbar_alpha_fg" );
 	sbar_hudselector = cvar("sbar_hudselector");
 	ColorTranslateMode = cvar("cl_stripcolorcodes");
@@ -388,17 +396,17 @@ void CSQC_UpdateView(float w, float h)
 	{
 		// Enable required Darkplaces cvars
 		chase_active_backup = cvar("chase_active");
-		cvar_set("chase_active", "2");		
+		cvar_set("chase_active", "2");
 		cvar_set("cl_demo_mousegrab", "1");
 		camera_active = TRUE;
 		camera_mode = FALSE;
 	}
-	
+
 	// Draw the Crosshair
 	float scoreboard_active;
 	scoreboard_active = Sbar_WouldDrawScoreboard();
 	R_SetView(VF_DRAWCROSSHAIR, 0); //Make sure engine crosshairs are always hidden
-	
+
 	// Draw the Engine Status Bar (the default Quake HUD)
 	R_SetView(VF_DRAWENGINESBAR, 0);
 
@@ -437,7 +445,7 @@ void CSQC_UpdateView(float w, float h)
 	// as long as the ctf part isn't in, this is useless
 	if(menu_visible)
 		menu_show();
-	
+
 	/*if(gametype == GAME_CTF)
 	{
 		ctf_view();
@@ -449,7 +457,7 @@ void CSQC_UpdateView(float w, float h)
 		if(self.draw2d)
 			self.draw2d();
 	self = e;
-	
+
 	// draw radar
 	if(
 		ons_showmap
@@ -521,7 +529,7 @@ void CSQC_UpdateView(float w, float h)
 			}
 
 			wcross_name = strcat("gfx/crosshair", wcross_style);
-		
+
 			wcross_size = drawgetimagesize(wcross_name);
 			wcross_size_x *= wcross_sizefloat;
 			wcross_size_y *= wcross_sizefloat;
