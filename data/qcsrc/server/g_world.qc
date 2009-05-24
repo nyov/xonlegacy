@@ -79,6 +79,10 @@ void timeoutHandler_Think() {
 		else {
 			//now pause the game:
 			timeoutStatus = 2;
+			//reset all the flood variables
+			FOR_EACH_CLIENT(plr) {
+				plr.nickspamcount = plr.nickspamtime = plr.floodcontrol_chat = plr.floodcontrol_chatteam = plr.floodcontrol_chattell = plr.floodcontrol_voice = plr.floodcontrol_voiceteam = 0;
+			}
 			cvar_set("slowmo", ftos(TIMEOUT_SLOWMO_VALUE));
 			//copy .v_angle to .lastV_angle for every player in order to fix their view during pause (see PlayerPreThink)
 			FOR_EACH_REALPLAYER(plr) {
@@ -500,6 +504,8 @@ void spawnfunc_worldspawn (void)
 	{
 		s = strcat(cvar_string("sv_eventlog_files_counter"), ".");
 		s = strcat(s, ftos(random()));
+		matchid = strzone(s);
+
 		GameLogEcho(strcat(":gamestart:", GetGametype(), "_", GetMapname(), ":", s));
 		s = ":gameinfo:mutators:LIST";
 		if(cvar("g_grappling_hook"))
@@ -527,6 +533,8 @@ void spawnfunc_worldspawn (void)
 		GameLogEcho(s);
 		GameLogEcho(":gameinfo:end");
 	}
+	else
+		matchid = strzone(ftos(random()));
 
 	cvar_set("nextmap", "");
 

@@ -362,6 +362,13 @@ string CheckPlayerModel(string plyermodel) {
 		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".md3")
 		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".psk")
 			return FallbackPlayerModel;
+#ifdef ALLOW_VARIABLE_LOD
+		// forbid the LOD models
+		if(substring(plyermodel, strlen(plyermodel)-6,2) == "_1")
+			return FallbackPlayerModel;
+		if(substring(plyermodel, strlen(plyermodel)-6,2) == "_2")
+			return FallbackPlayerModel;
+#endif
 		if(plyermodel != strtolower(plyermodel))
 			return FallbackPlayerModel;
 		if(!fexists(plyermodel))
@@ -923,7 +930,7 @@ float ClientInit_SendEntity(entity to, float sf)
 		WriteString(MSG_ENTITY, world.fog);
 	else
 		WriteString(MSG_ENTITY, "");
-
+	WriteByte(MSG_ENTITY, cvar("g_balance_armor_blockpercent") * 255.0);
 	return TRUE;
 }
 
@@ -1350,6 +1357,14 @@ void ClientConnect (void)
 		stuffcmd(self, strcat("\nfog ", world.fog, "\nr_fog_exp2 0\nr_drawfog 1\n"));
 
 	SoundEntity_Attach(self);
+
+	if(cvar("g_hitplots"))
+	{
+		self.hitplotfh = fopen(strcat("hits-", matchid, "-", ftos(self.playerid), ".plot"), FILE_WRITE);
+		fputs(self.hitplotfh, strcat("#name ", self.netname, "\n"));
+	}
+	else
+		self.hitplotfh = -1;
 }
 
 /*
@@ -1368,6 +1383,12 @@ void ClientDisconnect (void)
 	{
 		print("Warning: ClientDisconnect without ClientConnect\n");
 		return;
+	}
+
+	if(self.hitplotfh >= 0)
+	{
+		fclose(self.hitplotfh);
+		self.hitplotfh = -1;
 	}
 
 	bot_clientdisconnect();
@@ -1731,9 +1752,6 @@ void player_regen (void)
 	limita = cvar("g_balance_armor_limit");
 	limitf = cvar("g_balance_fuel_limit");
 
-	if (g_minstagib || (g_lms && !cvar("g_lms_regenerate")))
-		return;
-
 	max_mod = regen_mod = rot_mod = limit_mod = 1;
 
 	if (self.runes & RUNE_REGEN)
@@ -1769,38 +1787,51 @@ void player_regen (void)
 	limita = limita * limit_mod;
 	//limitf = limitf * limit_mod;
 
-	if (self.armorvalue > maxa)
+	if (!g_minstagib && (!g_lms || cvar("g_lms_regenerate")))
 	{
-		if (time > self.pauserotarmor_finished)
+		if (self.armorvalue > maxa)
 		{
-			self.armorvalue = max(maxa, self.armorvalue + (maxa - self.armorvalue) * cvar("g_balance_armor_rot") * frametime);
-			self.armorvalue = max(maxa, self.armorvalue - cvar("g_balance_armor_rotlinear") * frametime);
+			if (time > self.pauserotarmor_finished)
+			{
+				self.armorvalue = max(maxa, self.armorvalue + (maxa - self.armorvalue) * cvar("g_balance_armor_rot") * frametime);
+				self.armorvalue = max(maxa, self.armorvalue - cvar("g_balance_armor_rotlinear") * frametime);
+			}
 		}
-	}
-	else if (self.armorvalue < maxa)
-	{
-		if (time > self.pauseregen_finished)
+		else if (self.armorvalue < maxa)
 		{
-			self.armorvalue = CalcRegen(self.armorvalue, maxa, cvar("g_balance_armor_regen"));
-			self.armorvalue = min(maxa, self.armorvalue + cvar("g_balance_armor_regenlinear") * frametime);
+			if (time > self.pauseregen_finished)
+			{
+				self.armorvalue = CalcRegen(self.armorvalue, maxa, cvar("g_balance_armor_regen"));
+				self.armorvalue = min(maxa, self.armorvalue + cvar("g_balance_armor_regenlinear") * frametime);
+			}
 		}
-	}
-	if (self.health > maxh)
-	{
-		if (time > self.pauserothealth_finished)
+		if (self.armorvalue > limita)
+			self.armorvalue = limita;
+
+		if (self.health > maxh)
 		{
-			self.health = max(maxh, self.health + (maxh - self.health) * rot_mod*cvar("g_balance_health_rot") * frametime);
-			self.health = max(maxh, self.health - rot_mod*cvar("g_balance_health_rotlinear") * frametime);
+			if (time > self.pauserothealth_finished)
+			{
+				self.health = max(maxh, self.health + (maxh - self.health) * rot_mod*cvar("g_balance_health_rot") * frametime);
+				self.health = max(maxh, self.health - rot_mod*cvar("g_balance_health_rotlinear") * frametime);
+			}
 		}
-	}
-	else if (self.health < maxh)
-	{
-		if (time > self.pauseregen_finished)
+		else if (self.health < maxh)
 		{
-			self.health = CalcRegen(self.health, maxh, regen_mod * cvar("g_balance_health_regen"));
-			self.health = min(maxh, self.health + regen_mod*cvar("g_balance_health_regenlinear") * frametime);
+			if (time > self.pauseregen_finished)
+			{
+				self.health = CalcRegen(self.health, maxh, regen_mod * cvar("g_balance_health_regen"));
+				self.health = min(maxh, self.health + regen_mod*cvar("g_balance_health_regenlinear") * frametime);
+			}
 		}
+		if (self.health > limith)
+			self.health = limith;
+
+		// if player rotted to death...  die!
+		if(self.health < 1)
+			self.event_damage(self, self, 1, DEATH_ROT, self.origin, '0 0 0');
 	}
+
 	if (self.ammo_fuel > maxf)
 	{
 		if (time > self.pauserotfuel_finished)
@@ -1820,17 +1851,8 @@ void player_regen (void)
 			}
 		}
 	}
-
-	if (self.health > limith)
-		self.health = limith;
-	if (self.armorvalue > limita)
-		self.armorvalue = limita;
 	if (self.ammo_fuel > limitf)
 		self.ammo_fuel = limitf;
-
-	// if player rotted to death...  die!
-	if(self.health < 1)
-		self.event_damage(self, self, 1, DEATH_ROT, self.origin, '0 0 0');
 }
 
 float zoomstate_set;
@@ -2168,6 +2190,7 @@ Called every frame for each client before the physics are run
 */
 void() ctf_setstatus;
 void() nexball_setstatus;
+.float items_added;
 void PlayerPreThink (void)
 {
 	self.stat_sys_ticrate = cvar("sys_ticrate");
@@ -2391,12 +2414,16 @@ void PlayerPreThink (void)
 
 		if(frametime)
 		{
+			self.items &~= self.items_added;
+
 			W_WeaponFrame();
 
-			self.items &~= IT_FUEL; // TODO don't do this if the current weapon actually USES fuel...
+			self.items_added = 0;
 			if(self.items & IT_JETPACK)
 				if(self.items & IT_FUEL_REGEN || self.ammo_fuel >= 0.01)
-					self.items |= IT_FUEL;
+					self.items_added |= IT_FUEL;
+
+			self.items |= self.items_added;
 		}
 
 		player_regen();

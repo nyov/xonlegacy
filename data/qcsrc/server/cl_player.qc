@@ -665,9 +665,7 @@ void UpdateSelectedPlayer()
 		self.last_selected_player = self.selected_player;
 }
 
-.float floodcontrol_chat;
-.float floodcontrol_chatteam;
-.float floodcontrol_chattell;
+.float muted; // to be used by prvm_edictset server playernumber muted 1
 void Say(entity source, float teamsay, entity privatesay, string msgin, float floodcontrol)
 {
 	string msgstr, colorstr, cmsgstr, namestr, fullmsgstr, sourcemsgstr, fullcmsgstr, sourcecmsgstr, privatemsgprefix;
@@ -798,6 +796,9 @@ void Say(entity source, float teamsay, entity privatesay, string msgin, float fl
 			msgstr = fullmsgstr;
 		}
 	}
+	
+	if (timeoutStatus == 2) //when game is paused, no flood protection
+		source.flood_field = flood = 0;
 
 	if(flood == 2)
 	{
@@ -833,12 +834,23 @@ void Say(entity source, float teamsay, entity privatesay, string msgin, float fl
 	if(privatesay)
 		sourcemsgstr = strcat(privatemsgprefix, substring(sourcemsgstr, privatemsgprefixlen, -1));
 
-	if(flood == 1)
+	if(source.muted)
+	{
+		// always fake the message
+		sprint(source, sourcemsgstr);
+		if(cmsgstr != "" && !privatesay)
+			centerprint(source, sourcecmsgstr);
+	}
+	else if(flood == 1)
 	{
 		if(cvar("g_chat_flood_notify_flooder"))
 			sprint(source, strcat("^3FLOOD CONTROL: ^7wait ^1", ftos(source.flood_field - time), "^3 seconds\n"));
 		else
+		{
 			sprint(source, sourcemsgstr);
+			if(cmsgstr != "" && !privatesay)
+				centerprint(source, sourcecmsgstr);
+		}
 	}
 	else if(privatesay)
 	{
@@ -1100,8 +1112,6 @@ void PlayerSound(.string samplefield, float chan, float voicetype)
 	GlobalSound(sample, chan, voicetype);
 }
 
-.float floodcontrol_voice;
-.float floodcontrol_voiceteam;
 void VoiceMessage(string type, string msg)
 {
 	var .string sample;
@@ -1137,6 +1147,9 @@ void VoiceMessage(string type, string msg)
 		self.flood_field = max(time, self.flood_field) + flood_spv;
 	else
 		flood = 1;
+		
+	if (timeoutStatus == 2) //when game is paused, no flood protection
+		self.flood_field = flood = 0;
 
 	if (msg != "")
 		Say(self, ownteam, world, msg, 0);
