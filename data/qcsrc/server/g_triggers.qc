@@ -1101,6 +1101,8 @@ void trigger_impulse_touch1()
 	if (other.classname != "plasma_prim")
 	if (other.classname != "plasma_chain")
 	if (other.classname != "droppedweapon")
+	if (other.classname != "ball_basketball")
+	if (other.classname != "ball_football")
 		return;
 
 	if (other.deadflag && other.iscreature)
@@ -1150,6 +1152,8 @@ void trigger_impulse_touch2()
 	if (other.classname != "plasma_prim")
 	if (other.classname != "plasma_chain")
 	if (other.classname != "droppedweapon")
+	if (other.classname != "ball_basketball")
+	if (other.classname != "ball_football")
 		return;
 
 	if (other.deadflag && other.iscreature)
@@ -1187,6 +1191,8 @@ void trigger_impulse_touch3()
 	if (other.classname != "plasma_prim")
 	if (other.classname != "plasma_chain")
 	if (other.classname != "droppedweapon")
+	if (other.classname != "ball_basketball")
+	if (other.classname != "ball_football")
 		return;
 
 	if (other.deadflag && other.iscreature)
