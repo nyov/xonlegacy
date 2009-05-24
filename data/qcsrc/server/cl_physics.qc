@@ -11,6 +11,12 @@ float sv_airstopaccelerate;
 float sv_airstrafeaccelerate;
 float sv_maxairstrafespeed;
 float sv_aircontrol;
+float sv_warsowbunny_airforwardaccel;
+float sv_warsowbunny_accel;
+float sv_warsowbunny_topspeed;
+float sv_warsowbunny_turnaccel;
+float sv_warsowbunny_backtosideratio;
+
 .float ladder_time;
 .entity ladder_entity;
 .float gravity;
@@ -24,6 +30,7 @@ float sv_aircontrol;
 #define SHTEST_THRESHOLD 1.1
 .float shtest_next;
 .float shtest_accumulator;
+.float doublejump_nextjumptime;
 
 /*
 =============
@@ -49,7 +56,6 @@ void PlayerJump (void)
 		return;
 	}
 
-
 	if (!(self.flags & FL_ONGROUND))
 		return;
 
@@ -59,6 +65,10 @@ void PlayerJump (void)
 			
 	if(self.health <= g_bloodloss)
 		return;
+	
+	if(sv_doublejump)
+		if(time < self.doublejump_nextjumptime)
+			return;
 
 	if(g_runematch)
 	{
@@ -93,6 +103,17 @@ void PlayerJump (void)
 
 	if(g_jump_grunt)
 		PlayerSound(playersound_jump, CHAN_PLAYER, VOICETYPE_PLAYERSOUND);
+	
+	if(sv_doublejump)
+	{
+		// we're moving upwards at self.velocity_z
+		// only allow jumping after we got 3 units upwards
+		// so we for sure leave the FL_ONGROUND check
+		//
+		// but as this sucks because of factoring in gravity, we'll just do it
+		// for 4 units, and constant velocity
+		self.doublejump_nextjumptime = time + 4 / max(40, self.velocity_z); // max 0.1s blocking of jumps
+	}
 }
 
 void CheckWaterJump()
@@ -356,7 +377,7 @@ void CPM_PM_Aircontrol(vector wishdir, float wishspeed)
 
 	if(self.movement_x == 0 || self.movement_y != 0)
 		return; // can't control movement if not moving forward or backward
-	
+
 	zspeed = self.velocity_z;
 	self.velocity_z = 0;
 	xyspeed = vlen(self.velocity);
@@ -371,6 +392,68 @@ void CPM_PM_Aircontrol(vector wishdir, float wishspeed)
 
 	self.velocity = self.velocity * xyspeed;
 	self.velocity_z = zspeed;
+}
+
+void PM_Accelerate(vector wishdir, float wishspeed, float accel, float accelqw, float sidefric)
+{
+	float vel_straight;
+	float vel_z;
+	vector vel_perpend;
+	float addspeed;
+
+	vel_straight = self.velocity * wishdir;
+	vel_z = self.velocity_z;
+	vel_perpend = self.velocity - vel_straight * wishdir - vel_z * '0 0 1';
+
+	addspeed = wishspeed - vel_straight;
+	if(addspeed > 0)
+		vel_straight = vel_straight + min(addspeed, accel * frametime * wishspeed) * accelqw;
+	if(wishspeed > 0)
+		vel_straight = vel_straight + min(wishspeed, accel * frametime * wishspeed) * (1 - accelqw);
+
+	vel_perpend = vel_perpend * (1 - frametime * wishspeed * sidefric);
+
+	self.velocity = vel_straight * wishdir + vel_z * '0 0 1' + vel_perpend;
+}
+
+void PM_AirAccelerate(vector wishdir, float wishspeed)
+{
+	vector curvel, wishvel, acceldir, curdir;
+	float addspeed, accelspeed, curspeed, f;
+	float dot;
+	
+	if(wishspeed == 0)
+		return;
+	
+	curvel = self.velocity;
+	curvel_z = 0;
+	curspeed = vlen(curvel);
+
+	if(wishspeed > curspeed * 1.01)
+	{
+		wishspeed = min(wishspeed, curspeed + sv_warsowbunny_airforwardaccel * sv_maxspeed * frametime);
+	}
+	else
+	{
+		f = max(0, (sv_warsowbunny_topspeed - curspeed) / (sv_warsowbunny_topspeed - sv_maxspeed));
+		wishspeed = max(curspeed, sv_maxspeed) + sv_warsowbunny_accel * f * sv_maxspeed * frametime;
+	}
+	wishvel = wishdir * wishspeed;
+	acceldir = wishvel - curvel;
+	addspeed = vlen(acceldir);
+	acceldir = normalize(acceldir);
+
+	accelspeed = min(addspeed, sv_warsowbunny_turnaccel * sv_maxspeed * frametime);
+
+	if(sv_warsowbunny_backtosideratio < 1)
+	{
+		curdir = normalize(curvel);
+		dot = acceldir * curdir;
+		if(dot < 0)
+			acceldir = acceldir - (1 - sv_warsowbunny_backtosideratio) * dot * curdir;
+	}
+
+	self.velocity += accelspeed * acceldir;
 }
 
 .vector movement_old;
@@ -512,8 +595,7 @@ void SV_PlayerPhysics()
 		maxspd_mod = self.spectatorspeed;
 	}
 
-	spd = sv_maxspeed * maxspd_mod * swampspd_mod;
-
+	spd = max(sv_maxspeed, sv_maxairspeed) * maxspd_mod * swampspd_mod;
 	if(self.speed != spd)
 	{
 		self.speed = spd;
@@ -522,10 +604,10 @@ void SV_PlayerPhysics()
 		stuffcmd(self, strcat("cl_backspeed ", temps, "\n"));
 		stuffcmd(self, strcat("cl_sidespeed ", temps, "\n"));
 		stuffcmd(self, strcat("cl_upspeed ", temps, "\n"));
-
-		temps = ftos(sv_accelerate * maxspd_mod);
-		stuffcmd(self, strcat("cl_movement_accelerate ", temps, "\n"));
 	}
+
+	maxspd_mod *= swampspd_mod; // only one common speed modder please!
+	swampspd_mod = 1;
 
 	// if dead, behave differently
 	if (self.deadflag)
@@ -611,11 +693,7 @@ void SV_PlayerPhysics()
 		if (wishspeed > sv_maxspeed*maxspd_mod)
 			wishspeed = sv_maxspeed*maxspd_mod;
 		if (time >= self.teleport_time)
-		{
-			f = wishspeed - (self.velocity * wishdir);
-			if (f > 0)
-				self.velocity = self.velocity + wishdir * min(f, sv_accelerate*maxspd_mod * frametime * wishspeed);
-		}
+			PM_Accelerate(wishdir, wishspeed, sv_accelerate*maxspd_mod, 1, 0);
 	}
 	else if (self.waterlevel >= WATERLEVEL_SWIMMING)
 	{
@@ -638,9 +716,7 @@ void SV_PlayerPhysics()
 		self.velocity = self.velocity * (1 - frametime * sv_friction);
 
 		// water acceleration
-		f = wishspeed - (self.velocity * wishdir);
-		if (f > 0)
-			self.velocity = self.velocity + wishdir * min(f, sv_accelerate*maxspd_mod * frametime * wishspeed);
+		PM_Accelerate(wishdir, wishspeed, sv_accelerate*maxspd_mod, 1, 0);
 	}
 	else if (time < self.ladder_time)
 	{
@@ -678,13 +754,12 @@ void SV_PlayerPhysics()
 		// acceleration
 		wishdir = normalize(wishvel);
 		wishspeed = vlen(wishvel);
-		if (wishspeed > sv_maxspeed)
-			wishspeed = sv_maxspeed;
+		if (wishspeed > sv_maxspeed*maxspd_mod)
+			wishspeed = sv_maxspeed*maxspd_mod;
 		if (time >= self.teleport_time)
 		{
-			f = wishspeed - (self.velocity * wishdir);
-			if (f > 0)
-				self.velocity = self.velocity + wishdir * min(f, sv_accelerate*maxspd_mod * frametime * wishspeed);
+			// water acceleration
+			PM_Accelerate(wishdir, wishspeed, sv_accelerate*maxspd_mod, 1, 0);
 		}
 	}
 	else if ((self.items & IT_JETPACK) && self.BUTTON_HOOK && (!cvar("g_jetpack_fuel") || self.ammo_fuel >= 0.01 || self.items & IT_UNLIMITED_WEAPON_AMMO))
@@ -830,11 +905,7 @@ void SV_PlayerPhysics()
 		if (self.crouch)
 			wishspeed = wishspeed * 0.5;
 		if (time >= self.teleport_time)
-		{
-			f = wishspeed - (self.velocity * wishdir);
-			if (f > 0)
-				self.velocity = self.velocity + wishdir * min(f, sv_accelerate*maxspd_mod * frametime * wishspeed);
-		}
+			PM_Accelerate(wishdir, wishspeed, sv_accelerate*maxspd_mod, 1, 0);
 	}
 	else
 	{
@@ -864,9 +935,13 @@ void SV_PlayerPhysics()
 			wishspeed = wishspeed * 0.5;
 		if (time >= self.teleport_time)
 		{
-			// CPM: air control
+			float accelerating;
 			float wishspeed2;
+
+			accelerating = (self.velocity * wishdir > 0);
 			wishspeed2 = wishspeed;
+
+			// CPM
 			if(sv_airstopaccelerate)
 				if(self.velocity * wishdir < 0)
 					airaccel = sv_airstopaccelerate;
@@ -878,37 +953,14 @@ void SV_PlayerPhysics()
 					airaccel = sv_airstrafeaccelerate;
 			}
 			// !CPM
-			
-			// NOTE: this does the same as the commented out old code if:
-			//   sv_airaccel_qw 0
-			//   sv_airaccel_sideways_friction 0
 
-			float vel_straight;
-			float vel_z;
-			vector vel_perpend;
-			vel_straight = self.velocity * wishdir;
-			vel_z = self.velocity_z;
-			vel_perpend = self.velocity - vel_straight * wishdir - vel_z * '0 0 1';
+			if(sv_warsowbunny_turnaccel && accelerating && self.movement_y == 0 && self.movement_x != 0)
+				PM_AirAccelerate(wishdir, wishspeed);
+			else
+				PM_Accelerate(wishdir, wishspeed, airaccel, sv_airaccel_qw, sv_airaccel_sideways_friction / maxairspd);
 
-			f = wishspeed - vel_straight;
-			if(f > 0)
-				vel_straight = vel_straight + min(f, airaccel * frametime * wishspeed) * sv_airaccel_qw;
-			if(wishspeed > 0)
-				vel_straight = vel_straight + min(wishspeed, airaccel * frametime * wishspeed) * (1 - sv_airaccel_qw);
-
-			// anti-sideways friction to fix QW-style bunnyhopping
-			vel_perpend = vel_perpend * (1 - frametime * (wishspeed / maxairspd) * sv_airaccel_sideways_friction);
-
-			self.velocity = vel_straight * wishdir + vel_z * '0 0 1' + vel_perpend;
-			
 			if(sv_aircontrol)
 				CPM_PM_Aircontrol(wishdir, wishspeed2);
-
-			/*
-			f = wishspeed;// - (self.velocity * wishdir);
-			if (f > 0)
-				self.velocity = self.velocity + wishdir * min(f, airaccel * frametime * wishspeed);
-			*/
 		}
 	}
 
