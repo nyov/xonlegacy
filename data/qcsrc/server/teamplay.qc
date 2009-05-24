@@ -381,13 +381,15 @@ void PrintWelcomeMessage(entity pl)
 	string s, modifications, motd;
 
 	if(self.cvar_scr_centertime == 0) return;
-	if((time - self.jointime) > cvar("welcome_message_time")
-	   && !self.BUTTON_INFO)
-		return;
+
+	if(!cvar("g_campaign"))
+		if((time - self.jointime) > cvar("welcome_message_time")
+		   && !self.BUTTON_INFO)
+			return;
 
 	if( !(timeoutStatus >= 1) ) { //really print the WelcomeMessage to the player every frame when timeout-seconds are shown or the game is restarted, to make sure that the shown number is accurate
 		if(self.welcomemessage_time > time) return;
-		self.welcomemessage_time = time + self.cvar_scr_centertime * 0.6;
+		self.welcomemessage_time = time + max(0.5, self.cvar_scr_centertime * 0.6);
 	}
 
 	if(cvar("g_campaign"))
@@ -587,9 +589,7 @@ void CheckAllowedTeams (entity for_whom)
 		else if(g_race)
 			dm = race_teams;
 		else
-			dm = cvar("g_tdm_teams");
-		if(dm < 2)
-			error("g_tdm_teams < 2, not enough teams to play team deathmatch\n");
+			dm = 2;
 
 		if(dm >= 4)
 		{
@@ -1289,7 +1289,10 @@ void tdm_spawnteams()
 {
 	float numteams;
 
-	numteams = cvar("g_tdm_teams");
+	numteams = cvar("g_tdm_teams_override");
+	if(numteams < 2)
+		numteams = cvar("g_tdm_teams");
+	numteams = bound(2, numteams, 4);
 
 	tdm_spawnteam("Red", COLOR_TEAM1-1);
 	tdm_spawnteam("Blue", COLOR_TEAM2-1);
