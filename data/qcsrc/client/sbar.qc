@@ -362,8 +362,8 @@ string Sbar_DefaultColumnLayout()
 		"+lms/lives +lms/rank ",
 		"+kh/caps +kh/pushes +kh/destroyed ",
 		"?+race/laps ?+race/time ?+race/fastest ",
-		"+as/objectives ",
-		"-lms,race/score");
+		"+as/objectives +nexball/faults +nexball/goals",
+		"-lms,race,nexball/score");
 }
 
 void Cmd_Sbar_SetFields(float argc)
@@ -2202,7 +2202,7 @@ void CSQC_ctf_hud(void)
 #define NBPB_BALPH 1                //alpha
 #define NBPB_BFLAG DRAWFLAG_NORMAL
 #define NBPB_IALPH 0.4
-#define NBPB_IFLAG DRAWFLAG_ADDITIVE
+#define NBPB_IFLAG DRAWFLAG_NORMAL
 #define NBPB_IRGB '0.7 0.1 0'
 
 void CSQC_nb_hud(void)
@@ -2213,17 +2213,17 @@ void CSQC_nb_hud(void)
 	stat_items = getstati(STAT_ITEMS);
 	nb_pb_starttime = getstatf(STAT_NB_METERSTART);
 	
-	if(cvar("sbar_flagstatus_right"))
-		pos_x = vid_conwidth - 10 - sbar_x - 64;
+	if(cvar("sbar_ballstatus_right"))
+		pos_x = vid_conwidth - 66 - sbar_x - 64; // the 66 comes from trial and error, no idea about the 64 (see CTF)
 	else
 		pos_x = 10 - sbar_x;
 	
 	pos_z = 0;
 
 	if(sbar_hudselector == 1)
-		pos_y = (vid_conheight - sbar_y) - cvar("sbar_flagstatus_pos") - 64;
+		pos_y = (vid_conheight - sbar_y) - cvar("sbar_ballstatus_pos") - 64;
 	else
-		pos_y = -117;
+		pos_y = -124; // 17 more than flag icons
 
 	pos += sbar;
 	pos_y -= 1; //vertical margin to the picture

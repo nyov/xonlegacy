@@ -330,9 +330,8 @@ void InitGameplayMode()
 		game = GAME_NEXBALL;
 		gamemode_name = "Nexball";
 		fraglimit_override = cvar("g_nexball_goallimit");
-		nb_init();
 		ActivateTeamplay();
-		ScoreRules_nexball();
+		nb_init();
 	}
 
 	if(teams_matter)
@@ -573,9 +572,11 @@ void CheckAllowedTeams (entity for_whom)
 		teament_name = "ctf_team";
 	else if(g_tdm)
 		teament_name = "tdm_team";
-	else if(g_assault || g_nexball)
+	else if(g_nexball)
+		teament_name = "nexball_team";
+	else if(g_assault)
 	{
-		c1 = c2 = 0; // Assault and nexball always have 2 teams
+		c1 = c2 = 0; // Assault always has 2 teams
 		return;
 	}
 	else
