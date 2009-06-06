@@ -1907,7 +1907,7 @@ float sv_maxspeed;
 vector shotorg;
 vector shotdir;
 
-.float bot_team;
+.float bot_team, bot_checked;
 void bot_setnameandstuff()
 {
 	local string readfile, s;
@@ -1955,6 +1955,7 @@ void bot_setnameandstuff()
 	else bot_pants = ftos(floor(random() * 15));
 
 	self.bot_team = stof(argv(5));
+	self.bot_checked = 1;
 	prefix = cvar_string("bot_prefix");
 	suffix = cvar_string("bot_suffix");
 
@@ -2469,15 +2470,18 @@ void bot_clientconnect()
 	self.isbot = TRUE;
 	self.createdtime = self.nextthink;
 
-	switch(self.bot_team)
-	{
-		case 1: self.team = COLOR_TEAM1;
-		case 2:	self.team = COLOR_TEAM2;
-		case 3:	self.team = COLOR_TEAM3;
-		case 4:	self.team = COLOR_TEAM4;
-		default:
-			JoinBestTeam(self, FALSE, TRUE);
-	}
+	if(!self.bot_checked) // This is needed so team overrider doesn't break between matches
+		bot_setnameandstuff();
+	if(self.bot_team==1)
+		self.team = COLOR_TEAM1;
+	else if(self.bot_team==2)
+		self.team = COLOR_TEAM2;
+	else if(self.bot_team==3)
+		self.team = COLOR_TEAM3;
+	else if(self.bot_team==4)
+		self.team = COLOR_TEAM4;
+	else
+		JoinBestTeam(self, FALSE, TRUE);
 
 	havocbot_setupbot();
 	self.bot_mouseskill=random()-0.5;

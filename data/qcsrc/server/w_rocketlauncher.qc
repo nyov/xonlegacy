@@ -91,10 +91,32 @@ void W_Rocket_RemoteExplode()
 	}
 }
 
+vector rocket_steerto(vector thisdir, vector goaldir, float maxturn_cos)
+{
+	if(thisdir * goaldir > maxturn_cos)
+		return goaldir;
+	float f, m2;
+	vector v;
+	// solve:
+	//   g = normalize(thisdir + goaldir * X)
+	//   thisdir * g = maxturn
+	//
+	//   gg = thisdir + goaldir * X
+	//   (thisdir * gg)^2 = maxturn^2 * (gg * gg)
+	//
+	//   (1 + (thisdir * goaldir) * X)^2 = maxturn^2 * (1 + X*X + 2 * X * thisdir * goaldir)
+	f = thisdir * goaldir;
+	//   (1 + f * X)^2 = maxturn^2 * (1 + X*X + 2 * X * f)
+	//   0 = (m^2 - f^2) * x^2 + (2 * f * (m^2 - 1)) * x + (m^2 - 1)
+	m2 = maxturn_cos * maxturn_cos;
+	v = solve_quadratic(m2 - f * f, 2 * f * (m2 - 1), m2 - 1);
+	return normalize(thisdir + goaldir * v_y); // the larger solution!
+}
+
 void W_Rocket_Think (void)
 {
 	entity e;
-	vector desireddir, olddir, newdir;
+	vector desireddir, olddir, newdir, desiredorigin, goal;
 	float turnrate, velspeed;
 	self.nextthink = time;
 	if (time > self.cnt)
@@ -156,7 +178,7 @@ void W_Rocket_Think (void)
 				turnrate = cvar("g_balance_rocketlauncher_laserguided_turnrate");//0.65;						// how fast to turn
 				desireddir = normalize(e.origin - self.origin);		// get direction from my position to the laser target
 				olddir = normalize(self.velocity);					// get my current direction
-				newdir = normalize((olddir + desireddir * turnrate) * 0.5);	// take the average of the 2 directions; not the best method but simple & easy
+				newdir = normalize(olddir + desireddir * turnrate);	// take the average of the 2 directions; not the best method but simple & easy
 				self.velocity = newdir * velspeed;					// make me fly in the new direction at my flight speed
 				self.angles = vectoangles(self.velocity);			// turn model in the new flight direction
 
@@ -165,6 +187,28 @@ void W_Rocket_Think (void)
 		}
 		else
 		{
+			if(!self.rl_release && !self.owner.rl_release && cvar("g_balance_rocketlauncher_guiderate"))
+			{
+				if(time > self.pushltime)
+				{
+					velspeed = vlen(self.velocity);
+
+					makevectors(self.owner.v_angle);
+					desireddir = v_forward;
+					desiredorigin = self.owner.origin + self.owner.view_ofs;
+					olddir = normalize(self.velocity);
+
+					// now it gets tricky... we want to move like some curve to approximate the target direction
+					// but we are limiting the rate at which we can turn!
+					goal = desiredorigin + ((self.origin - desiredorigin) * desireddir + cvar("g_balance_rocketlauncher_guidegoal")) * desireddir;
+					newdir = rocket_steerto(olddir, normalize(goal - self.origin), cos(cvar("g_balance_rocketlauncher_guiderate") * frametime * PI / 180));
+
+					self.velocity = newdir * velspeed;
+				}
+			}
+			else
+				self.rl_release = 1;
+
 			if(self.rl_detonate_later)
 				W_Rocket_RemoteExplode();
 		}
@@ -198,7 +242,7 @@ void W_Rocket_Attack (void)
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_rocketlauncher_ammo");
 
-	W_SetupShot (self, FALSE, 5, "weapons/rocket_fire.wav");
+	W_SetupShot_ProjectileSize (self, '-3 -3 -3', '3 3 3', FALSE, 5, "weapons/rocket_fire.wav");
 	pointparticles(particleeffectnum("rocketlauncher_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
 	missile = spawn ();
@@ -208,6 +252,7 @@ void W_Rocket_Attack (void)
 		missile.spawnshieldtime = time + cvar("g_balance_rocketlauncher_detonatedelay");
 	else
 		missile.spawnshieldtime = -1;
+	missile.pushltime = time + cvar("g_balance_rocketlauncher_guidedelay");
 	missile.classname = "rocket";
 	missile.bot_dodge = TRUE;
 	missile.bot_dodgerating = cvar("g_balance_rocketlauncher_primary_damage") * 2; // * 2 because it can be detonated inflight which makes it even more dangerous
@@ -236,7 +281,7 @@ void W_Rocket_Attack (void)
 	missile.cnt = time + cvar("g_balance_rocketlauncher_lifetime");
 	missile.flags = FL_PROJECTILE;
 
-	CSQCProjectile(missile, cvar("g_balance_rocketlauncher_speedaccel") == 0 && !g_laserguided_missile, PROJECTILE_ROCKET, FALSE); // because of fly sound
+	CSQCProjectile(missile, cvar("g_balance_rocketlauncher_guiderate") == 0 && cvar("g_balance_rocketlauncher_speedaccel") == 0 && !g_laserguided_missile, PROJECTILE_ROCKET, FALSE); // because of fly sound
 
 	// muzzle flash for 1st person view
 	flash = spawn ();
@@ -389,12 +434,15 @@ float w_rlauncher(float req)
 		}
 		else
 		{
-			if (self.BUTTON_ATCK)
+			if (self.BUTTON_ATCK && self.rl_release)
 			if (weapon_prepareattack(0, cvar("g_balance_rocketlauncher_refire")))
 			{
 				W_Rocket_Attack();
 				weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_rocketlauncher_animtime"), w_ready);
+				self.rl_release = 0;
 			}
+			if (!self.BUTTON_ATCK)
+				self.rl_release = 1;
 			if (self.BUTTON_ATCK2)
 			{
 				rockfound = 0;
