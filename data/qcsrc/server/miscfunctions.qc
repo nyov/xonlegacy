@@ -691,6 +691,8 @@ float g_pickup_healthmega;
 float g_pickup_healthmega_max;
 float g_weaponarena;
 string g_weaponarena_list;
+float g_weaponspeedfactor;
+float g_weapondamagefactor;
 
 float start_weapons;
 float start_items;
@@ -1044,6 +1046,9 @@ void readlevelcvars(void)
 	if(g_nixnex) g_weaponarena = 0;
 	g_weaponarena = 0;
 
+	g_weaponspeedfactor = cvar("g_weaponspeedfactor");
+	g_weapondamagefactor = cvar("g_weapondamagefactor");
+
 	g_pickup_shells                    = cvar("g_pickup_shells");
 	g_pickup_shells_max                = cvar("g_pickup_shells_max");
 	g_pickup_nails                     = cvar("g_pickup_nails");
@@ -1390,6 +1395,8 @@ void precache()
 	precache_sound ("announcer/male/30kills.wav");
 	precache_sound ("announcer/male/botlike.wav");
 	precache_sound ("announcer/male/yoda.wav");
+	precache_sound ("announcer/male/amazing.wav");
+	precache_sound ("announcer/male/awesome.wav");
 	precache_sound ("announcer/male/headshot.wav");
 	precache_sound ("announcer/male/impressive.wav");
 

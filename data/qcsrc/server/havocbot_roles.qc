@@ -4,11 +4,6 @@
 .void() havocbot_role;
 float bot_ignore_bots;
 
-float canreach(entity e)
-{
-	return vlen(self.origin - e.origin) < 1500;
-}
-
 .float max_armorvalue;
 float havocbot_pickupevalfunc(entity item)
 {
@@ -22,43 +17,7 @@ float havocbot_pickupevalfunc(entity item)
 	need_cells = self.weapons & ( WEPBIT_HOOK | WEPBIT_HLAC | WEPBIT_MINSTANEX | WEPBIT_NEX | WEPBIT_ELECTRO | WEPBIT_CRYLINK );
 	need_rockets = self.weapons & ( WEPBIT_ROCKET_LAUNCHER | WEPBIT_GRENADE_LAUNCHER | WEPBIT_HAGAR | WEPBIT_SEEKER );
 
-	if( item.weapons )
-	{
-		if( self.weapons & item.weapons == item.weapons )
-			rating = 0.5 + bound(0, skill / 20, 0.5);
-		else
-			rating = 1;
-
-		if( bot_custom_weapon )
-		{
-			for(i = WEP_FIRST; i < WEP_LAST ; ++i){
-				if( power2of(i-1) & item.weapons  != item.weapons )
-					continue;
-
-				position = -1;
-				for(j = 0; j < WEP_LAST ; ++j){
-					if(
-						bot_weapons_far[j] == i ||
-						bot_weapons_mid[j] == i ||
-						bot_weapons_close[j] == i
-					)
-					{
-						position = j;
-						break;
-					}
-				}
-
-				if (position >= 0 )
-				{
-					position = WEP_LAST - position;
-					// item.bot_pickupbasevalue is overwritten here
-					base = BOT_PICKUP_RATING_LOW + ( (BOT_PICKUP_RATING_HIGH - BOT_PICKUP_RATING_LOW) * (position / WEP_LAST ));
-					break;
-				}
-			}
-		}
-	}
-
+	// Rate ammo items
 	if (item.ammo_shells)
 	if (self.ammo_shells < g_pickup_shells_max && need_cells )
 		rating = rating + max(0, 1 - self.ammo_shells / g_pickup_shells_max);
@@ -75,6 +34,7 @@ float havocbot_pickupevalfunc(entity item)
 	if (self.ammo_cells < g_pickup_cells_max && need_cells)
 		rating = rating + max(0, 1 - self.ammo_cells / g_pickup_cells_max);
 
+	// Rate health items (aim to grab half the max capacity)
 	if (item.armorvalue)
 	if (self.armorvalue < item.max_armorvalue * 0.5)
 		rating = rating + max(0, 1 - self.armorvalue / (item.max_armorvalue * 0.5));
@@ -85,8 +45,60 @@ float havocbot_pickupevalfunc(entity item)
 		rating = rating + max(0, 1 - self.health / (item.max_health * 0.5));
 	}
 
-	// TODO: if the item is not recognized then default to item.bot_pickupevalfunc(self, item);
+	// Rate weapons
+	if( item.weapons )
+	{
+		// See if I have it already
+		if( self.weapons & item.weapons == item.weapons )
+		{
+			// If I can pick it up
+			if(rating)
+			if not(cvar("g_weapon_stay"))
+			{
+				// Skilled bots will grab more
+				local float divisor = 2;
+				rating += bound(0, skill / (10*divisor), 1/divisor);
+			}
+		}
+		else
+			rating += 1;
 
+		// If custom weapon priorities for bots is enabled rate most wanted weapons higher
+		if( bot_custom_weapon && rating )
+		{
+			for(i = WEP_FIRST; i < WEP_LAST ; ++i)
+			{
+				// Find weapon
+				if( power2of(i-1) & item.weapons  != item.weapons )
+					continue;
+
+				// Find the highest position on any range
+				position = -1;
+				for(j = 0; j < WEP_LAST ; ++j){
+					if(
+						bot_weapons_far[j] == i ||
+						bot_weapons_mid[j] == i ||
+						bot_weapons_close[j] == i
+					)
+					{
+						position = j;
+						break;
+					}
+				}
+
+				// Rate it
+				if (position >= 0 )
+				{
+					position = WEP_LAST - position;
+					// item.bot_pickupbasevalue is overwritten here
+					base = BOT_PICKUP_RATING_LOW + ( (BOT_PICKUP_RATING_HIGH - BOT_PICKUP_RATING_LOW) * (position / WEP_LAST ));
+					break;
+				}
+			}
+		}
+	}
+
+	// TODO: if the item is not recognized then default to item.bot_pickupevalfunc(self, item);
 	return base * rating;
 };
 
@@ -307,6 +319,27 @@ void havocbot_goalrating_enemyplayers(float ratingscale, vector org, float sradi
 	}
 };
 
+// Functions for CTF
+
+float canreach(entity e)
+{
+	return vlen(self.origin - e.origin) < 1500;
+}
+
+float teamcount()
+{
+	if not(teams_matter)
+		return 0;
+
+	float c;
+	entity head;
+
+	FOR_EACH_PLAYER(head)
+	if(head.team==self.team)
+		++c;
+
+	return c;
+}
 
 void() havocbot_role_ctf_middle;
 void() havocbot_role_ctf_defense;
@@ -351,6 +384,37 @@ void havocbot_goalrating_ctf_ourflag(float ratingscale)
 	}
 	if (head)
 		navigation_routerating(head, ratingscale, 10000);
+};
+
+void havocbot_goalrating_ctf_ourbase(float ratingscale)
+{
+	if not(bot_waypoints_for_items)
+	{
+		havocbot_goalrating_ctf_ourflag(ratingscale);
+		return;
+	}
+
+	local entity head;
+	head = ctf_worldflaglist;
+	while (head)
+	{
+		if (self.team == head.team)
+			break;
+		head = head.ctf_worldflagnext;
+	}
+	if not(head)
+		return;
+
+	head = findradius(head.dropped_origin, 100);
+	while(head)
+	{
+		if(head.classname=="waypoint")
+		{
+			navigation_routerating(head, ratingscale, 10000);
+			return;
+		}
+		head=head.chain;
+	}
 };
 
 void havocbot_goalrating_ctf_enemyflag(float ratingscale)
@@ -433,7 +497,7 @@ void havocbot_role_ctf_carrier()
 	{
 		self.bot_strategytime = time + cvar("bot_ai_strategyinterval");
 		navigation_goalrating_start();
-		havocbot_goalrating_ctf_ourflag(50000);
+		havocbot_goalrating_ctf_ourbase(50000);
 		if(self.health<100)
 			havocbot_goalrating_ctf_carrieritems(1000, self.origin, 1000);
 		navigation_goalrating_end();

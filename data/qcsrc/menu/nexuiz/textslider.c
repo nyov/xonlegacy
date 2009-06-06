@@ -36,8 +36,11 @@ void configureNexuizTextSliderNexuizTextSlider(entity me, string theCvar)
 {
 	me.configureSliderVisuals(me, me.fontSize, me.align, me.valueSpace, me.image);
 	if(theCvar)
+	{
 		me.cvarName = theCvar;
+		me.tooltip = getZonedTooltipForIdentifier(theCvar);
 		// don't load it yet
+	}
 }
 void setValueNexuizTextSlider(entity me, float val)
 {
