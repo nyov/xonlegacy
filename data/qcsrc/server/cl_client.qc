@@ -261,7 +261,7 @@ entity Spawn_WeightedPoint(entity firstspot, float lower, float upper, float exp
 
 	RandomSelection_Init();
 	for(spot = firstspot; spot; spot = spot.chain)
-		RandomSelection_Add(spot, 0, pow(bound(lower, spot.SPAWNPOINT_SCORE, upper), exponent) * spot.cnt, spot.SPAWNPOINT_SCORE >= lower);
+		RandomSelection_Add(spot, 0, string_null, pow(bound(lower, spot.SPAWNPOINT_SCORE, upper), exponent) * spot.cnt, spot.SPAWNPOINT_SCORE >= lower);
 
 	return RandomSelection_chosen_ent;
 }
@@ -610,7 +610,7 @@ float RestrictSkin(float s)
 void FixPlayermodel()
 {
 	local string defaultmodel;
-	local float defaultskin;
+	local float defaultskin, chmdl, oldskin;
 	local vector m1, m2;
 
 	defaultmodel = "";
@@ -649,6 +649,7 @@ void FixPlayermodel()
 		}
 
 		self.skin = defaultskin;
+		self.species = player_getspecies();
 	} else {
 		if (self.playermodel != self.model)
 		{
@@ -657,9 +658,14 @@ void FixPlayermodel()
 			m2 = self.maxs;
 			setmodel_lod (self, self.playermodel);
 			setsize (self, m1, m2);
+			chmdl = TRUE;
 		}
 
+		oldskin = self.skin;
 		self.skin = RestrictSkin(stof(self.playerskin));
+
+		if(chmdl || oldskin != self.skin)
+			self.species = player_getspecies(); // model or skin has changed
 	}
 
 	if(!teams_matter)
