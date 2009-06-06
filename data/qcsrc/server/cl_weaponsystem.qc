@@ -134,7 +134,7 @@ void W_SetupShot_ProjectileSize(entity ent, vector mi, vector ma, float antilag,
 	vector vecs, dv;
 	oldsolid = ent.dphitcontentsmask;
 	ent.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_CORPSE;
-	traceline(ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, ent);
+	traceline(ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, ent); // no antilag needed
 	trueaimpoint = trace_endpos;
 
 	W_HitPlotAnalysis(ent, v_forward, v_right, v_up);
@@ -154,7 +154,15 @@ void W_SetupShot_ProjectileSize(entity ent, vector mi, vector ma, float antilag,
 	w_shotorg = ent.origin + ent.view_ofs + dv;
 
 	// now move the shotorg forward as much as requested if possible
-	tracebox(w_shotorg, mi, ma, w_shotorg + v_forward * (vecs_x + nudge), MOVE_NORMAL, ent);
+	if(antilag)
+	{
+		if(ent.antilag_debug)
+			tracebox_antilag(ent, w_shotorg, mi, ma, w_shotorg + v_forward * (vecs_x + nudge), MOVE_NORMAL, ent, ent.antilag_debug);
+		else
+			tracebox_antilag(ent, w_shotorg, mi, ma, w_shotorg + v_forward * (vecs_x + nudge), MOVE_NORMAL, ent, ANTILAG_LATENCY(ent));
+	}
+	else
+		tracebox(w_shotorg, mi, ma, w_shotorg + v_forward * (vecs_x + nudge), MOVE_NORMAL, ent);
 	w_shotorg = trace_endpos - v_forward * nudge;
 	// calculate the shotdir from the chosen shotorg
 	w_shotdir = normalize(trueaimpoint - w_shotorg);
@@ -891,7 +899,10 @@ float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 			if (!f)
 			{
 				if (complain)
+				{
+					play2(cl, "weapons/unavailable.wav");
 					sprint(cl, strcat("You don't have any ammo for the ^2", W_Name(wpn), "\n"));
+				}
 				return FALSE;
 			}
 		}
@@ -932,6 +943,8 @@ float client_hasweapon(entity cl, float wpn, float andammo, float complain)
 		}
 		else
 			sprint(cl, strcat("The ^2", W_Name(wpn), "^7 is ^1NOT AVAILABLE^7 in this map\n") );
+
+		play2(cl, "weapons/unavailable.wav");
 	}
 	return FALSE;
 };
