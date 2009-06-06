@@ -1,8 +1,19 @@
 .float rl_release;
 .float rl_detonate_later;
 
+void W_Rocket_Unregister()
+{
+	if(self.owner && self.owner.lastrocket == self)
+	{
+		self.owner.lastrocket = world;
+		// self.owner.rl_release = 1;
+	}
+}
+
 void W_Rocket_Explode (void)
 {
+	W_Rocket_Unregister();
+
 	self.event_damage = SUB_Null;
 	RadiusDamage (self, self.owner, cvar("g_balance_rocketlauncher_damage"), cvar("g_balance_rocketlauncher_edgedamage"), cvar("g_balance_rocketlauncher_radius"), world, cvar("g_balance_rocketlauncher_force"), self.projectiledeathtype, other);
 
@@ -75,6 +86,7 @@ entity FindLaserTarget(entity e, float dist_variance, float dot_variance)
 void W_Rocket_RemoteExplode()
 {
 	if(self.owner.deadflag == DEAD_NO)
+	if(self.owner.lastrocket)
 	{
 		if((self.spawnshieldtime >= 0)
 			? (time >= self.spawnshieldtime) // timer
@@ -187,27 +199,26 @@ void W_Rocket_Think (void)
 		}
 		else
 		{
-			if(!self.rl_release && !self.owner.rl_release && cvar("g_balance_rocketlauncher_guiderate"))
+			if(self == self.owner.lastrocket)
+			if(!self.owner.rl_release)
+			if(cvar("g_balance_rocketlauncher_guiderate"))
+			if(time > self.pushltime)
+			if(self.owner.deadflag == DEAD_NO)
 			{
-				if(time > self.pushltime)
-				{
-					velspeed = vlen(self.velocity);
+				velspeed = vlen(self.velocity);
 
-					makevectors(self.owner.v_angle);
-					desireddir = v_forward;
-					desiredorigin = self.owner.origin + self.owner.view_ofs;
-					olddir = normalize(self.velocity);
+				makevectors(self.owner.v_angle);
+				desireddir = v_forward;
+				desiredorigin = self.owner.origin + self.owner.view_ofs;
+				olddir = normalize(self.velocity);
 
-					// now it gets tricky... we want to move like some curve to approximate the target direction
-					// but we are limiting the rate at which we can turn!
-					goal = desiredorigin + ((self.origin - desiredorigin) * desireddir + cvar("g_balance_rocketlauncher_guidegoal")) * desireddir;
-					newdir = rocket_steerto(olddir, normalize(goal - self.origin), cos(cvar("g_balance_rocketlauncher_guiderate") * frametime * PI / 180));
+				// now it gets tricky... we want to move like some curve to approximate the target direction
+				// but we are limiting the rate at which we can turn!
+				goal = desiredorigin + ((self.origin - desiredorigin) * desireddir + cvar("g_balance_rocketlauncher_guidegoal")) * desireddir;
+				newdir = rocket_steerto(olddir, normalize(goal - self.origin), cos(cvar("g_balance_rocketlauncher_guiderate") * frametime * PI / 180));
 
-					self.velocity = newdir * velspeed;
-				}
+				self.velocity = newdir * velspeed;
 			}
-			else
-				self.rl_release = 1;
 
 			if(self.rl_detonate_later)
 				W_Rocket_RemoteExplode();
@@ -220,8 +231,8 @@ void W_Rocket_Think (void)
 
 void W_Rocket_Touch (void)
 {
-	if(self.owner && self.owner.lastrocket == self)
-		self.owner.lastrocket = world;
+	W_Rocket_Unregister();
+
 	PROJECTILE_TOUCH;
 	W_Rocket_Explode ();
 }
@@ -434,15 +445,19 @@ float w_rlauncher(float req)
 		}
 		else
 		{
-			if (self.BUTTON_ATCK && self.rl_release)
-			if (weapon_prepareattack(0, cvar("g_balance_rocketlauncher_refire")))
+			if (self.BUTTON_ATCK)
 			{
-				W_Rocket_Attack();
-				weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_rocketlauncher_animtime"), w_ready);
-				self.rl_release = 0;
+				if(self.rl_release)
+				if(weapon_prepareattack(0, cvar("g_balance_rocketlauncher_refire")))
+				{
+					W_Rocket_Attack();
+					weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_rocketlauncher_animtime"), w_ready);
+					self.rl_release = 0;
+				}
 			}
-			if (!self.BUTTON_ATCK)
+			else
 				self.rl_release = 1;
+
 			if (self.BUTTON_ATCK2)
 			{
 				rockfound = 0;

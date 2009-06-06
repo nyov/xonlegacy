@@ -24,6 +24,49 @@ COMPAT_FILES="
 	models/sprites/item-strength_frame1.tga
 	sound/weapons/weaponpickup.ogg
 	particles/particlefont.tga
+	models/gibs/arm.md3
+	models/gibs/arm.md3_0.skin
+	models/gibs/arm.md3_1.skin
+	models/gibs/arm.md3_2.skin
+	models/gibs/bloodyskull.md3
+	models/gibs/bloodyskull.md3_0.skin
+	models/gibs/bloodyskull.md3_1.skin
+	models/gibs/bloodyskull.md3_2.skin
+	models/gibs/chest.md3
+	models/gibs/chest.md3_0.skin
+	models/gibs/chest.md3_1.skin
+	models/gibs/chest.md3_2.skin
+	models/gibs/chunk.mdl
+	models/gibs/eye.md3
+	models/gibs/leg1.md3
+	models/gibs/leg1.md3_0.skin
+	models/gibs/leg1.md3_1.skin
+	models/gibs/leg1.md3_2.skin
+	models/gibs/leg2.md3
+	models/gibs/leg2.md3_0.skin
+	models/gibs/leg2.md3_1.skin
+	models/gibs/leg2.md3_2.skin
+	models/gibs/smallchest.md3
+	models/gibs/smallchest.md3_0.skin
+	models/gibs/smallchest.md3_1.skin
+	models/gibs/smallchest.md3_2.skin
+	textures/meat_alien_gloss.tga
+	textures/meat_alien_glow.tga
+	textures/meat_alien_norm.tga
+	textures/meat_alien.tga
+	textures/meat_gloss.tga
+	textures/meat_norm.tga
+	textures/meat_robot_gloss.tga
+	textures/meat_robot_glow.tga
+	textures/meat_robot_norm.tga
+	textures/meat_robot.tga
+	textures/meat.tga
+	textures/bloodyskull_alien_glow.tga
+	textures/bloodyskull_alien.tga
+	textures/bloodyskull.jpg
+	textures/bloodyskull_robot_gloss.tga
+	textures/bloodyskull_robot_glow.tga
+	textures/bloodyskull_robot.tga
 "
 
 rm -rf pack
@@ -39,9 +82,9 @@ done
 
 cd pack
 
-if false; then
-	find . -type f -print0 | qual=85 scaledown=256x256 xargs -0 ../../misc/tools/jpeg-if-not-alpha.sh
+find textures/ -type f -print0 | qual=85 scaledown=256x256 xargs -0 ../../misc/tools/jpeg-if-not-alpha.sh
 
+if false; then
 	find . -name \*.ogg | while IFS= read -r NAME; do
 		c=`vorbiscomment -l "$NAME"`
 		oggdec -o "$NAME.wav" "$NAME"
