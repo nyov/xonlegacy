@@ -202,9 +202,11 @@ void fillNexuizMutatorsDialog(entity me)
 		me.TD(me, 1, 4, makeNexuizTextLabel(0, "Weapon arenas:"));
 	me.TR(me);
 		me.TD(me, 1, 4, e = makeNexuizRadioButton(1, string_null, string_null, "Regular (no arena)"));
-	for(i = WEP_FIRST, j = 0; i <= WEP_LAST; ++i, ++j)
+	for(i = WEP_FIRST, j = 0; i <= WEP_LAST; ++i)
 	{
 		w = get_weaponinfo(i);
+		if(w.spawnflags & WEPSPAWNFLAG_HIDDEN)
+			continue;
 		if(j & 1 == 0)
 			me.TR(me);
 		str = w.netname;
@@ -215,6 +217,7 @@ void fillNexuizMutatorsDialog(entity me)
 			e.loadCvars = loadCvarsLaserWeaponArenaWeaponButton;
 			e.saveCvars = saveCvarsLaserWeaponArenaWeaponButton;
 			e.loadCvars(e);
+		++j;
 	}
 	me.TR(me);
 		me.TDempty(me, 0.2);

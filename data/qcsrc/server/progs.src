@@ -54,6 +54,7 @@ bots_scripting.qc
 // LordHavoc's bots
 havocbot.qc
 havocbot_ctf.qc
+havocbot_ons.qc
 havocbot_roles.qc
 
 g_subs.qc
@@ -105,6 +106,7 @@ w_hook.qc
 w_hlac.qc
 w_seeker.qc
 w_campingrifle.qc
+w_tuba.qc
 
 t_items.qc
 cl_weapons.qc
