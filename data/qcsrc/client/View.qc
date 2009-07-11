@@ -8,6 +8,7 @@
 entity porto;
 vector polyline[16];
 float trace_dphitcontents;
+float trace_networkentity;
 float Q3SURFACEFLAG_SLICK = 2; // low friction surface
 float DPCONTENTS_SOLID = 1; // blocks player movement
 float DPCONTENTS_BODY = 32; // blocks player movement
@@ -206,6 +207,12 @@ vector GetCurrentFov(float fov)
 // this function must match W_SetupShot!
 float zoomscript_caught;
 entity trueaim;
+
+#define SHOTTYPE_HITTEAM 1
+#define SHOTTYPE_HITOBSTRUCTION 2
+#define SHOTTYPE_HITWORLD 3
+#define SHOTTYPE_HITENEMY 4
+
 void TrueAim_Init()
 {
 	trueaim = spawn();
@@ -213,11 +220,29 @@ void TrueAim_Init()
 	trueaim.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_CORPSE;
 }
 
+float EnemyHitCheck(vector start, vector mi, vector ma, vector end)
+{
+	float t;
+	tracebox(start, mi, ma, end, MOVE_NORMAL, trueaim);
+	if(trace_networkentity < 1)
+		return SHOTTYPE_HITWORLD;
+	if(trace_networkentity > maxclients)
+		return SHOTTYPE_HITWORLD;
+	t = GetPlayerColor(trace_networkentity - 1);
+	if(teamplay)
+	if(t == myteam)
+		return SHOTTYPE_HITTEAM;
+	if(t == COLOR_SPECTATOR)
+		return SHOTTYPE_HITWORLD;
+	return SHOTTYPE_HITENEMY;
+}
+
 float TrueAimCheck()
 {
 	float nudge = 1; // added to traceline target and subtracted from result
 	vector vecs, trueaimpoint, w_shotorg;
 	vector mi, ma, dv;
+	float shottype;
 
 	mi = ma = '0 0 0';
 
@@ -227,10 +252,10 @@ float TrueAimCheck()
 		case WEP_PORTO: // shoots from eye
 		case WEP_HOOK: // no trueaim
 		case WEP_GRENADE_LAUNCHER: // toss curve
-			return 1;
+			return SHOTTYPE_HITWORLD;
 		case WEP_CAMPINGRIFLE:
 			if(zoomscript_caught)
-				return 1; // shoots from eye when zoomed
+				return EnemyHitCheck(view_origin, '0 0 0', '0 0 0', view_origin + view_forward * MAX_SHOT_DISTANCE);
 			break;
 		case WEP_ROCKET_LAUNCHER: // projectile has a size!
 			mi = '-3 -3 -3';
@@ -263,11 +288,18 @@ float TrueAimCheck()
 	tracebox(w_shotorg, mi, ma, w_shotorg + view_forward * (vecs_x + nudge), MOVE_NORMAL, trueaim); // FIXME this MOVE_NORMAL part will misbehave a little in csqc
 	w_shotorg = trace_endpos - view_forward * nudge;
 
+	shottype = EnemyHitCheck(w_shotorg, mi, ma, trueaimpoint);
+	if(shottype != SHOTTYPE_HITWORLD)
+		return shottype;
+
 	// now test whether we will actually hit the trueaimpoint...
 	tracebox(w_shotorg, mi, ma, trueaimpoint, MOVE_NOMONSTERS, trueaim);
 
-	return vlen(trace_endpos - trueaimpoint) <= vlen(ma - mi) + 1;
+	if(vlen(trace_endpos - trueaimpoint) > vlen(ma - mi) + 1)
 		// yes, this is an ugly hack... but it seems good enough to find out whether the test hits the same place as the initial trace
+		return SHOTTYPE_HITOBSTRUCTION;
+	
+	return SHOTTYPE_HITWORLD;
 }
 
 void CSQC_common_hud(void);
@@ -289,6 +321,11 @@ void CSQC_UpdateView(float w, float h)
 
 	dprint_load();
 	WaypointSprite_Load();
+
+	if(spectatee_status)
+		myteam = GetPlayerColor(spectatee_status - 1);
+	else
+		myteam = GetPlayerColor(player_localentnum - 1);
 
 	ticrate = getstatf(STAT_MOVEVARS_TICRATE) * getstatf(STAT_MOVEVARS_TIMESCALE);
 
@@ -525,12 +562,13 @@ void CSQC_UpdateView(float w, float h)
         // crosshair goes VERY LAST
         if(!scoreboard_active && !ons_showmap && !camera_active) {
             // TrueAim check
-            float goodshot;
+            float shottype;
+			float bullets, ring_scale;
 
             if(cvar("crosshair_hittest"))
-                goodshot = TrueAimCheck();
+                shottype = TrueAimCheck();
             else
-                goodshot = TRUE;
+                shottype = SHOTTYPE_HITWORLD;
 
             string wcross_style;
             wcross_style = cvar_string("crosshair");
@@ -568,12 +606,28 @@ void CSQC_UpdateView(float w, float h)
 
                 wcross_name = strcat("gfx/crosshair", wcross_style);
 
+				if(shottype == SHOTTYPE_HITENEMY)
+					wcross_sizefloat *= cvar("crosshair_hittest"); // is not queried if hittest is 0
+				if(shottype == SHOTTYPE_HITTEAM)
+					wcross_sizefloat /= cvar("crosshair_hittest"); // is not queried if hittest is 0
+
                 wcross_size = drawgetimagesize(wcross_name);
                 wcross_size_x *= wcross_sizefloat;
                 wcross_size_y *= wcross_sizefloat;
-
-                if(goodshot)
+				
+				// ring around crosshair representing bullets left in camping rifle clip
+				if (activeweapon == WEP_CAMPINGRIFLE)
+				{
+					ring_scale = cvar("crosshair_campingrifle_ring_size");
+					bullets = bound(0, getstati(STAT_BULLETS_LOADED), 8);
+				}
+				else
+					bullets = 0;
+				
+                if(shottype == SHOTTYPE_HITENEMY || shottype == SHOTTYPE_HITWORLD)
                 {
+					if (bullets)
+						drawpic('0.5 0 0' * (vid_conwidth - wcross_size_x * ring_scale) + '0 0.5 0' * (vid_conheight - wcross_size_y * ring_scale), strcat("gfx/hud/rifle_ring_", ftos(bullets)), wcross_size * ring_scale, wcross_color, wcross_alpha, DRAWFLAG_NORMAL);
                     drawpic('0.5 0 0' * (vid_conwidth - wcross_size_x) + '0 0.5 0' * (vid_conheight - wcross_size_y), wcross_name, wcross_size, wcross_color, wcross_alpha, DRAWFLAG_NORMAL);
                 }
                 else
@@ -581,7 +635,11 @@ void CSQC_UpdateView(float w, float h)
                     wcross_alpha *= 0.04 * 0.75;
                     for(i = -2; i <= 2; ++i)
                         for(j = -2; j <= 2; ++j)
+						{
+							if (bullets)
+								drawpic('0.5 0 0' * (vid_conwidth - wcross_size_x * ring_scale + i) + '0 0.5 0' * (vid_conheight - wcross_size_y * ring_scale + j), strcat("gfx/hud/rifle_ring_", ftos(bullets)), wcross_size * ring_scale, wcross_color, wcross_alpha, DRAWFLAG_NORMAL);
                             drawpic('0.5 0 0' * (vid_conwidth - wcross_size_x + i) + '0 0.5 0' * (vid_conheight - wcross_size_y + j), wcross_name, wcross_size, wcross_color, wcross_alpha, DRAWFLAG_NORMAL);
+						}
                 }
             }
         }

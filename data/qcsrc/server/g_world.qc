@@ -150,7 +150,7 @@ void GotoFirstMap()
 		cvar_set("g_maplist_index", ftos(n - 1)); // jump to map 0 in GotoNextMap
 
 		MapInfo_Enumerate();
-		MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN) | MAPINFO_FLAG_FORBIDDEN, 0);
+		MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags(), 0);
 
 		if(!DoNextMapOverride())
 			GotoNextMap();
@@ -364,9 +364,8 @@ void spawnfunc___init_dedicated_server(void)
 
 	self.classname = "worldspawn"; // safeguard against various stuff ;)
 
-	g_maplist_allow_hidden = cvar("g_maplist_allow_hidden");
 	MapInfo_Enumerate();
-	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN) | MAPINFO_FLAG_FORBIDDEN, 0);
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags(), 0);
 }
 
 void Map_MarkAsRecent(string m);
@@ -547,11 +546,8 @@ void spawnfunc_worldspawn (void)
 
 	Ban_LoadBans();
 
-	//initialise globals related to sv_timeout
-	orig_slowmo = cvar("slowmo");
-
 	MapInfo_Enumerate();
-	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN) | MAPINFO_FLAG_FORBIDDEN, 1);
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags(), 1);
 
 	if(whichpack(strcat("maps/", mapname, ".cfg")) != "")
 	{
@@ -602,6 +598,7 @@ void spawnfunc_worldspawn (void)
  	addstat(STAT_DAMAGE_FIRED, AS_INT, maxdamage_fired);
 	addstat(STAT_SHOTORG, AS_INT, stat_shotorg);
 	addstat(STAT_LEADLIMIT, AS_FLOAT, stat_leadlimit);
+	addstat(STAT_BULLETS_LOADED, AS_INT, campingrifle_bulletcounter);
 
 	next_pingtime = time + 5;
 	InitializeEntity(self, cvar_changes_init, INITPRIO_CVARS);
@@ -918,7 +915,7 @@ void Maplist_Init()
 	if(Map_Count == 0)
 	{
 		bprint( "Maplist is empty!  Resetting it to default map list.\n" );
-		cvar_set("g_maplist", MapInfo_ListAllowedMaps(0, MAPINFO_FLAG_HIDDEN | MAPINFO_FLAG_FORBIDDEN));
+		cvar_set("g_maplist", MapInfo_ListAllowedMaps(MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags()));
 		if(cvar("g_maplist_shuffle"))
 			ShuffleMaplist();
 		localcmd("\nmenu_cmd sync\n");
@@ -1038,7 +1035,7 @@ void GotoNextMap()
 			if(allowReset)
 			{
 				bprint( "Maplist contains no single playable map!  Resetting it to default map list.\n" );
-				cvar_set("g_maplist", MapInfo_ListAllowedMaps(0, MAPINFO_FLAG_HIDDEN | MAPINFO_FLAG_FORBIDDEN));
+				cvar_set("g_maplist", MapInfo_ListAllowedMaps(MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags()));
 				if(cvar("g_maplist_shuffle"))
 					ShuffleMaplist();
 				localcmd("\nmenu_cmd sync\n");
@@ -2079,7 +2076,7 @@ void MapVote_Init()
 	if(mapvote_count == 0)
 	{
 		bprint( "Maplist contains no single playable map!  Resetting it to default map list.\n" );
-		cvar_set("g_maplist", MapInfo_ListAllowedMaps(0, MAPINFO_FLAG_HIDDEN | MAPINFO_FLAG_FORBIDDEN));
+		cvar_set("g_maplist", MapInfo_ListAllowedMaps(MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags()));
 		if(cvar("g_maplist_shuffle"))
 			ShuffleMaplist();
 		localcmd("\nmenu_cmd sync\n");
@@ -2407,7 +2404,7 @@ void MapVote_Start()
 		return;
 
 	MapInfo_Enumerate();
-	if(MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN) | MAPINFO_FLAG_FORBIDDEN, 1))
+	if(MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags(), 1))
 		mapvote_run = TRUE;
 }
 void MapVote_Think()
@@ -2546,7 +2543,7 @@ void RestoreGame()
 	// Mapinfo
 	MapInfo_Shutdown();
 	MapInfo_Enumerate();
-	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), 0, (g_maplist_allow_hidden ? 0 : MAPINFO_FLAG_HIDDEN) | MAPINFO_FLAG_FORBIDDEN, 1);
+	MapInfo_FilterGametype(MapInfo_CurrentGametype(), MapInfo_CurrentFeatures(), MapInfo_RequiredFlags(), MapInfo_ForbiddenFlags(), 1);
 }
 
 void SV_Shutdown()

@@ -14,6 +14,7 @@ void onslaught_link_checkupdate();
 .float lasthealth;
 .float lastteam;
 .float lastshielded;
+.float lastcaptured;
 
 .string model1, model2, model3;
 
@@ -169,45 +170,48 @@ void onslaught_updatelinks()
 	l = links;
 	while (l)
 	{
-		if (l.goalentity.team != l.enemy.team)
+		if (l.goalentity.islinked)
 		{
-			if (l.goalentity.islinked)
+			if (l.goalentity.team != l.enemy.team)
 			{
 				dprint(etos(l), " (link) is unshielding ", etos(l.enemy), " (point) because its team does not match ", etos(l.goalentity), " (point)\n");
 				l.enemy.isshielded = FALSE;
-				if(l.goalentity.classname == "onslaught_generator")
-				{
-					if(l.goalentity.team == COLOR_TEAM1)
-						l.enemy.isgenneighbor_red = TRUE;
-					else if(l.goalentity.team == COLOR_TEAM2)
-						l.enemy.isgenneighbor_blue = TRUE;
-				}
-				else
-				{
-					if(l.goalentity.team == COLOR_TEAM1)
-						l.enemy.iscpneighbor_red = TRUE;
-					else if(l.goalentity.team == COLOR_TEAM2)
-						l.enemy.iscpneighbor_blue = TRUE;
-				}
 			}
-			if (l.enemy.islinked)
+			if(l.goalentity.classname == "onslaught_generator")
+			{
+				if(l.goalentity.team == COLOR_TEAM1)
+					l.enemy.isgenneighbor_red = TRUE;
+				else if(l.goalentity.team == COLOR_TEAM2)
+					l.enemy.isgenneighbor_blue = TRUE;
+			}
+			else
+			{
+				if(l.goalentity.team == COLOR_TEAM1)
+					l.enemy.iscpneighbor_red = TRUE;
+				else if(l.goalentity.team == COLOR_TEAM2)
+					l.enemy.iscpneighbor_blue = TRUE;
+			}
+		}
+		if (l.enemy.islinked)
+		{
+			if (l.goalentity.team != l.enemy.team)
 			{
 				dprint(etos(l), " (link) is unshielding ", etos(l.goalentity), " (point) because its team does not match ", etos(l.enemy), " (point)\n");
 				l.goalentity.isshielded = FALSE;
-				if(l.enemy.classname == "onslaught_generator")
-				{
-					if(l.enemy.team == COLOR_TEAM1)
-						l.goalentity.isgenneighbor_red = TRUE;
-					else if(l.enemy.team == COLOR_TEAM2)
-						l.goalentity.isgenneighbor_blue = TRUE;
-				}
-				else
-				{
-					if(l.enemy.team == COLOR_TEAM1)
-						l.goalentity.iscpneighbor_red = TRUE;
-					else if(l.enemy.team == COLOR_TEAM2)
-						l.goalentity.iscpneighbor_blue = TRUE;
-				}
+			}
+			if(l.enemy.classname == "onslaught_generator")
+			{
+				if(l.enemy.team == COLOR_TEAM1)
+					l.goalentity.isgenneighbor_red = TRUE;
+				else if(l.enemy.team == COLOR_TEAM2)
+					l.goalentity.isgenneighbor_blue = TRUE;
+			}
+			else
+			{
+				if(l.enemy.team == COLOR_TEAM1)
+					l.goalentity.iscpneighbor_red = TRUE;
+				else if(l.enemy.team == COLOR_TEAM2)
+					l.goalentity.iscpneighbor_blue = TRUE;
 			}
 		}
 		l = l.chain;
@@ -640,16 +644,19 @@ void onslaught_generator_damage(entity inflictor, entity attacker, float damage,
 		}
 	}
 	self.health = self.health - damage;
+	WaypointSprite_UpdateHealth(self.sprite, self.health);
 	// choose an animation frame based on health
 	self.frame = 10 * bound(0, (1 - self.health / self.max_health), 1);
 	// see if the generator is still functional, or dying
 	if (self.health > 0)
 	{
+#ifdef ONSLAUGHT_SPAM
 		float h, lh;
 		lh = ceil(self.lasthealth / 100) * 100;
 		h = ceil(self.health / 100) * 100;
 		if(lh != h)
 			bprint(ColoredTeamName(self.team), " generator has less than ", ftos(h), " health remaining\n");
+#endif
 		self.lasthealth = self.health;
 	}
 	else
@@ -671,6 +678,9 @@ void onslaught_generator_damage(entity inflictor, entity attacker, float damage,
 		self.think = onslaught_generator_deaththink; // explosion sequence
 		self.nextthink = time; // start exploding immediately
 		self.think(); // do the first explosion now
+
+		WaypointSprite_UpdateMaxHealth(self.sprite, 0);
+
 		onslaught_updatelinks();
 	}
 	if(self.health <= 0)
@@ -766,19 +776,15 @@ void onslaught_generator_updatesprite(entity e)
 		e.lastshielded = e.isshielded;
 		if(e.lastshielded)
 		{
-			if(e.team == COLOR_TEAM1)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0.5 0 0');
-			else if(e.team == COLOR_TEAM2)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0 0 0.5');
+			if(e.team == COLOR_TEAM1 || e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, 0.5 * colormapPaletteColor(e.team - 1, FALSE));
 			else
 				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0.5 0.5 0.5');
 		}
 		else
 		{
-			if(e.team == COLOR_TEAM1)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '1 0 0');
-			else if(e.team == COLOR_TEAM2)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0 0 1');
+			if(e.team == COLOR_TEAM1 || e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, colormapPaletteColor(e.team - 1, FALSE));
 			else
 				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_GENERATOR, '0.75 0.75 0.75');
 		}
@@ -841,29 +847,39 @@ void onslaught_controlpoint_updatesprite(entity e)
 	float sh;
 	sh = !(onslaught_controlpoint_can_be_linked(e, COLOR_TEAM1) || onslaught_controlpoint_can_be_linked(e, COLOR_TEAM2));
 
-	if(e.lastteam != e.team + 2 || e.lastshielded != sh)
+	if(e.lastteam != e.team + 2 || e.lastshielded != sh || e.iscaptured != e.lastcaptured)
 	{
-		e.lastteam = e.team + 2;
-		e.lastshielded = sh;
+		if(e.iscaptured) // don't mess up build bars!
+		{
+			if(sh)
+			{
+				WaypointSprite_UpdateMaxHealth(e.sprite, 0);
+			}
+			else
+			{
+				WaypointSprite_UpdateMaxHealth(e.sprite, e.goalentity.max_health);
+				WaypointSprite_UpdateHealth(e.sprite, e.goalentity.health);
+			}
+		}
 		if(e.lastshielded)
 		{
-			if(e.team == COLOR_TEAM1)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0.5 0 0');
-			else if(e.team == COLOR_TEAM2)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0 0 0.5');
+			if(e.team == COLOR_TEAM1 || e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, 0.5 * colormapPaletteColor(e.team - 1, FALSE));
 			else
 				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0.5 0.5 0.5');
 		}
 		else
 		{
-			if(e.team == COLOR_TEAM1)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '1 0 0');
-			else if(e.team == COLOR_TEAM2)
-				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0 0 1');
+			if(e.team == COLOR_TEAM1 || e.team == COLOR_TEAM2)
+				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, colormapPaletteColor(e.team - 1, FALSE));
 			else
 				WaypointSprite_UpdateTeamRadar(e.sprite, RADARICON_CONTROLPOINT, '0.75 0.75 0.75');
 		}
 		WaypointSprite_Ping(e.sprite);
+
+		e.lastteam = e.team + 2;
+		e.lastshielded = sh;
+		e.lastcaptured = e.iscaptured;
 	}
 }
 
@@ -880,6 +896,9 @@ void onslaught_generator_reset()
 	self.think = onslaught_generator_delayed;
 	self.nextthink = time + 0.2;
 	setmodel(self, "models/onslaught/generator.md3");
+
+	WaypointSprite_UpdateMaxHealth(self.sprite, self.max_health);
+	WaypointSprite_UpdateHealth(self.sprite, self.health);
 }
 
 /*QUAKED spawnfunc_onslaught_generator (0 .5 .8) (-32 -32 -24) (32 32 64)
@@ -961,6 +980,8 @@ void spawnfunc_onslaught_generator()
 
 	WaypointSprite_SpawnFixed(string_null, e.origin + '0 0 1' * e.maxs_z, self, sprite);
 	WaypointSprite_UpdateRule(self.sprite, COLOR_TEAM2, SPRITERULE_TEAMPLAY);
+	WaypointSprite_UpdateMaxHealth(self.sprite, self.max_health);
+	WaypointSprite_UpdateHealth(self.sprite, self.health);
 
 	waypoint_spawnforitem(self);
 
@@ -995,6 +1016,10 @@ void onslaught_controlpoint_icon_damage(entity inflictor, entity attacker, float
 			self.pain_finished = time + 10;
 		}
 	self.health = self.health - damage;
+	if(self.owner.iscaptured)
+		WaypointSprite_UpdateHealth(self.owner.sprite, self.health);
+	else
+		WaypointSprite_UpdateBuildFinished(self.owner.sprite, time + (self.max_health - self.health) / (self.count / sys_ticrate));
 	self.pain_finished = time + 1;
 	self.punchangle = (2 * randomvec() - '1 1 1') * 45;
 	self.cp_bob_dmg_z = (2 * random() - 1) * 15;
@@ -1029,6 +1054,9 @@ void onslaught_controlpoint_icon_damage(entity inflictor, entity attacker, float
 		self.owner.iscaptured = FALSE;
 		self.owner.team = 0;
 		self.owner.colormap = 1024;
+
+		WaypointSprite_UpdateMaxHealth(self.owner.sprite, 0);
+
 		onslaught_updatelinks();
 
 		// Use targets now (somebody make sure this is in the right place..)
@@ -1051,12 +1079,16 @@ void onslaught_controlpoint_icon_damage(entity inflictor, entity attacker, float
 void onslaught_controlpoint_icon_think()
 {
 	entity oself;
-	self.nextthink = time + 0.05;
+	self.nextthink = time + sys_ticrate;
 	if (time > self.pain_finished + 5)
 	{
-		self.health = self.health + self.count;
-		if (self.health >= self.max_health)
-			self.health = self.max_health;
+		if(self.health < self.max_health)
+		{
+			self.health = self.health + self.count;
+			if (self.health >= self.max_health)
+				self.health = self.max_health;
+			WaypointSprite_UpdateHealth(self.owner.sprite, self.health);
+		}
 	}
 	if (self.health < self.max_health * 0.25)
 		setmodel(self, "models/onslaught/controlpoint_icon_dmg3.md3");
@@ -1135,7 +1167,7 @@ void onslaught_controlpoint_icon_buildthink()
 	local entity oself;
 	float a;
 
-	self.nextthink = time + 0.05;
+	self.nextthink = time + sys_ticrate;
 
 	// only do this if there is power
 	a = onslaught_controlpoint_can_be_linked(self.owner, self.owner.team);
@@ -1147,11 +1179,15 @@ void onslaught_controlpoint_icon_buildthink()
 	if (self.health >= self.max_health)
 	{
 		self.health = self.max_health;
-		self.count = self.count * 0.1; // slow repair rate from now on
+		self.count = cvar("g_onslaught_cp_regen") * sys_ticrate; // slow repair rate from now on
 		self.think = onslaught_controlpoint_icon_think;
 		sound(self, CHAN_TRIGGER, "onslaught/controlpoint_built.wav", VOL_BASE, ATTN_NORM);
 		bprint(ColoredTeamName(self.team), " captured ", self.owner.message, " control point\n");
 		self.owner.iscaptured = TRUE;
+
+		WaypointSprite_UpdateMaxHealth(self.owner.sprite, self.max_health);
+		WaypointSprite_UpdateHealth(self.owner.sprite, self.health);
+
 		onslaught_updatelinks();
 
 		// Use targets now (somebody make sure this is in the right place..)
@@ -1194,7 +1230,7 @@ void onslaught_controlpoint_touch()
 	e.classname = "onslaught_controlpoint_icon";
 	e.owner = self;
 	e.max_health = cvar("g_onslaught_cp_health");
-	e.health = e.max_health * 0.1;
+	e.health = cvar("g_onslaught_cp_buildhealth");
 	e.solid = SOLID_BBOX;
 	e.movetype = MOVETYPE_NONE;
 	setmodel(e, "models/onslaught/controlpoint_icon.md3");
@@ -1206,11 +1242,13 @@ void onslaught_controlpoint_touch()
 	e.team = other.team;
 	e.colormap = 1024 + (e.team - 1) * 17;
 	e.think = onslaught_controlpoint_icon_buildthink;
-	e.nextthink = time + 0.1;
-	e.count = e.max_health / 100; // how long it takes to build
+	e.nextthink = time + sys_ticrate;
+	e.count = (e.max_health - e.health) * sys_ticrate / cvar("g_onslaught_cp_buildtime"); // how long it takes to build
 	sound(e, CHAN_TRIGGER, "onslaught/controlpoint_build.wav", VOL_BASE, ATTN_NORM);
 	self.team = e.team;
 	self.colormap = e.colormap;
+	WaypointSprite_UpdateBuildFinished(self.sprite, time + (e.max_health - e.health) / (e.count / sys_ticrate));
+	onslaught_updatelinks();
 };
 
 void onslaught_controlpoint_reset()
@@ -1229,6 +1267,8 @@ void onslaught_controlpoint_reset()
 	self.nextthink = 0; // don't like SUB_Null :P
 	setmodel(self, "models/onslaught/controlpoint_pad.md3");
 	//setsize(self, '-32 -32 0', '32 32 8');
+
+	WaypointSprite_UpdateMaxHealth(self.sprite, 0);
 
 	onslaught_updatelinks();
 
@@ -1358,6 +1398,9 @@ void onslaught_link_checkupdate()
 		cc = (COLOR_TEAM2 - 1) * 0x11;
 	else
 		cc = 0;
+	
+	//print(etos(self), " rp=", ftos(redpower), " bp=", ftos(bluepower), " ");
+	//print("cc=", ftos(cc), "\n");
 
 	if(cc != self.clientcolors)
 	{

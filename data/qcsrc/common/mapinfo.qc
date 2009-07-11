@@ -29,6 +29,37 @@ string cdr(string s)
 		return string_null;
 	return substring(s, o + 1, strlen(s) - (o + 1));
 }
+float matchacl(string acl, string str)
+{
+	string t, s;
+	float r, d;
+	r = 0;
+	while(acl)
+	{
+		t = car(acl); acl = cdr(acl);
+		d = 1;
+		if(substring(t, 0, 1) == "-")
+		{
+			d = -1;
+			t = substring(t, 1, strlen(t) - 1);
+		}
+		else if(substring(t, 0, 1) == "+")
+			t = substring(t, 1, strlen(t) - 1);
+		if(substring(t, -1, 1) == "*")
+		{
+			t = substring(t, 0, strlen(t) - 1);
+			s = substring(s, 0, strlen(t));
+		}
+		else
+			s = str;
+
+		if(s == t)
+		{
+			r = d;
+		}
+	}
+	return r;
+}
 
 float _MapInfo_Cache_Active;
 float _MapInfo_Cache_DB_NameToIndex;
@@ -246,6 +277,7 @@ float _MapInfo_Generate(string pFilename) // 0: failure, 1: ok ent, 2: ok bsp
 	float r;
 	float twoBaseModes;
 	float diameter, spawnpoints;
+	float spawnplaces;
 
 	vector mapMins, mapMaxs;
 
@@ -263,8 +295,10 @@ float _MapInfo_Generate(string pFilename) // 0: failure, 1: ok ent, 2: ok bsp
 	print("Analyzing ", fn, " to generate initial mapinfo; please edit that file later\n");
 
 	inWorldspawn = 2;
+	MapInfo_Map_flags = 0;
 	MapInfo_Map_supportedGametypes = 0;
 	spawnpoints = 0;
+	spawnplaces = 0;
 	_MapInfo_Map_worldspawn_music = "";
 
 	for(;;)
@@ -312,6 +346,15 @@ float _MapInfo_Generate(string pFilename) // 0: failure, 1: ok ent, 2: ok bsp
 				mapMaxs_y = max(mapMaxs_y, o_y);
 				mapMaxs_z = max(mapMaxs_z, o_z);
 			}
+			else if(k == "race_place")
+			{
+				if(v == "1")
+					spawnplaces |= 1;
+				else if(v == "2")
+					spawnplaces |= 2;
+				else if(v == "3")
+					spawnplaces |= 4;
+			}
 			else if(k == "classname")
 			{
 				if(v == "dom_controlpoint")
@@ -354,7 +397,7 @@ float _MapInfo_Generate(string pFilename) // 0: failure, 1: ok ent, 2: ok bsp
 	}
 	diameter = vlen(mapMaxs - mapMins);
 
-	twoBaseModes = MapInfo_Map_supportedGametypes & (MAPINFO_TYPE_CTF | MAPINFO_TYPE_ASSAULT | MAPINFO_TYPE_RACE);
+	twoBaseModes = MapInfo_Map_supportedGametypes & (MAPINFO_TYPE_CTF | MAPINFO_TYPE_ASSAULT | MAPINFO_TYPE_RACE | MAPINFO_TYPE_NEXBALL);
 	if(twoBaseModes && (MapInfo_Map_supportedGametypes == twoBaseModes))
 	{
 		// we have a CTF-only or Assault-only map. Don't add other modes then,
@@ -373,6 +416,10 @@ float _MapInfo_Generate(string pFilename) // 0: failure, 1: ok ent, 2: ok bsp
 		if(spawnpoints >= 12 && diameter > 5120)
 			MapInfo_Map_supportedGametypes |= MAPINFO_TYPE_KEYHUNT;
 	}
+
+	if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_RACE)
+		if(spawnplaces != 7)
+			MapInfo_Map_flags |= MAPINFO_FLAG_FRUSTRATING;
 
 	dprint("-> diameter ",    ftos(diameter));
 	dprint(";  spawnpoints ", ftos(spawnpoints));
@@ -477,6 +524,9 @@ float MapInfo_Get_ByName(string pFilename, float pAllowGenerate, float pGametype
 	string s, t;
 	float fh, fh2;
 	float r, f, n, i;
+	string acl;
+
+	acl = cvar_string("g_mapinfo_settemp_acl");
 
 	if(strstrofs(pFilename, "/", 0) >= 0)
 	{
@@ -530,10 +580,12 @@ float MapInfo_Get_ByName(string pFilename, float pAllowGenerate, float pGametype
 			}
 			fputs(fh, strcat("cdtrack ", ftos(i + 1), "\n"));
 		}
-		if(MapInfo_Map_supportedFeatures & MAPINFO_FEATURE_WEAPONS)    
+		if(MapInfo_Map_supportedFeatures & MAPINFO_FEATURE_WEAPONS)
 			fputs(fh, "has weapons\n");
 		else
 			fputs(fh, "// uncomment this if you added weapon pickups: has weapons\n");
+		if(MapInfo_Map_flags & MAPINFO_FLAG_FRUSTRATING)
+			fputs(fh, "frustrating\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_DEATHMATCH)      fputs(fh, "type dm 30 20\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_TEAM_DEATHMATCH) fputs(fh, "type tdm 50 20 2\n");
 		if(MapInfo_Map_supportedGametypes & MAPINFO_TYPE_DOMINATION)      fputs(fh, "type dom 200 20\n");
@@ -606,6 +658,10 @@ float MapInfo_Get_ByName(string pFilename, float pAllowGenerate, float pGametype
 		{
 			MapInfo_Map_flags |= MAPINFO_FLAG_FORBIDDEN;
 		}
+		else if(t == "frustrating")
+		{
+			MapInfo_Map_flags |= MAPINFO_FLAG_FRUSTRATING;
+		}
 		else if(t == "type")
 		{
 			t = car(s); s = cdr(s);
@@ -658,6 +714,10 @@ float MapInfo_Get_ByName(string pFilename, float pAllowGenerate, float pGametype
 						print("Map ", pFilename, " contains a potentially harmful setting, ignored\n");
 					else if not (cvar_value_issafe(s))
 						print("Map ", pFilename, " contains a potentially harmful setting, ignored\n");
+					else if(substring(t, 0, 10) == "g_mapinfo_")
+						print("Map ", pFilename, " contains a potentially harmful setting, ignored\n");
+					else if(matchacl(acl, t) <= 0)
+						print("Map ", pFilename, " contains a denied setting, ignored\n");
 					else
 					{
 						dprint("Applying temporary setting ", t, " := ", s, "\n");
@@ -949,4 +1009,31 @@ void MapInfo_Shutdown()
 		_MapInfo_globhandle = -1;
 		_MapInfo_globopen = FALSE;
 	}
+}
+
+float MapInfo_ForbiddenFlags()
+{
+	float f;
+	f = MAPINFO_FLAG_FORBIDDEN;
+
+#ifndef MENUQC
+	if not(cvar("g_maplist_allow_hidden"))
+#endif
+		f |= MAPINFO_FLAG_HIDDEN;
+
+	if not(cvar("g_maplist_allow_frustrating"))
+		f |= MAPINFO_FLAG_FRUSTRATING;
+
+	return f;
+}
+
+float MapInfo_RequiredFlags()
+{
+	float f;
+	f = 0;
+
+	if(cvar("g_maplist_allow_frustrating") > 1)
+		f |= MAPINFO_FLAG_FRUSTRATING;
+
+	return f;
 }

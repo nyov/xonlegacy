@@ -1,3 +1,5 @@
+.float race_penalty;
+
 float sv_accelerate;
 float sv_friction;
 float sv_maxspeed;
@@ -524,7 +526,27 @@ void SV_PlayerPhysics()
 
 	self.items &~= IT_USING_JETPACK;
 
-	if (self.movetype == MOVETYPE_NONE && self.disableclientprediction != 2)
+	if(self.race_penalty)
+	{
+		if(time > self.race_penalty)
+		{
+			if(self.disableclientprediction == 2)
+			{
+				self.movetype = MOVETYPE_WALK;
+				self.disableclientprediction = 0;
+			}
+			self.race_penalty = 0;
+		}
+	}
+
+	if(self.race_penalty)
+	{
+		self.velocity = '0 0 0';
+		self.movetype = MOVETYPE_NONE;
+		self.disableclientprediction = 2;
+	}
+
+	if (self.movetype == MOVETYPE_NONE)
 		return;
 
 	if (self.punchangle != '0 0 0')
@@ -942,27 +964,37 @@ void SV_PlayerPhysics()
 		{
 			float accelerating;
 			float wishspeed2;
+			float airaccelqw;
 
+			airaccelqw = sv_airaccel_qw;
 			accelerating = (self.velocity * wishdir > 0);
 			wishspeed2 = wishspeed;
 
 			// CPM
 			if(sv_airstopaccelerate)
 				if(self.velocity * wishdir < 0)
-					airaccel = sv_airstopaccelerate;
+					airaccel = sv_airstopaccelerate*maxspd_mod;
 			if(self.movement_x == 0 && self.movement_y != 0)
 			{
 				if(sv_maxairstrafespeed)
-					wishspeed = min(wishspeed, sv_maxairstrafespeed);
+				{
+					wishspeed = min(wishspeed, sv_maxairstrafespeed*maxspd_mod);
+					if(sv_maxairstrafespeed < sv_maxairspeed)
+						airaccelqw = 1;
+				}
 				if(sv_airstrafeaccelerate)
-					airaccel = sv_airstrafeaccelerate;
+				{
+					airaccel = sv_airstrafeaccelerate*maxspd_mod;
+					if(sv_airstrafeaccelerate > sv_airaccelerate)
+						airaccelqw = 1;
+				}
 			}
 			// !CPM
 
 			if(sv_warsowbunny_turnaccel && accelerating && self.movement_y == 0 && self.movement_x != 0)
 				PM_AirAccelerate(wishdir, wishspeed);
 			else
-				PM_Accelerate(wishdir, wishspeed, airaccel, sv_airaccel_qw, sv_airaccel_sideways_friction / maxairspd);
+				PM_Accelerate(wishdir, wishspeed, airaccel, airaccelqw, sv_airaccel_sideways_friction / maxairspd);
 
 			if(sv_aircontrol)
 				CPM_PM_Aircontrol(wishdir, wishspeed2);

@@ -139,6 +139,11 @@ void fillNexuizPlayerSettingsTab(entity me)
 		me.TD(me, 1, 2, e = makeNexuizSlider(0, 1, 0.01, "crosshair_color_blue"));
 		setDependentOR(e, "crosshair_per_weapon", 0, 0, "crosshair_color_override", 1, 1);
 	me.TR(me);
+		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Hit test:"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "crosshair_hittest", "0",    "None"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "crosshair_hittest", "1",    "TrueAim"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "crosshair_hittest", "1.25", "Enemies"));
+	me.TR(me);
 	me.TR(me);
 		me.TDempty(me, 0.4);
 		me.TD(me, 1, 2.2, e = makeNexuizButton("Radar, HUD & Waypoints...", '0 0 0'));
@@ -148,9 +153,9 @@ void fillNexuizPlayerSettingsTab(entity me)
 	me.TR(me);
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Force Models:"));
-		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, string_null, string_null, "None"));
-		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "cl_forceplayermodelsfromnexuiz", string_null, "Custom"));
-		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "cl_forceplayermodels", string_null, "All"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(2, string_null, string_null, "None"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(2, "cl_forceplayermodelsfromnexuiz", string_null, "Custom"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(2, "cl_forceplayermodels", string_null, "All"));
 
 	me.gotoRC(me, me.rows - 1, 0);
 		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "color -1 -1;name \"$_cl_name\";sendcvar cl_weaponpriority;sendcvar cl_zoomfactor;sendcvar cl_zoomspeed;sendcvar cl_autoswitch;sendcvar cl_shownames;sendcvar cl_forceplayermodelsfromnexuiz;sendcvar cl_forceplayermodels", COMMANDBUTTON_APPLY));

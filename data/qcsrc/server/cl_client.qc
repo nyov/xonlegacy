@@ -369,18 +369,16 @@ string CheckPlayerModel(string plyermodel) {
 		return FallbackPlayerModel;
 	else if(cvar("sv_servermodelsonly"))
 	{
-		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".zym")
-		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".dpm")
-		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".md3")
-		if(substring(plyermodel,strlen(plyermodel)-4,4) != ".psk")
+		if(substring(plyermodel,-4,4) != ".zym")
+		if(substring(plyermodel,-4,4) != ".dpm")
+		if(substring(plyermodel,-4,4) != ".md3")
+		if(substring(plyermodel,-4,4) != ".psk")
 			return FallbackPlayerModel;
-#ifdef ALLOW_VARIABLE_LOD
 		// forbid the LOD models
-		if(substring(plyermodel, strlen(plyermodel)-6,2) == "_1")
+		if(substring(plyermodel, -9,5) == "_lod1")
 			return FallbackPlayerModel;
-		if(substring(plyermodel, strlen(plyermodel)-6,2) == "_2")
+		if(substring(plyermodel, -9,5) == "_lod2")
 			return FallbackPlayerModel;
-#endif
 		if(plyermodel != strtolower(plyermodel))
 			return FallbackPlayerModel;
 		if(!fexists(plyermodel))
@@ -396,12 +394,27 @@ Client_customizeentityforclient
 LOD reduction
 =============
 */
+void Client_uncustomizeentityforclient()
+{
+	if(self.modelindex == 0) // no need to uncustomize then
+		return;
+	self.modelindex = self.modelindex_lod0;
+	self.skin = self.skinindex;
+}
+
 float Client_customizeentityforclient()
 {
 	entity modelsource;
-
+	
 	if(self.modelindex == 0)
 		return TRUE;
+
+	// forcemodel stuff
+
+#ifdef PROFILING
+	float t0;
+	t0 = gettime(GETTIME_HIRES); // reference
+#endif
 
 	modelsource = self;
 	if(other.cvar_cl_forceplayermodelsfromnexuiz)
@@ -409,8 +422,8 @@ float Client_customizeentityforclient()
 			modelsource = other;
 	if(other.cvar_cl_forceplayermodels && sv_clforceplayermodels)
 		modelsource = other;
-
 	self.skin = modelsource.skinindex;
+
 #if 0
 	if(modelsource == self)
 		self.skin = modelsource.skinindex;
@@ -418,14 +431,10 @@ float Client_customizeentityforclient()
 		self.skin = mod(modelsource.skinindex, 3); // forbid the fbskins as forced skins
 #endif
 
-#ifdef ALLOW_VARIABLE_LOD
 	// self: me
 	// other: the player viewing me
 	float distance;
 	float f;
-
-	if(self.classname != "player")
-		return TRUE;
 
 	if(other.cvar_cl_playerdetailreduction <= 0)
 	{
@@ -440,15 +449,18 @@ float Client_customizeentityforclient()
 	{
 		distance = vlen(self.origin - other.origin);
 		f = (distance + 100.0) * other.cvar_cl_playerdetailreduction;
-		if(f > 10000)
+		if(f > sv_loddistance2)
 			self.modelindex = modelsource.modelindex_lod2;
-		else if(f > 5000)
+		else if(f > sv_loddistance1)
 			self.modelindex = modelsource.modelindex_lod1;
 		else
 			self.modelindex = modelsource.modelindex_lod0;
 	}
-#else
-	self.modelindex = modelsource.modelindex_lod0;
+
+#ifdef PROFILING
+	float t1;
+	t1 = gettime(GETTIME_HIRES); // reference
+	client_cefc_accumulator += (t1 - t0);
 #endif
 
 	return TRUE;
@@ -457,47 +469,47 @@ float Client_customizeentityforclient()
 void UpdatePlayerSounds();
 void setmodel_lod(entity e, string modelname)
 {
-#ifdef ALLOW_VARIABLE_LOD
 	string s;
 
-	// FIXME: this only supports 3-letter extensions
-	s = strcat(substring(modelname, 0, strlen(modelname) - 4), "_1", substring(modelname, 0, strlen(modelname) - 4));
-	if(fexists(s))
+	if(sv_loddistance1)
 	{
-		precache_model(s);
-		setmodel(e, s); // players have high precision
-		self.modelindex_lod1 = self.modelindex;
+		// FIXME: this only supports 3-letter extensions
+		s = strcat(substring(modelname, 0, strlen(modelname)-4), "_lod1", substring(modelname, -4, 4));
+		if(fexists(s))
+		{
+			setmodel(e, s); // players have high precision
+			self.modelindex_lod1 = self.modelindex;
+		}
+		else
+			self.modelindex_lod1 = -1;
+
+		s = strcat(substring(modelname, 0, strlen(modelname)-4), "_lod2", substring(modelname, -4, 4));
+		if(fexists(s))
+		{
+			setmodel(e, s); // players have high precision
+			self.modelindex_lod2 = self.modelindex;
+		}
+		else
+			self.modelindex_lod2 = -1;
+
+		precache_model(modelname);
+		setmodel(e, modelname); // players have high precision
+		self.modelindex_lod0 = self.modelindex;
+
+		if(self.modelindex_lod1 < 0)
+			self.modelindex_lod1 = self.modelindex;
+
+		if(self.modelindex_lod2 < 0)
+			self.modelindex_lod2 = self.modelindex;
 	}
 	else
-		self.modelindex_lod1 = -1;
-
-	s = strcat(substring(modelname, 0, strlen(modelname) - 4), "_2", substring(modelname, 0, strlen(modelname) - 4));
-	if(fexists(s))
 	{
-		precache_model(s);
-		setmodel(e, s); // players have high precision
-		self.modelindex_lod2 = self.modelindex;
+		precache_model(modelname);
+		setmodel(e, modelname); // players have high precision
+		self.modelindex_lod0 = self.modelindex;
+			// save it for possible player model forcing
 	}
-	else
-		self.modelindex_lod2 = -1;
 
-	precache_model(modelname);
-	setmodel(e, modelname); // players have high precision
-	self.modelindex_lod0 = self.modelindex;
-
-	if(self.modelindex_lod1 < 0)
-		self.modelindex_lod1 = self.modelindex;
-
-	if(self.modelindex_lod2 < 0)
-		self.modelindex_lod2 = self.modelindex;
-#else
-	precache_model(modelname);
-	setmodel(e, modelname); // players have high precision
-	self.modelindex_lod0 = self.modelindex;
-		// save it for possible player model forcing
-#endif
-
-	string s;
 	s = whichpack(self.model);
 	self.modelindex_lod0_from_nexuiz = ((s == "") || (substring(s, 0, 4) == "data"));
 
@@ -512,6 +524,7 @@ PutObserverInServer
 putting a client as observer in the server
 =============
 */
+void FixPlayermodel();
 void PutObserverInServer (void)
 {
 	entity	spot;
@@ -602,6 +615,8 @@ void PutObserverInServer (void)
 	self.items = 0;
 	self.weapons = 0;
 	self.model = "";
+	FixPlayermodel();
+	self.model = "";
 	self.modelindex = 0;
 	self.weapon = 0;
 	self.weaponmodel = "";
@@ -613,7 +628,9 @@ void PutObserverInServer (void)
 	self.punchangle = '0 0 0';
 	self.punchvector = '0 0 0';
 	self.oldvelocity = self.velocity;
-	self.customizeentityforclient = Client_customizeentityforclient;
+
+	if(sv_loddistance1)
+		SetCustomizer(self, Client_customizeentityforclient, Client_uncustomizeentityforclient);
 
 	self.team = -1;
 
@@ -782,7 +799,7 @@ void PutClientInServer (void)
 		}
 
 		RemoveGrapplingHook(self); // Wazat's Grappling Hook
-		self.campingrifle_bulletcounter = 0;
+		self.campingrifle_bulletcounter = cvar("g_balance_campingrifle_magazinecapacity");
 
 		self.classname = "player";
 		self.wasplayer = TRUE;
@@ -885,7 +902,8 @@ void PutClientInServer (void)
 			WriteByte(MSG_ONE, TE_CSQC_SPAWN);
 		});
 
-		self.customizeentityforclient = Client_customizeentityforclient;
+		if(sv_loddistance1)
+			SetCustomizer(self, Client_customizeentityforclient, Client_uncustomizeentityforclient);
 
 		self.model = "";
 		FixPlayermodel();
@@ -1787,22 +1805,60 @@ void player_powerups (void)
 		self.effects = self.effects | (EF_ADDITIVE | EF_FULLBRIGHT);
 }
 
-float CalcRegen(float current, float stable, float regenfactor)
+float CalcRegen(float current, float stable, float regenfactor, float regenframetime)
 {
 	if(current > stable)
 		return current;
 	else if(current > stable - 0.25) // when close enough, "snap"
 		return stable;
 	else
-		return min(stable, current + (stable - current) * regenfactor * frametime);
+		return min(stable, current + (stable - current) * regenfactor * regenframetime);
+}
+
+float CalcRot(float current, float stable, float rotfactor, float rotframetime)
+{
+	if(current < stable)
+		return current;
+	else if(current < stable + 0.25) // when close enough, "snap"
+		return stable;
+	else
+		return max(stable, current + (stable - current) * rotfactor * rotframetime);
+}
+
+float CalcRotRegen(float current, float regenstable, float regenfactor, float regenlinear, float regenframetime, float rotstable, float rotfactor, float rotlinear, float rotframetime, float limit)
+{
+	if(current > rotstable)
+	{
+		if(rotframetime > 0)
+		{
+			current = CalcRot(current, rotstable, rotfactor, rotframetime);
+			current = max(rotstable, current - rotlinear * rotframetime);
+		}
+	}
+	else if(current < regenstable)
+	{
+		if(regenframetime > 0)
+		{
+			current = CalcRegen(current, regenstable, regenfactor, regenframetime);
+			current = min(regenstable, current + regenlinear * regenframetime);
+		}
+	}
+
+	if(current > limit)
+		current = limit;
+
+	return current;
 }
 
 void player_regen (void)
 {
-	float maxh, maxa, maxf, limith, limita, limitf, max_mod, regen_mod, rot_mod, limit_mod;
-	maxh = cvar("g_balance_health_stable");
-	maxa = cvar("g_balance_armor_stable");
-	maxf = cvar("g_balance_fuel_stable");
+	float minh, mina, minf, maxh, maxa, maxf, limith, limita, limitf, max_mod, regen_mod, rot_mod, limit_mod;
+	maxh = cvar("g_balance_health_rotstable");
+	maxa = cvar("g_balance_armor_rotstable");
+	maxf = cvar("g_balance_fuel_rotstable");
+	minh = cvar("g_balance_health_regenstable");
+	mina = cvar("g_balance_armor_regenstable");
+	minf = cvar("g_balance_fuel_regenstable");
 	limith = cvar("g_balance_health_limit");
 	limita = cvar("g_balance_armor_limit");
 	limitf = cvar("g_balance_fuel_limit");
@@ -1838,76 +1894,27 @@ void player_regen (void)
 	maxh = maxh * max_mod;
 	//maxa = maxa * max_mod;
 	//maxf = maxf * max_mod;
+	minh = minh * max_mod;
+	//mina = mina * max_mod;
+	//minf = minf * max_mod;
 	limith = limith * limit_mod;
 	limita = limita * limit_mod;
 	//limitf = limitf * limit_mod;
 
+	if(g_lms)
+		rot_mod = 0;
+
 	if (!g_minstagib && (!g_lms || cvar("g_lms_regenerate")))
 	{
-		if (self.armorvalue > maxa)
-		{
-			if (time > self.pauserotarmor_finished)
-			{
-				self.armorvalue = max(maxa, self.armorvalue + (maxa - self.armorvalue) * cvar("g_balance_armor_rot") * frametime);
-				self.armorvalue = max(maxa, self.armorvalue - cvar("g_balance_armor_rotlinear") * frametime);
-			}
-		}
-		else if (self.armorvalue < maxa)
-		{
-			if (time > self.pauseregen_finished)
-			{
-				self.armorvalue = CalcRegen(self.armorvalue, maxa, cvar("g_balance_armor_regen"));
-				self.armorvalue = min(maxa, self.armorvalue + cvar("g_balance_armor_regenlinear") * frametime);
-			}
-		}
-		if (self.armorvalue > limita)
-			self.armorvalue = limita;
-
-		if (self.health > maxh)
-		{
-			if (time > self.pauserothealth_finished)
-			{
-				self.health = max(maxh, self.health + (maxh - self.health) * rot_mod*cvar("g_balance_health_rot") * frametime);
-				self.health = max(maxh, self.health - rot_mod*cvar("g_balance_health_rotlinear") * frametime);
-			}
-		}
-		else if (self.health < maxh)
-		{
-			if (time > self.pauseregen_finished)
-			{
-				self.health = CalcRegen(self.health, maxh, regen_mod * cvar("g_balance_health_regen"));
-				self.health = min(maxh, self.health + regen_mod*cvar("g_balance_health_regenlinear") * frametime);
-			}
-		}
-		if (self.health > limith)
-			self.health = limith;
+		self.armorvalue = CalcRotRegen(self.armorvalue, mina, cvar("g_balance_armor_regen"), cvar("g_balance_armor_regenlinear"), regen_mod * frametime * (time > self.pauseregen_finished), maxa, cvar("g_balance_armor_rot"), cvar("g_balance_armor_rotlinear"), rot_mod * frametime * (time > self.pauserotarmor_finished), limita);
+		self.health = CalcRotRegen(self.health, minh, cvar("g_balance_health_regen"), cvar("g_balance_health_regenlinear"), regen_mod * frametime * (time > self.pauseregen_finished), maxh, cvar("g_balance_health_rot"), cvar("g_balance_health_rotlinear"), rot_mod * frametime * (time > self.pauserothealth_finished), limith);
 
 		// if player rotted to death...  die!
 		if(self.health < 1)
 			self.event_damage(self, self, 1, DEATH_ROT, self.origin, '0 0 0');
 	}
 
-	if (self.ammo_fuel > maxf)
-	{
-		if (time > self.pauserotfuel_finished)
-		{
-			self.ammo_fuel = max(maxf, self.ammo_fuel + (maxf - self.ammo_fuel) * rot_mod*cvar("g_balance_fuel_rot") * frametime);
-			self.ammo_fuel = max(maxf, self.ammo_fuel - rot_mod*cvar("g_balance_fuel_rotlinear") * frametime);
-		}
-	}
-	else if (self.ammo_fuel < maxf)
-	{
-		if(self.items & IT_FUEL_REGEN)
-		{
-			if (time > self.pauseregen_finished)
-			{
-				self.ammo_fuel = CalcRegen(self.ammo_fuel, maxf, regen_mod * cvar("g_balance_fuel_regen"));
-				self.ammo_fuel = min(maxf, self.ammo_fuel + regen_mod*cvar("g_balance_fuel_regenlinear") * frametime);
-			}
-		}
-	}
-	if (self.ammo_fuel > limitf)
-		self.ammo_fuel = limitf;
+	self.ammo_fuel = CalcRotRegen(self.ammo_fuel, minf, cvar("g_balance_fuel_regen"), cvar("g_balance_fuel_regenlinear"), regen_mod * frametime * (time > self.pauseregen_finished) * (self.items & IT_FUEL_REGEN != 0), maxf, cvar("g_balance_fuel_rot"), cvar("g_balance_fuel_rotlinear"), rot_mod * frametime * (time > self.pauserotfuel_finished), limitf);
 }
 
 float zoomstate_set;
@@ -2738,9 +2745,6 @@ Called every frame for each client after the physics are run
 =============
 */
 .float idlekick_lasttimeleft;
-.float race_penalty;
-.float race_penalty_nagged;
-.float race_penalty_nagtime;
 void PlayerPostThink (void)
 {
 	// Savage: Check for nameless players
@@ -2834,45 +2838,9 @@ void PlayerPostThink (void)
 		//if (TetrisPostFrame()) return;
 
 		// restart countdown
-			if(time < game_starttime) {
-				if (!cvar("sv_ready_restart_after_countdown"))
-				{
-					if(self.movement != '0 0 0' && g_race && !g_race_qualifying)
-					{
-						if(time < game_starttime - 2)
-						{
-							if(!self.race_penalty_nagged)
-							{
-								// TODO better notification for this!
-								self.race_penalty_nagtime = 0;
-								self.race_penalty_nagged = 1;
-							}
-						}
-						else if(!self.race_penalty)
-						{
-							self.race_penalty_nagtime = 0;
-							self.race_penalty = time + 5;
-						}
-					}
-					if(time > self.race_penalty_nagtime)
-					{
-						if(self.race_penalty > time)
-						{
-							centerprint_atprio(self, CENTERPRIO_IDLEKICK, "^1FIVE SECONDS PENALTY.");
-						}
-						else if(self.race_penalty_nagged && time < game_starttime - 2)
-						{
-							centerprint_atprio(self, CENTERPRIO_IDLEKICK, "^1DO NOT MOVE DURING THE COUNTDOWN.");
-						}
-						self.race_penalty_nagtime = time + self.cvar_scr_centertime * 0.6;
-					}
-					self.movetype = MOVETYPE_NONE;		
-					self.velocity = '0 0 0';
-					self.avelocity = '0 0 0';
-					self.movement = '0 0 0';
-				}
-			}
-			else if (time < self.race_penalty)
+		if (!cvar("sv_ready_restart_after_countdown"))
+		{
+			if(time < game_starttime)
 			{
 				self.movetype = MOVETYPE_NONE;		
 				self.velocity = '0 0 0';
@@ -2882,16 +2850,10 @@ void PlayerPostThink (void)
 			else
 			{
 				//allow the player to move again if sv_ready_restart_after_countdown is not used and countdown is over
-				if (!cvar("sv_ready_restart_after_countdown"))
-				{
-					if(self.movetype == MOVETYPE_NONE)
-					{
-						self.movetype = MOVETYPE_WALK;
-					}
-					self.race_penalty = 0;
-					self.race_penalty_nagged = 0;
-				}
+				if(self.movetype == MOVETYPE_NONE)
+					self.movetype = MOVETYPE_WALK;
 			}
+		}
 		GetPressedKeys();
 	} else if (self.classname == "observer") {
 		//do nothing
@@ -2918,4 +2880,7 @@ void PlayerPostThink (void)
 	Arena_Warmup();
 
 	//pointparticles(particleeffectnum("machinegun_impact"), self.origin + self.view_ofs + '0 0 7', '0 0 0', 1);
+
+	if(self.waypointsprite_attachedforcarrier)
+		WaypointSprite_UpdateHealth(self.waypointsprite_attachedforcarrier, '1 0 0' * healtharmor_maxdamage(self.health, self.armorvalue, cvar("g_balance_armor_blockpercent")));
 }
