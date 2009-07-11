@@ -150,6 +150,8 @@ void		end_sys_fields;			// flag for structure dumping
 // Additional OPTIONAL Fields and Globals
 float		intermission;
 float		sb_showscores;
+float		sb_showaccuracy;
+float		sbar_currentammo;
 .string		message;
 .float renderflags;
 // float		coop;

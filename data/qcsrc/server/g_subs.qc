@@ -1,4 +1,6 @@
 void SUB_Null() {};
+float SUB_True() { return 1; }
+float SUB_False() { return 0; }
 
 void(vector destangle, float tspeed, void() func) SUB_CalcAngleMove;
 void()  SUB_CalcMoveDone;
@@ -14,11 +16,18 @@ void spawnfunc_info_null (void)
 
 void setanim(entity e, vector anim, float looping, float override, float restart)
 {
-	if (!restart)
 	if (anim_x == e.animstate_startframe)
 	if (anim_y == e.animstate_numframes)
 	if (anim_z == e.animstate_framerate)
-		return;
+	{
+		if(restart)
+		{
+			if(anim_y == 1) // ZYM animation
+				BITXOR_ASSIGN(e.effects, EF_TELEPORT_BIT);
+		}
+		else
+			return;
+	}
 	e.animstate_startframe = anim_x;
 	e.animstate_numframes = anim_y;
 	e.animstate_framerate = anim_z;
@@ -54,7 +63,7 @@ vector animparseline(float animfile)
 		return '0 1 2';
 	line = fgets(animfile);
 	c = tokenize_console(line);
-	if (c != 3)
+	if (c < 3)
 	{
 		animparseerror = TRUE;
 		return '0 1 2';
@@ -240,14 +249,14 @@ void SUB_CalcAngleMove (vector destangle, float tspeed, void() func)
 
 	if (!tspeed)
 		objerror ("No speed is defined!");
-	
+
 	// take the shortest distance for the angles
 	self.angles_x -= 360 * floor((self.angles_x - destangle_x) / 360 + 0.5);
 	self.angles_y -= 360 * floor((self.angles_y - destangle_y) / 360 + 0.5);
 	self.angles_z -= 360 * floor((self.angles_z - destangle_z) / 360 + 0.5);
 	delta = destangle - self.angles;
 	traveltime = vlen (delta) / tspeed;
-  
+
 	self.think1 = func;
 	self.finalangle = destangle;
 	self.think = SUB_CalcAngleMoveDone;

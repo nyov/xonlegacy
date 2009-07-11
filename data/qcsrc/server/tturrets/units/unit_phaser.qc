@@ -50,7 +50,7 @@ void beam_think()
     if (time - self.shot_spread > 0)
     {
         self.shot_spread = time + 2;
-        sound (self, CHAN_VOICE, "turrets/phaser.ogg", VOL_BASE, ATTN_NORM);
+        sound (self, CHAN_VOICE, "turrets/phaser.wav", VOL_BASE, ATTN_NORM);
     }
 
 
@@ -62,7 +62,7 @@ void beam_think()
     self = self.owner;
     //w_deathtypestring = "was phased out of existence";
     FireImoBeam (   self.tur_shotorg,
-                    self.tur_shotorg + self.tur_shotdir_updated * self.target_range_fire,
+                    self.tur_shotorg + self.tur_shotdir_updated * self.target_range,
                     '-1 -1 -1' * self.shot_radius,
                     '1 1 1' * self.shot_radius,
                     self.shot_force,
@@ -89,12 +89,12 @@ void turret_phaser_attack()
     beam.nextthink = time;
     beam.owner = self;
     beam.shot_dmg = self.shot_dmg / (self.shot_speed / beam.ticrate);
-    beam.scale = self.target_range_fire / 256;
+    beam.scale = self.target_range / 256;
     beam.movetype = MOVETYPE_NONE;
     beam.enemy = self.enemy;
     beam.bot_dodge = TRUE;
     beam.bot_dodgerating = beam.shot_dmg;
-    sound (beam, CHAN_PROJECTILE, "turrets/phaser.ogg", VOL_BASE, ATTN_NORM);
+    sound (beam, CHAN_PROJECTILE, "turrets/phaser.wav", VOL_BASE, ATTN_NORM);
     self.fireflag = 1;
 
     beam.attack_finished_single = self.attack_finished_single;
@@ -116,7 +116,7 @@ void turret_phaser_dinit()
     self.ammo_flags = TFL_AMMO_ENERGY | TFL_AMMO_RECHARGE | TFL_AMMO_RECIVE;
     self.aim_flags = TFL_AIM_ZEASE | TFL_AIM_LEAD;
 
-    if (turret_stdproc_init("phaser_std") == 0)
+    if (turret_stdproc_init("phaser_std",0) == 0)
     {
         remove(self);
         return;
@@ -138,7 +138,7 @@ void turret_phaser_dinit()
 */
 void spawnfunc_turret_phaser()
 {
-    precache_sound ("turrets/phaser.ogg");
+    precache_sound ("turrets/phaser.wav");
     precache_model ("models/turrets/phaser.md3");
     precache_model ("models/turrets/phaser_beam.md3");
     precache_model ("models/turrets/base.md3");

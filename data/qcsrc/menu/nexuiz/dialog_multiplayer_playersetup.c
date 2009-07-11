@@ -105,9 +105,8 @@ void fillNexuizPlayerSettingsTab(entity me)
 			e0.allowCut = 1;
 	me.TR(me);
 	me.TR(me);
-		me.TD(me, 1, 3, e = makeNexuizCheckBox(0, "crosshair_per_weapon", "Per weapon crosshairs"));
-	me.TR(me);
-		me.TD(me, 1, 3, e = makeNexuizCheckBox(1, "crosshair_color_override", "Per weapon crosshair colors"));
+		me.TD(me, 1, 2, e = makeNexuizCheckBox(0, "crosshair_per_weapon", "Per weapon crosshairs"));
+		me.TD(me, 1, 1.3, e = makeNexuizCheckBox(1, "crosshair_color_override", "& crosshair colors"));
 		setDependent(e, "crosshair_per_weapon", 1, 1);
 	me.TR(me);
 		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Crosshair:"));
@@ -147,8 +146,13 @@ void fillNexuizPlayerSettingsTab(entity me)
 			e.onClickEntity = main.radarDialog;
 		me.TDempty(me, 0.5);
 	me.TR(me);
+	me.TR(me);
+		me.TD(me, 1, 1, e = makeNexuizTextLabel(0, "Force Models:"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, string_null, string_null, "None"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "cl_forceplayermodelsfromnexuiz", string_null, "Custom"));
+		me.TD(me, 1, 2/3, e = makeNexuizRadioButton(1, "cl_forceplayermodels", string_null, "All"));
 
 	me.gotoRC(me, me.rows - 1, 0);
-		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "color -1 -1;name \"$_cl_name\";sendcvar cl_weaponpriority;sendcvar cl_zoomfactor;sendcvar cl_zoomspeed;sendcvar cl_autoswitch;sendcvar cl_shownames", COMMANDBUTTON_APPLY));
+		me.TD(me, 1, me.columns, makeNexuizCommandButton("Apply immediately", '0 0 0', "color -1 -1;name \"$_cl_name\";sendcvar cl_weaponpriority;sendcvar cl_zoomfactor;sendcvar cl_zoomspeed;sendcvar cl_autoswitch;sendcvar cl_shownames;sendcvar cl_forceplayermodelsfromnexuiz;sendcvar cl_forceplayermodels", COMMANDBUTTON_APPLY));
 }
 #endif

@@ -3,6 +3,7 @@
 #define BALL_MINS '-16 -16 -16'  // The model is 24*24*24
 #define BALL_MAXS '16 16 16'
 #define BALL_ATTACHORG '3 0 16'
+#define BALL_SPRITECOLOR '.91 .85 .62'
 #define BALL_FOOT   1
 #define BALL_BASKET 2
 //spawnflags
@@ -40,6 +41,8 @@ void nb_init() // Called early (worldspawn stage)
 	CVTOV(g_nexball_football_boost_up);        //200
 	CVTOV(g_nexball_delay_idle);               //10
 	CVTOV(g_nexball_football_physics);         //0
+
+	radar_showennemies = cvar("g_nexball_radar_showallplayers");
 
 	InitializeEntity(world, nb_delayedinit, INITPRIO_GAMETYPE);
 }
@@ -114,11 +117,55 @@ void DropOwner (void)
 	ownr.flags &~= FL_ONGROUND;
 }
 
+void GiveBall (entity plyr, entity ball)
+{
+	local entity ownr;
+
+	if ((ownr = ball.owner))
+	{
+		ownr.effects &~= g_nexball_basketball_effects_default;
+		ownr.ballcarried = world;
+		if (ownr.metertime)
+		{
+			ownr.metertime = 0;
+			ownr.weaponentity.state = WS_READY;
+		}
+	}
+
+	setattachment(ball, plyr, "");
+	setorigin(ball, BALL_ATTACHORG);
+
+	if (ball.team != plyr.team)
+		ball.teamtime = time + g_nexball_basketball_delay_hold_forteam;
+
+	ball.owner = ball.pusher = plyr; //"owner" is set to the player carrying, "pusher" to the last player who touched it
+	ball.team = plyr.team;
+	plyr.ballcarried = ball;
+	ball.dropperid = plyr.playerid;
+
+	plyr.effects |= g_nexball_basketball_effects_default;
+	ball.effects &~= g_nexball_basketball_effects_default;
+
+	ball.velocity = '0 0 0';
+	ball.movetype = MOVETYPE_NONE;
+	ball.touch = SUB_Null;
+	ball.effects |= EF_NOSHADOW;
+	ball.scale = 1; // scale down.
+
+	ball.waypointsprite_attachedforcarrier.exteriormodeltoclient = plyr;
+
+	if (g_nexball_basketball_delay_hold)
+	{
+		ball.think = DropOwner;
+		ball.nextthink = time + g_nexball_basketball_delay_hold;
+	}
+}
+
 void DropBall (entity ball, vector org, vector vel)
 {
 	ball.effects |= g_nexball_basketball_effects_default;
 	ball.effects &~= EF_NOSHADOW;
-	ball.owner.effects &~= g_nexball_basketball_effects_default; // this may be problematic.
+	ball.owner.effects &~= g_nexball_basketball_effects_default;
 
 	setattachment(ball, world, "");
 	setorigin (ball, org);
@@ -136,6 +183,8 @@ void DropBall (entity ball, vector org, vector vel)
 		ball.owner.metertime = 0;
 		ball.owner.weaponentity.state = WS_READY;
 	}
+
+	ball.waypointsprite_attachedforcarrier.exteriormodeltoclient = world;
 
 	ball.owner.ballcarried = world;
 	ball.owner = world;
@@ -157,6 +206,7 @@ void InitBall (void)
 	self.pusher = world;
 	self.team = FALSE;
 	sound (self, CHAN_PROJECTILE, self.noise1, VOL_BASE, ATTN_NORM);
+	WaypointSprite_Ping(self.waypointsprite_attachedforcarrier);
 	LogNB("init", world);
 }
 
@@ -239,28 +289,7 @@ void basketball_touch (void)
 		if (other.health <= 0)
 			return;
 		LogNB("caught", other);
-
-		if (self.team != other.team)
-			self.teamtime = time + g_nexball_basketball_delay_hold_forteam;
-
-		self.owner = self.pusher = other; //"owner" is set to the player carrying, "pusher" to the last player who touched it
-		self.team = other.team;
-		other.ballcarried = self;
-		other.effects = other.effects | g_nexball_basketball_effects_default;
-		self.effects &~= g_nexball_basketball_effects_default;
-		self.effects |= EF_NOSHADOW;
-		self.scale = 1; // scale down.
-		self.dropperid = other.playerid;
-		setattachment(self, other, "");
-		setorigin(self, BALL_ATTACHORG);
-		self.velocity = '0 0 0';
-		self.movetype = MOVETYPE_NONE;
-		self.touch = SUB_Null;
-		if (g_nexball_basketball_delay_hold)
-		{
-			self.think = DropOwner;
-			self.nextthink = time + g_nexball_basketball_delay_hold;
-		}
+		GiveBall(other, self);
 	} else if (other.solid == SOLID_BSP) {
 		sound (self, CHAN_PROJECTILE, self.noise, VOL_BASE, ATTN_NORM);
 		if (vlen(self.velocity) && !self.cnt)
@@ -325,6 +354,9 @@ void GoalTouch (void)
 
 	if (ball.owner) // Happens on spawnflag GOAL_TOUCHPLAYER
 		DropBall(ball, ball.owner.origin, ball.owner.velocity);
+
+	WaypointSprite_Ping(ball.waypointsprite_attachedforcarrier);
+
 	ball.cnt = 1;
 	ball.think = ResetBall;
 	if (ball.classname == "nexball_basketball")
@@ -361,7 +393,7 @@ void nb_spawnteams (void)
 		switch(e.team)
 		{
 			case COLOR_TEAM1: if(!t_r) { nb_spawnteam ("Red", e.team-1)   ; t_r = 1; } break;
-			case COLOR_TEAM2: if(!t_b) { nb_spawnteam ("Blue", e.team-1)  ; t_b = 1; } break; 
+			case COLOR_TEAM2: if(!t_b) { nb_spawnteam ("Blue", e.team-1)  ; t_b = 1; } break;
 			case COLOR_TEAM3: if(!t_y) { nb_spawnteam ("Yellow", e.team-1); t_y = 1; } break;
 			case COLOR_TEAM4: if(!t_p) { nb_spawnteam ("Pink", e.team-1)  ; t_p = 1; } break;
 		}
@@ -383,6 +415,8 @@ void nb_delayedinit (void)
 void SpawnBall (void)
 {
 	if(!g_nexball) { remove(self); return; }
+
+//	balls += 4; // using the remaining bits to count balls will leave more than the max edict count, so it's fine
 
 	if (!self.model) {
 		self.model = "models/nexball/ball.md3";
@@ -410,17 +444,20 @@ void SpawnBall (void)
 	if (!cvar("g_nexball_sound_bounce"))
 		self.noise = "";
 	else if (!self.noise)
-		self.noise = "sound/nexball/bounce.ogg";
+		self.noise = "sound/nexball/bounce.wav";
 		//bounce sound placeholder (FIXME)
 	if (!self.noise1)
-		self.noise1 = "sound/nexball/drop.ogg";
+		self.noise1 = "sound/nexball/drop.wav";
 		//ball drop sound placeholder (FIXME)
 	if (!self.noise2)
-		self.noise2 = "sound/nexball/steal.ogg";
+		self.noise2 = "sound/nexball/steal.wav";
 		//stealing sound placeholder (FIXME)
 	if (self.noise) precache_sound (self.noise);
 	precache_sound (self.noise1);
 	precache_sound (self.noise2);
+
+	WaypointSprite_AttachCarrier("nb-ball", self); // the ball's team is not set yet, no rule update needed
+	WaypointSprite_UpdateTeamRadar(self.waypointsprite_attachedforcarrier, RADARICON_FLAGCARRIER, BALL_SPRITECOLOR);
 
 	self.reset = ball_restart;
 	self.think = InitBall;
@@ -442,6 +479,8 @@ void spawnfunc_nexball_basketball (void)
 		self.effects = g_nexball_basketball_effects_default;
 	self.solid = SOLID_TRIGGER;
 	balls |= BALL_BASKET;
+	self.bouncefactor = cvar("g_nexball_basketball_bouncefactor");
+	self.bouncestop = cvar("g_nexball_basketball_bouncestop");
 	SpawnBall();
 }
 
@@ -450,6 +489,8 @@ void spawnfunc_nexball_football (void)
 	self.classname = "nexball_football";
 	self.solid = SOLID_TRIGGER;
 	balls |= BALL_FOOT;
+	self.bouncefactor = cvar("g_nexball_football_bouncefactor");
+	self.bouncestop = cvar("g_nexball_football_bouncestop");
 	SpawnBall();
 }
 
@@ -531,31 +572,6 @@ void W_Nexball_Touch (void)
 		other.flags &~= FL_ONGROUND;
 		if(!attacker.ballcarried)
 		{
-			other.effects &~= g_nexball_basketball_effects_default;
-			other.ballcarried = world;
-
-			if (g_nexball_basketball_delay_hold)
-			{
-				ball.think = DropOwner;
-				ball.nextthink = time + g_nexball_basketball_delay_hold;
-			}
-
-			attacker.effects = attacker.effects | g_nexball_basketball_effects_default;
-			attacker.ballcarried = ball;
-			if (other.metertime)
-			{
-				other.metertime = 0;
-				other.weaponentity.state = WS_READY;
-			}
-
-			setattachment(ball, attacker, "");
-			ball.owner = ball.pusher = attacker;
-			ball.team = attacker.team;
-			ball.dropperid = attacker.playerid;
-
-			if (other.team != attacker.team)
-				ball.teamtime = time + g_nexball_basketball_delay_hold_forteam;
-
 			LogNB("stole", attacker);
 			sound (other, CHAN_AUTO, ball.noise2, VOL_BASE, ATTN_NORM);
 
@@ -565,6 +581,8 @@ void W_Nexball_Touch (void)
 				attacker.teamkill_soundtime = time + 0.4;
 				attacker.teamkill_soundsource = other;
 			}
+
+			GiveBall(attacker, other.ballcarried);
 		}
 	}
 	remove(self);
@@ -577,7 +595,7 @@ void W_Nexball_Attack (float t)
 	if (!(ball = self.ballcarried))
 		return;
 
-	W_SetupShot (self, FALSE, 4, "nexball/shoot1.wav");
+	W_SetupShot (self, FALSE, 4, "nexball/shoot1.wav",0);
 	tracebox(w_shotorg, BALL_MINS, BALL_MAXS, w_shotorg, MOVE_WORLDONLY, world);
 	if(trace_startsolid)
 	{
@@ -608,7 +626,7 @@ void W_Nexball_Attack2 (void)
 	local entity missile;
 	if (!(balls & BALL_BASKET))
 		return;
-	W_SetupShot (self, FALSE, 2, "nexball/shoot2.ogg");
+	W_SetupShot (self, FALSE, 2, "nexball/shoot2.wav",0);
 //	pointparticles(particleeffectnum("grenadelauncher_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 	missile = spawn ();
 
@@ -657,7 +675,7 @@ float w_nexball_weapon(float req)
 			W_Nexball_Attack2();
 			weapon_thinkf(WFRAME_FIRE2, cvar("g_balance_nexball_secondary_animtime"), w_ready);
 		}
-		
+
 		if (!self.BUTTON_ATCK && self.metertime && self.ballcarried)
 		{
 			W_Nexball_Attack(time - self.metertime);
@@ -672,7 +690,7 @@ float w_nexball_weapon(float req)
 		precache_model ("models/weapons/h_porto.dpm");
 		precache_model ("models/elaser.mdl");
 		precache_sound ("nexball/shoot1.wav");
-		precache_sound ("nexball/shoot2.ogg");
+		precache_sound ("nexball/shoot2.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_PORTO);

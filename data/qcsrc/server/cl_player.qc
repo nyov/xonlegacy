@@ -45,10 +45,16 @@ void CopyBody(float keepvelocity)
 	self.armortype = oldself.armortype;
 	self.model = oldself.model;
 	self.modelindex = oldself.modelindex;
+	self.modelindex_lod0 = oldself.modelindex_lod0;
+	self.modelindex_lod0_from_nexuiz = oldself.modelindex_lod0_from_nexuiz;
+#ifdef ALLOW_VARIABLE_LOD
+	self.modelindex_lod1 = oldself.modelindex_lod1;
+	self.modelindex_lod2 = oldself.modelindex_lod2;
+#endif
+	self.skinindex = oldself.skinindex;
 	self.species = oldself.species;
 	self.movetype = oldself.movetype;
 	self.nextthink = oldself.nextthink;
-	self.skin = oldself.skin;
 	self.solid = oldself.solid;
 	self.takedamage = oldself.takedamage;
 	self.think = oldself.think;
@@ -89,7 +95,7 @@ float player_getspecies()
 				continue;
 			fgets(fh); fgets(fh);
 			sk = stof(fgets(fh));
-			if(sk == (j ? 0 : self.skin)) // 2nd pass skips the skin test
+			if(sk == (j ? 0 : self.skinindex)) // 2nd pass skips the skin test
 			if(fgets(fh) == self.model)
 			{
 				l = fgets(fh);
@@ -276,7 +282,7 @@ void SpawnThrownWeapon (vector org, float w)
 void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
 	local float take, save;
-	Violence_GibSplash_At(hitloc, force, 2, bound(0, damage, 200) / 16);
+	Violence_GibSplash_At(hitloc, force, 2, bound(0, damage, 200) / 16, self, attacker);
 
 	// damage resistance (ignore most of the damage from a bullet or similar)
 	damage = max(damage - 5, 1);
@@ -284,17 +290,20 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 	save = bound(0, damage * cvar("g_balance_armor_blockpercent"), self.armorvalue);
 	take = bound(0, damage - save, damage);
 
-	if (save > 10)
-		sound (self, CHAN_PROJECTILE, "misc/armorimpact.wav", VOL_BASE, ATTN_NORM);
-	else if (take > 30)
-		sound (self, CHAN_PROJECTILE, "misc/bodyimpact2.wav", VOL_BASE, ATTN_NORM);
-	else if (take > 10)
-		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM);
+	if(sound_allowed(MSG_BROADCAST, attacker))
+	{
+		if (save > 10)
+			sound (self, CHAN_PROJECTILE, "misc/armorimpact.wav", VOL_BASE, ATTN_NORM);
+		else if (take > 30)
+			sound (self, CHAN_PROJECTILE, "misc/bodyimpact2.wav", VOL_BASE, ATTN_NORM);
+		else if (take > 10)
+			sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM);
+	}
 
 	if (take > 50)
-		Violence_GibSplash_At(hitloc, force * -0.1, 3, 1);
+		Violence_GibSplash_At(hitloc, force * -0.1, 3, 1, self, attacker);
 	if (take > 100)
-		Violence_GibSplash_At(hitloc, force * -0.2, 3, 1);
+		Violence_GibSplash_At(hitloc, force * -0.2, 3, 1, self, attacker);
 
 	if (!(self.flags & FL_GODMODE))
 	{
@@ -315,7 +324,7 @@ void PlayerCorpseDamage (entity inflictor, entity attacker, float damage, float 
 		// view just above the floor
 		self.view_ofs = '0 0 4';
 
-		Violence_GibSplash(self, 1, 1);
+		Violence_GibSplash(self, 1, 1, attacker);
 		self.modelindex = 0; // restore later
 		self.solid = SOLID_NOT; // restore later
 	}
@@ -349,8 +358,8 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		d = inflictor.origin - self.origin;
 		f = (d * v_right) / vlen(d); // this is cos of angle of d and v_right!
 		force = v_right * vlen(force);
-		Violence_GibSplash_At(ear1, force * -1, 2, bound(0, damage, 25) / 2 * (0.5 - 0.5 * f));
-		Violence_GibSplash_At(ear2, force,      2, bound(0, damage, 25) / 2 * (0.5 + 0.5 * f));
+		Violence_GibSplash_At(ear1, force * -1, 2, bound(0, damage, 25) / 2 * (0.5 - 0.5 * f), self, attacker);
+		Violence_GibSplash_At(ear2, force,      2, bound(0, damage, 25) / 2 * (0.5 + 0.5 * f), self, attacker);
 		if(f > 0)
 		{
 			hitloc = ear1;
@@ -363,7 +372,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		}
 	}
 	else
-		Violence_GibSplash_At(hitloc, force, 2, bound(0, damage, 200) / 16);
+		Violence_GibSplash_At(hitloc, force, 2, bound(0, damage, 200) / 16, self, attacker);
 
 	if(g_arena)
 	if(numspawned < 2)
@@ -380,17 +389,20 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		take = damage;
 	}
 
-	if (save > 10)
-		sound (self, CHAN_PROJECTILE, "misc/armorimpact.wav", VOL_BASE, ATTN_NORM);
-	else if (take > 30)
-		sound (self, CHAN_PROJECTILE, "misc/bodyimpact2.wav", VOL_BASE, ATTN_NORM);
-	else if (take > 10)
-		sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM); // FIXME possibly remove them?
+	if(sound_allowed(MSG_BROADCAST, attacker))
+	{
+		if (save > 10)
+			sound (self, CHAN_PROJECTILE, "misc/armorimpact.wav", VOL_BASE, ATTN_NORM);
+		else if (take > 30)
+			sound (self, CHAN_PROJECTILE, "misc/bodyimpact2.wav", VOL_BASE, ATTN_NORM);
+		else if (take > 10)
+			sound (self, CHAN_PROJECTILE, "misc/bodyimpact1.wav", VOL_BASE, ATTN_NORM); // FIXME possibly remove them?
+	}
 
 	if (take > 50)
-		Violence_GibSplash_At(hitloc, force * -0.1, 3, 1);
+		Violence_GibSplash_At(hitloc, force * -0.1, 3, 1, self, attacker);
 	if (take > 100)
-		Violence_GibSplash_At(hitloc, force * -0.2, 3, 1);
+		Violence_GibSplash_At(hitloc, force * -0.2, 3, 1, self, attacker);
 
 	if (time > self.spawnshieldtime)
 	{
@@ -414,6 +426,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 							setanim(self, self.anim_pain2, FALSE, TRUE, TRUE);
 					}
 
+					if(sound_allowed(MSG_BROADCAST, attacker))
 					if(!DEATH_ISWEAPON(deathtype, WEP_LASER) || attacker != self || self.health < 2 * cvar("g_balance_laser_primary_damage") * cvar("g_balance_selfdamagepercent") + 1)
 					// exclude pain sounds for laserjumps as long as you aren't REALLY low on health and would die of the next two
 					{
@@ -467,6 +480,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		defer_ClientKill_Now_TeamChange = FALSE;
 
 		if(sv_gentle < 1) // TODO make a "gentle" version?
+		if(sound_allowed(MSG_BROADCAST, attacker))
 		{
 			if(deathtype == DEATH_DROWN)
 				PlayerSound(playersound_drown, CHAN_PAIN, VOICETYPE_PLAYERSOUND);

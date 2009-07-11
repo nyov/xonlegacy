@@ -32,7 +32,7 @@ float entcs_customize()
 		return FALSE;
 	if(other.classname == "player")
 		if(o.team != other.team)
-			if(!sv_cheats)
+			if not (sv_cheats || radar_showennemies)
 				return FALSE;
 	return TRUE;
 }

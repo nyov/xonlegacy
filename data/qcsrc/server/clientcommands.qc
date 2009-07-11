@@ -34,7 +34,7 @@ float Nagger_SendEntity(entity to, float sendflags)
 		else
 			WriteString(MSG_ENTITY, "");
 	}
-	
+
 	if(nags & 1)
 	{
 		for(i = 1; i <= maxclients; i += 8)
@@ -313,7 +313,7 @@ void SV_ParseClientCommand(string s) {
 	} else if(argv(0) == "cvar_changes") {
 		sprint(self, cvar_changes);
 	} else if(argv(0) == "pointparticles") {
-		if(sv_cheats && tokens == 5)
+		if((sv_cheats || self.maycheat) && tokens == 5)
 		{
 			// arguments:
 			//   effectname
@@ -330,24 +330,24 @@ void SV_ParseClientCommand(string s) {
 		else
 			sprint(self, "Usage: sv_cheats 1; restart; cmd pointparticles effectname position(0..1) velocityvector multiplier\n");
 	} else if(argv(0) == "trailparticles") {
-		if(sv_cheats && tokens == 2)
+		if((sv_cheats || self.maycheat) && tokens == 2)
 		{
 			// arguments:
 			//   effectname
 			effectnum = particleeffectnum(argv(1));
-			W_SetupShot(self, FALSE, FALSE, "");
+			W_SetupShot(self, FALSE, FALSE, "",0);
 			traceline(w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, MOVE_NORMAL, self);
 			trailparticles(self, effectnum, w_shotorg, trace_endpos);
 		}
 		else
 			sprint(self, "Usage: sv_cheats 1; restart; cmd trailparticles effectname\n");
 	} else if(argv(0) == "make") {
-		if(sv_cheats && tokens == 3)
+		if((sv_cheats || self.maycheat) && tokens == 3)
 		{
 			// arguments:
 			//   modelname mode
 			f = stof(argv(2));
-			W_SetupShot(self, FALSE, FALSE, "");
+			W_SetupShot(self, FALSE, FALSE, "", 0);
 			traceline(w_shotorg, w_shotorg + w_shotdir * 2048, MOVE_NORMAL, self);
 			if((trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT) || trace_fraction == 1)
 			{
@@ -431,7 +431,7 @@ void SV_ParseClientCommand(string s) {
 			else
 				self.nickspamcount += 1;
 			self.nickspamtime = time + cvar("g_nick_flood_penalty");
-			
+
 			if (timeoutStatus == 2) //when game is paused, no flood protection
 				self.nickspamcount = self.nickspamtime = 0;
 		}
@@ -456,9 +456,9 @@ void ReadyRestartForce()
 		newTL -= checkrules_overtimesadded * cvar("timelimit_overtime");
 		cvar_set("timelimit", ftos(newTL));
 	}
-	
+
 	checkrules_suddendeathend = checkrules_overtimesadded = checkrules_suddendeathwarning = 0;
-	
+
 
 	readyrestart_happened = 1;
 	game_starttime = time + RESTART_COUNTDOWN;
@@ -506,7 +506,7 @@ void ReadyRestart()
 	if(g_arena | g_assault | gameover | intermission_running | race_completing)
 		localcmd("restart\n");
 
-	// reset ALL scores, but only do that at the beginning 
+	// reset ALL scores, but only do that at the beginning
 	//of the countdown if sv_ready_restart_after_countdown is off!
 	//Otherwise scores could be manipulated during the countdown!
 	if (!cvar("sv_ready_restart_after_countdown"))

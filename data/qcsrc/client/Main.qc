@@ -87,6 +87,7 @@ void CSQC_Init(void)
 	registercmd("-button3");
 	registercmd("+button4");
 	registercmd("-button4");
+	registercmd("+showaccuracy");registercmd("-showaccuracy");
 
 #ifndef CAMERATEST
 	if(isdemo())
@@ -330,6 +331,12 @@ float CSQC_ConsoleCommand(string strMessage)
 		return true;
 	} else if(strCmd == "-showscores") {
 		sb_showscores = false;
+		return true;
+	} else if(strCmd == "+showaccuracy") {
+		sb_showaccuracy = true;
+		return true;
+	} else if(strCmd == "-showaccuracy") {
+		sb_showaccuracy = false;
 		return true;
 	}
 
@@ -748,7 +755,7 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 	else
 	{
 		serverprevtime = time;
-		serverdeltatime = getstatf(STAT_SYS_TICRATE) * getstatf(STAT_MOVEVARS_TIMESCALE);
+		serverdeltatime = getstatf(STAT_MOVEVARS_TICRATE) * getstatf(STAT_MOVEVARS_TIMESCALE);
 		time = serverprevtime + serverdeltatime;
 	}
 

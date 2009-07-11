@@ -15,7 +15,7 @@ void W_Nex_Attack (void)
 	float flying;
 	flying = IsFlying(self); // do this BEFORE to make the trace values from FireRailgunBullet last
 
-	W_SetupShot (self, TRUE, 5, "weapons/nexfire.wav");
+	W_SetupShot (self, TRUE, 5, "weapons/nexfire.wav", cvar("g_balance_nex_damage"));
 
 	yoda = 0;
 	FireRailgunBullet (w_shotorg, w_shotorg + w_shotdir * MAX_SHOT_DISTANCE, cvar("g_balance_nex_damage"), cvar("g_balance_nex_force"), WEP_NEX);
@@ -28,7 +28,7 @@ void W_Nex_Attack (void)
 	
 	// flash and burn the wall
 	if (trace_ent.solid == SOLID_BSP && !(trace_dphitq3surfaceflags & Q3SURFACEFLAG_NOIMPACT))
-		Damage_DamageInfo(trace_endpos, cvar("g_balance_nex_damage"), 0, 0, cvar("g_balance_nex_force") * w_shotdir, WEP_NEX);
+		Damage_DamageInfo(trace_endpos, cvar("g_balance_nex_damage"), 0, 0, cvar("g_balance_nex_force") * w_shotdir, WEP_NEX, self);
 
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_cells = self.ammo_cells - cvar("g_balance_nex_ammo");

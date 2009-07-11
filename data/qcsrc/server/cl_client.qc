@@ -398,6 +398,26 @@ LOD reduction
 */
 float Client_customizeentityforclient()
 {
+	entity modelsource;
+
+	if(self.modelindex == 0)
+		return TRUE;
+
+	modelsource = self;
+	if(other.cvar_cl_forceplayermodelsfromnexuiz)
+		if not(self.modelindex_lod0_from_nexuiz)
+			modelsource = other;
+	if(other.cvar_cl_forceplayermodels && sv_clforceplayermodels)
+		modelsource = other;
+
+	self.skin = modelsource.skinindex;
+#if 0
+	if(modelsource == self)
+		self.skin = modelsource.skinindex;
+	else
+		self.skin = mod(modelsource.skinindex, 3); // forbid the fbskins as forced skins
+#endif
+
 #ifdef ALLOW_VARIABLE_LOD
 	// self: me
 	// other: the player viewing me
@@ -410,23 +430,25 @@ float Client_customizeentityforclient()
 	if(other.cvar_cl_playerdetailreduction <= 0)
 	{
 		if(other.cvar_cl_playerdetailreduction <= -2)
-			self.modelindex = self.modelindex_lod2;
+			self.modelindex = modelsource.modelindex_lod2;
 		else if(other.cvar_cl_playerdetailreduction <= -1)
-			self.modelindex = self.modelindex_lod1;
+			self.modelindex = modelsource.modelindex_lod1;
 		else
-			self.modelindex = self.modelindex_lod0;
+			self.modelindex = modelsource.modelindex_lod0;
 	}
 	else
 	{
 		distance = vlen(self.origin - other.origin);
 		f = (distance + 100.0) * other.cvar_cl_playerdetailreduction;
 		if(f > 10000)
-			self.modelindex = self.modelindex_lod2;
+			self.modelindex = modelsource.modelindex_lod2;
 		else if(f > 5000)
-			self.modelindex = self.modelindex_lod1;
+			self.modelindex = modelsource.modelindex_lod1;
 		else
-			self.modelindex = self.modelindex_lod0;
+			self.modelindex = modelsource.modelindex_lod0;
 	}
+#else
+	self.modelindex = modelsource.modelindex_lod0;
 #endif
 
 	return TRUE;
@@ -471,7 +493,14 @@ void setmodel_lod(entity e, string modelname)
 #else
 	precache_model(modelname);
 	setmodel(e, modelname); // players have high precision
+	self.modelindex_lod0 = self.modelindex;
+		// save it for possible player model forcing
 #endif
+
+	string s;
+	s = whichpack(self.model);
+	self.modelindex_lod0_from_nexuiz = ((s == "") || (substring(s, 0, 4) == "data"));
+
 	player_setupanimsformodel();
 	UpdatePlayerSounds();
 }
@@ -553,6 +582,8 @@ void PutObserverInServer (void)
 	self.pain_finished = 0;
 	self.strength_finished = 0;
 	self.invincible_finished = 0;
+	self.damage_hits = 0;
+	self.maxdamage_fired = 0;
 	self.pushltime = 0;
 	self.think = SUB_Null;
 	self.nextthink = 0;
@@ -661,8 +692,8 @@ void FixPlayermodel()
 			chmdl = TRUE;
 		}
 
-		oldskin = self.skin;
-		self.skin = defaultskin;
+		oldskin = self.skinindex;
+		self.skinindex = defaultskin;
 	} else {
 		if (self.playermodel != self.model)
 		{
@@ -674,11 +705,11 @@ void FixPlayermodel()
 			chmdl = TRUE;
 		}
 
-		oldskin = self.skin;
-		self.skin = RestrictSkin(stof(self.playerskin));
+		oldskin = self.skinindex;
+		self.skinindex = RestrictSkin(stof(self.playerskin));
 	}
 	
-	if(chmdl || oldskin != self.skin)
+	if(chmdl || oldskin != self.skinindex)
 		self.species = player_getspecies(); // model or skin has changed
 
 	if(!teams_matter)
@@ -821,6 +852,8 @@ void PutClientInServer (void)
 		self.pain_finished = 0;
 		self.strength_finished = 0;
 		self.invincible_finished = 0;
+		self.maxdamage_fired = 0;
+		self.damage_hits = 0;
 		self.pushltime = 0;
 		//self.speed_finished = 0;
 		//self.slowmo_finished = 0;
@@ -1640,7 +1673,7 @@ void player_powerups (void)
 {
 	if((self.items & IT_USING_JETPACK) && !self.deadflag)
 	{
-		SoundEntity_StartSound(self, CHAN_PLAYER, "misc/jetpack_fly.wav", VOL_BASE, ATTN_IDLE);
+		SoundEntity_StartSound(self, CHAN_PLAYER, "misc/jetpack_fly.wav", VOL_BASE, cvar("g_jetpack_attenuation"));
 		self.modelflags |= MF_ROCKET;
 	}
 	else
@@ -1881,7 +1914,10 @@ float zoomstate_set;
 void SetZoomState(float z)
 {
 	if(z != self.zoomstate)
+	{
+		self.zoomstate = z;
 		ClientData_Touch(self);
+	}
 	zoomstate_set = 1;
 }
 
@@ -1948,6 +1984,8 @@ void SpectateCopy(entity spectatee) {
 	self.metertime = spectatee.metertime;
 	self.strength_finished = spectatee.strength_finished;
 	self.invincible_finished = spectatee.invincible_finished;
+	self.maxdamage_fired = spectatee.maxdamage_fired;
+	self.damage_hits = spectatee.damage_hits;
 	self.pressedkeys = spectatee.pressedkeys;
 	self.weapons = spectatee.weapons;
 	self.switchweapon = spectatee.switchweapon;
@@ -2215,9 +2253,9 @@ void() nexball_setstatus;
 .float items_added;
 void PlayerPreThink (void)
 {
-	self.stat_sys_ticrate = cvar("sys_ticrate");
 	self.stat_game_starttime = game_starttime;
 	self.stat_allow_oldnexbeam = cvar("g_allow_oldnexbeam");
+	self.stat_leadlimit = cvar("leadlimit");
 
 	if(blockSpectators && frametime)
 		// WORKAROUND: only use dropclient in server frames (frametime set). Never use it in cl_movement frames (frametime zero).
@@ -2738,7 +2776,7 @@ void PlayerPostThink (void)
 		self.idlekick_lasttimeleft = timeleft;
 	}
 
-	if(sv_cheats)
+	if(sv_cheats || self.maycheat)
 		if(Drag_CanDrag(self))
 			if(self.BUTTON_DRAG)
 				if(!self.dragentity)

@@ -25,6 +25,24 @@ void WaypointSprite_UpdateSprites(entity e, string m1, string m2, string m3)
 	}
 }
 
+void WaypointSprite_UpdateHealth(entity e, float f)
+{
+	if(f != e.health)
+	{
+		e.health = f;
+		e.SendFlags |= 0x80;
+	}
+}
+
+void WaypointSprite_UpdateMaxHealth(entity e, float f)
+{
+	if(f != e.max_health)
+	{
+		e.max_health = f;
+		e.SendFlags |= 0x80;
+	}
+}
+
 void WaypointSprite_UpdateOrigin(entity e, vector o)
 {
 	if(o != e.origin)
@@ -59,21 +77,21 @@ void WaypointSprite_Ping(entity e)
 
 void WaypointSprite_FadeOutIn(entity e, float t)
 {
-	if(!e.health)
+	if(!e.fade_time)
 	{
-		e.health = t;
+		e.fade_time = t;
 		e.teleport_time = time + t;
 	}
 	else if(t < (e.teleport_time - time))
 	{
 		// accelerate the waypoint's dying
 		// ensure:
-		//   (e.teleport_time - time) / wp.health stays
+		//   (e.teleport_time - time) / wp.fade_time stays
 		//   e.teleport_time = time + fadetime
 		float current_fadetime;
 		current_fadetime = e.teleport_time - time;
 		e.teleport_time = time + t;
-		e.health = e.health * t / current_fadetime;
+		e.fade_time = e.fade_time * t / current_fadetime;
 	}
 
 	e.SendFlags |= 16;
@@ -125,7 +143,7 @@ void WaypointSprite_Think()
 
 	doremove = FALSE;
 
-	if(self.health)
+	if(self.fade_time)
 	{
 		if(time >= self.teleport_time)
 			doremove = TRUE;
@@ -175,7 +193,16 @@ float WaypointSprite_Customize()
 float WaypointSprite_SendEntity(entity to, float sendflags)
 {
 	WriteByte(MSG_ENTITY, ENT_CLIENT_WAYPOINT);
+
+	sendflags = sendflags & 0x7F;
+	
+	if(self.max_health)
+		sendflags |= 0x80;
+
 	WriteByte(MSG_ENTITY, sendflags);
+
+	if(self.max_health)
+		WriteByte(MSG_ENTITY, (self.health / self.max_health) * 255.0);
 
 	if(sendflags & 64)
 	{
@@ -201,9 +228,9 @@ float WaypointSprite_SendEntity(entity to, float sendflags)
 
 	if(sendflags & 16)
 	{
-		WriteCoord(MSG_ENTITY, self.health);
+		WriteCoord(MSG_ENTITY, self.fade_time);
 		WriteCoord(MSG_ENTITY, self.teleport_time);
-		WriteShort(MSG_ENTITY, self.max_health); // maxdist
+		WriteShort(MSG_ENTITY, self.fade_rate); // maxdist
 		float f;
 		f = 0;
 		if(self.currentammo)
@@ -228,7 +255,7 @@ void WaypointSprite_Reset()
 {
 	// if a WP wants to time out, let it time out immediately; other WPs ought to be reset/killed by their owners
 
-	if(self.health) // there was there before: || g_keyhunt, do we really need this?
+	if(self.fade_time) // there was there before: || g_keyhunt, do we really need this?
 		WaypointSprite_Kill(self);
 }
 
@@ -245,7 +272,7 @@ entity WaypointSprite_Spawn(
 	wp = spawn();
 	wp.classname = "sprite_waypoint";
 	wp.teleport_time = time + lifetime;
-	wp.health = lifetime;
+	wp.fade_time = lifetime;
 	wp.exteriormodeltoclient = ref;
 	if(ref)
 	{
@@ -265,7 +292,7 @@ entity WaypointSprite_Spawn(
 		own.ownfield = wp;
 		wp.owned_by_field = ownfield;
 	}
-	wp.max_health = maxdistance;
+	wp.fade_rate = maxdistance;
 	wp.think = WaypointSprite_Think;
 	wp.nextthink = time;
 	wp.model1 = spr;

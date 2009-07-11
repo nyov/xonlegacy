@@ -6,7 +6,7 @@ CLASS(NexuizRadarDialog) EXTENDS(NexuizDialog)
 	ATTRIB(NexuizRadarDialog, title, string, "Radar, HUD & Waypoints")
 	ATTRIB(NexuizRadarDialog, color, vector, SKINCOLOR_DIALOG_RADAR)
 	ATTRIB(NexuizRadarDialog, intendedWidth, float, 0.7)
-	ATTRIB(NexuizRadarDialog, rows, float, 17)
+	ATTRIB(NexuizRadarDialog, rows, float, 18)
 	ATTRIB(NexuizRadarDialog, columns, float, 4)
 ENDCLASS(NexuizRadarDialog)
 #endif
@@ -58,20 +58,29 @@ void fillNexuizRadarDialog(entity me)
 		me.TD(me, 1, 4, makeNexuizTextLabel(0, "HUD settings:"));
 	me.TR(me);
 		me.TDempty(me, 0.2);
-		me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Default Red:"));
-		me.TD(me, 1, 3, e = makeNexuizSlider(0, 1, 0.01, "sbar_color_bg_r"));
-	me.TR(me);
-		me.TDempty(me, 0.2);
-		me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Default Green:"));
-		me.TD(me, 1, 3, e = makeNexuizSlider(0, 1, 0.01, "sbar_color_bg_g"));
-	me.TR(me);
-		me.TDempty(me, 0.2);
-		me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Default Blue:"));
-		me.TD(me, 1, 3, e = makeNexuizSlider(0, 1, 0.01, "sbar_color_bg_b"));
-	me.TR(me);
-		me.TDempty(me, 0.2);
-		me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Alpha:"));
+		me.TD(me, 1, 0.8, e = makeNexuizCheckBoxEx(100, 110, "viewsize", "Background:"));
 		me.TD(me, 1, 3, e = makeNexuizSlider(0, 1, 0.01, "sbar_alpha_bg"));
+			setDependent(e, "viewsize", 0, 100);
+		me.TR(me);
+			me.TDempty(me, 0.2);
+			me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Default Red:"));
+			me.TD(me, 1, 3, e = makeNexuizSlider(0, 1, 0.01, "sbar_color_bg_r"));
+				setDependent(e, "viewsize", 0, 100);
+		me.TR(me);
+			me.TDempty(me, 0.2);
+			me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Default Green:"));
+			me.TD(me, 1, 3, e = makeNexuizSlider(0, 1, 0.01, "sbar_color_bg_g"));
+				setDependent(e, "viewsize", 0, 100);
+		me.TR(me);
+			me.TDempty(me, 0.2);
+			me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Default Blue:"));
+			me.TD(me, 1, 3, e = makeNexuizSlider(0, 1, 0.01, "sbar_color_bg_b"));
+				setDependent(e, "viewsize", 0, 100);
+		me.TR(me);
+			me.TDempty(me, 0.2);
+			me.TD(me, 1, 0.8, e = makeNexuizTextLabel(0, "Team brightness:"));
+			me.TD(me, 1, 3, e = makeNexuizSlider(0.1, 1, 0.01, "sbar_color_bg_team"));
+				setDependent(e, "viewsize", 0, 100);
 	me.TR(me);
 	me.TR(me);
 		me.TD(me, 1, 4, makeNexuizTextLabel(0, "Waypoint settings:"));

@@ -22,7 +22,7 @@ void W_Uzi_Attack (float deathtype)
 		else
 			self.ammo_nails = self.ammo_nails - cvar("g_balance_uzi_sustained_ammo");
 	}
-	W_SetupShot (self, cvar("g_antilag_bullets") && cvar("g_balance_uzi_speed") >= cvar("g_antilag_bullets"), 0, "weapons/uzi_fire.wav");
+	W_SetupShot (self, cvar("g_antilag_bullets") && cvar("g_balance_uzi_speed") >= cvar("g_antilag_bullets"), 0, "weapons/uzi_fire.wav", cvar("g_balance_uzi_first_damage"));
 	if (!g_norecoil)
 	{
 		self.punchangle_x = random () - 0.5;
@@ -52,7 +52,7 @@ void W_Uzi_Attack (float deathtype)
 
 	// casing code
 	if (cvar("g_casings") >= 2)
-		SpawnCasing (((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3);
+		SpawnCasing (((random () * 50 + 50) * v_right) - (v_forward * (random () * 25 + 25)) - ((random () * 5 - 70) * v_up), 2, vectoangles(v_forward),'0 250 0', 100, 3, self);
 }
 
 // weapon frames

@@ -66,6 +66,7 @@ void debugnodestatus(vector position, float status)
 // can be traveled, used for waypoint linking and havocbot
 
 vector stepheightvec;
+float bot_navigation_movemode;
 float navigation_testtracewalk;
 float tracewalk(entity e, vector start, vector m1, vector m2, vector end, float movemode)
 {
@@ -574,6 +575,7 @@ void waypoint_think()
 	local vector sv, sm1, sm2, ev, em1, em2, dv;
 
 	stepheightvec = cvar("sv_stepheight") * '0 0 1';
+	bot_navigation_movemode = ((cvar("bot_navigation_ignoreplayers")) ? MOVE_NOMONSTERS : MOVE_NORMAL);
 
 	//dprint("waypoint_think wpisbox = ", ftos(self.wpisbox), "\n");
 	sm1 = self.origin + self.mins;
@@ -1318,6 +1320,14 @@ entity waypoint_spawnpersonal(vector position)
 {
 	entity w;
 
+	// drop the waypoint to a proper location:
+	//   first move it up by a player height
+	//   then move it down to hit the floor with player bbox size
+	traceline(position, position + '0 0 1' * (PL_MAX_z - PL_MIN_z), MOVE_NOMONSTERS, world);
+	tracebox(trace_endpos, PL_MIN, PL_MAX, trace_endpos + '0 0 -1024', MOVE_NOMONSTERS, world);
+	if(trace_fraction < 1)
+		position = trace_endpos;
+
 	w = waypoint_spawn(position, position, WAYPOINTFLAG_GENERATED | WAYPOINTFLAG_PERSONAL);
 	w.nearestwaypoint = world;
 	w.nearestwaypointtimeout = 0;
@@ -1506,7 +1516,7 @@ entity navigation_findnearestwaypoint(entity ent, float walkfromwp)
 					if (walkfromwp)
 					{
 						//print("^1can I reach ", vtos(org), " from ", vtos(v), "?\n");
-						if (tracewalk(ent, v, PL_MIN, PL_MAX, org, MOVE_NORMAL))
+						if (tracewalk(ent, v, PL_MIN, PL_MAX, org, bot_navigation_movemode))
 						{
 							bestdist = dist;
 							best = w;
@@ -1514,7 +1524,7 @@ entity navigation_findnearestwaypoint(entity ent, float walkfromwp)
 					}
 					else
 					{
-						if (tracewalk(ent, org, PL_MIN, PL_MAX, v, MOVE_NORMAL))
+						if (tracewalk(ent, org, PL_MIN, PL_MAX, v, bot_navigation_movemode))
 						{
 							bestdist = dist;
 							best = w;
@@ -1557,7 +1567,7 @@ float navigation_markroutes_nearestwaypoints(entity waylist, float maxdist)
 			if (vlen(diff) < maxdist)
 			{
 				head.wpconsidered = TRUE;
-				if (tracewalk(self, self.origin, self.mins, self.maxs, v, MOVE_NORMAL))
+				if (tracewalk(self, self.origin, self.mins, self.maxs, v, bot_navigation_movemode))
 				{
 					head.wpnearestpoint = v;
 					head.wpcost = vlen(v - self.origin) + head.dmg;
@@ -1790,7 +1800,7 @@ float navigation_routetogoal(entity e, vector startposition)
 	navigation_pushroute(e);
 
 	// if it can reach the goal there is nothing more to do
-	if (tracewalk(self, startposition, PL_MIN, PL_MAX, e.origin, MOVE_NORMAL))
+	if (tracewalk(self, startposition, PL_MIN, PL_MAX, e.origin, bot_navigation_movemode))
 		return TRUE;
 
 	// see if there are waypoints describing a path to the item
@@ -1917,16 +1927,23 @@ void navigation_goalrating_end()
 	if not (self.navigation_hasgoals)
 	{
 		dprint(self.netname, " can't walk to any goal, going to a near waypoint\n");
-		local entity head;
-		head = findradius(self.origin,500);
+
+		entity head;
+
+		RandomSelection_Init();
+		head = findradius(self.origin,1000);
 		while(head)
 		{
 			if(head.classname=="waypoint")
-			if(checkpvs(self.origin,head))
-				navigation_routetogoal(head,self.origin);
-
+			if(!(head.wpflags & WAYPOINTFLAG_GENERATED))
+			if(vlen(self.origin-head.origin)>100)
+			if(checkpvs(self.view_ofs,head))
+				RandomSelection_Add(head, 0, string_null, 1 + (vlen(self.origin-head.origin)<500), 0);
 			head = head.chain;
 		}
+		if(RandomSelection_chosen_ent)
+			navigation_routetogoal(RandomSelection_chosen_ent, self.origin);
+
 		self.navigation_hasgoals = FALSE; // Reset this value
 	}
 };
@@ -1982,11 +1999,15 @@ vector shotdir;
 
 void bot_setnameandstuff()
 {
-	local string readfile, s;
-	local float file, tokens;
+	string readfile, s;
+	float file, tokens, prio;
+	entity p;
 
-	local string bot_name, bot_model, bot_skin, bot_shirt, bot_pants;
-	local string name, prefix, suffix;
+	string bot_name, bot_model, bot_skin, bot_shirt, bot_pants;
+	string name, prefix, suffix;
+
+	prefix = cvar_string("bot_prefix");
+	suffix = cvar_string("bot_suffix");
 
 	file = fopen(cvar_string("bot_config_file"), FILE_READ);
 
@@ -1997,16 +2018,27 @@ void bot_setnameandstuff()
 		RandomSelection_Init();
 		for(;;)
 		{
-			s = fgets(file);
-			if(!s)
+			readfile = fgets(file);
+			if(!readfile)
 				break;
-			if(substring(s, 0, 2) == "//")
+			if(substring(readfile, 0, 2) == "//")
 				continue;
-			if(substring(s, 0, 1) == "#")
+			if(substring(readfile, 0, 1) == "#")
 				continue;
-			RandomSelection_Add(world, 0, s, 1, 0);
-			readfile = RandomSelection_chosen_string;
+			tokens = tokenizebyseparator(readfile, "\t");
+			s = argv(0);
+			prio = 1;
+			FOR_EACH_CLIENT(p)
+			{
+				if(strcat(prefix, s, suffix) == p.netname)
+				{
+					prio = 0;
+					break;
+				}
+			}
+			RandomSelection_Add(world, 0, readfile, 1, prio);
 		}
+		readfile = RandomSelection_chosen_string;
 		fclose(file);
 	}
 
@@ -2028,8 +2060,6 @@ void bot_setnameandstuff()
 
 	self.bot_forced_team = stof(argv(5));
 	self.bot_config_loaded = TRUE;
-	prefix = cvar_string("bot_prefix");
-	suffix = cvar_string("bot_suffix");
 
 	// this is really only a default, JoinBestTeam is called later
 	setcolor(self, stof(bot_shirt) * 16 + stof(bot_pants));
@@ -2042,7 +2072,9 @@ void bot_setnameandstuff()
 		name = bot_name;
 
 	// pick the model and skin
-	self.playermodel = self.playermodel_freeme = strzone(strcat("models/player/", bot_model, ".zym"));
+	if(substring(bot_model, -4, 1) != ".")
+		bot_model = strcat(bot_model, ".zym");
+	self.playermodel = self.playermodel_freeme = strzone(strcat("models/player/", bot_model));
 	self.playerskin = self.playerskin_freeme = strzone(bot_skin);
 
  	if(!cvar("g_campaign"))
@@ -2679,7 +2711,7 @@ void botframe_showwaypointlinks()
 		{
 			//navigation_testtracewalk = TRUE;
 			head = navigation_findnearestwaypoint(player, FALSE);
-			print("currently selected WP is ", etos(head), "\n");
+		//	print("currently selected WP is ", etos(head), "\n");
 			//navigation_testtracewalk = FALSE;
 			if (head)
 			{
@@ -2832,6 +2864,7 @@ void bot_serverframe()
 		return;
 
 	stepheightvec = cvar("sv_stepheight") * '0 0 1';
+	bot_navigation_movemode = ((cvar("bot_navigation_ignoreplayers")) ? MOVE_NOMONSTERS : MOVE_NORMAL);
 
 	if(time > autoskill_nextthink)
 	{
@@ -2857,7 +2890,7 @@ void bot_serverframe()
 	// But don't remove bots immediately on level change, as the real players
 	// usually haven't rejoined yet
 	bots_would_leave = FALSE;
-	if (realplayers || cvar("bot_join_empty") || (currentbots > 0 && time < 5))
+	if ((realplayers || cvar("bot_join_empty") || (currentbots > 0 && time < 5)))
 	{
 		float realminplayers, minplayers;
 		realminplayers = cvar("minplayers");

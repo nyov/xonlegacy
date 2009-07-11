@@ -526,6 +526,8 @@ void GetCvars(float f)
 	GetCvars_handleFloat(s, f, cvar_cl_voice_directional, "cl_voice_directional");
 	GetCvars_handleFloat(s, f, cvar_cl_voice_directional_taunt_attenuation, "cl_voice_directional_taunt_attenuation");
 	GetCvars_handleFloat(s, f, cvar_cl_hitsound, "cl_hitsound");
+	GetCvars_handleFloat(s, f, cvar_cl_forceplayermodels, "cl_forceplayermodels");
+	GetCvars_handleFloat(s, f, cvar_cl_forceplayermodelsfromnexuiz, "cl_forceplayermodelsfromnexuiz");
 
 	// fixup of switchweapon (needed for LMS or when spectating is disabled, as PutClientInServer comes too early)
 	if(f > 0)
@@ -759,6 +761,11 @@ void readplayerstartcvars()
 				weapon_action(e.weapon, WR_PRECACHE);
 			}
 		}
+	}
+	else if(s == "none")
+	{
+		g_weaponarena_list = "No Weapons";
+		g_weaponarena = WEPBIT_ALL + 1; // this supports no single weapon bit!
 	}
 	else
 	{
@@ -997,6 +1004,7 @@ void readlevelcvars(void)
 	g_touchexplode_edgedamage = cvar("g_touchexplode_edgedamage");
 	g_touchexplode_force = cvar("g_touchexplode_force");
 
+ 	sv_clforceplayermodels = cvar("sv_clforceplayermodels");
  	sv_clones = cvar("sv_clones");
 	sv_cheats = cvar("sv_cheats");
 	sv_gentle = cvar("sv_gentle");
@@ -1111,7 +1119,7 @@ void sound(entity e, float chan, string samp, float vol, float atten)
 
 // Sound functions
 string precache_sound (string s) = #19;
-void(entity e, float chan, string samp, float vol, float atten) sound = #8;
+void(entity e, float chan, string samp, float vol, float atten) sound_builtin = #8;
 float precache_sound_index (string s) = #19;
 
 #define SND_VOLUME      1
@@ -1119,9 +1127,43 @@ float precache_sound_index (string s) = #19;
 #define SND_LARGEENTITY 8
 #define SND_LARGESOUND  16
 
+float sound_allowed(float dest, entity e)
+{
+	// sounds from world may always pass
+	for(;;)
+	{
+		if(e.classname == "body")
+			e = e.enemy;
+		if(e.owner && e.owner != e)
+			e = e.owner;
+		else
+			break;
+	}
+	// sounds to self may always pass
+	if(dest == MSG_ONE)
+		if(e == msg_entity)
+			return TRUE;
+	// sounds by players can be removed
+	if(cvar("bot_sound_monopoly"))
+		if(clienttype(e) == CLIENTTYPE_REAL)
+			return FALSE;
+	// anything else may pass
+	return TRUE;
+}
+
+void sound(entity e, float chan, string samp, float vol, float atten)
+{
+	if(!sound_allowed(MSG_BROADCAST, e))
+		return;
+	sound_builtin(e, chan, samp, vol, atten);
+}
 void soundtoat(float dest, entity e, vector o, float chan, string samp, float vol, float atten)
 {
 	float entno, idx;
+
+	if(!sound_allowed(dest, e))
+		return;
+
 	entno = num_for_edict(e);
 	idx = precache_sound_index(samp);
 
@@ -1167,6 +1209,10 @@ void soundtoat(float dest, entity e, vector o, float chan, string samp, float vo
 void soundto(float dest, entity e, float chan, string samp, float vol, float atten)
 {
 	vector o;
+
+	if(!sound_allowed(dest, e))
+		return;
+
 	o = e.origin + 0.5 * (e.mins + e.maxs);
 	soundtoat(dest, e, o, chan, samp, vol, atten);
 }
@@ -1177,6 +1223,10 @@ void soundat(entity e, vector o, float chan, string samp, float vol, float atten
 void stopsoundto(float dest, entity e, float chan)
 {
 	float entno;
+
+	if(!sound_allowed(dest, e))
+		return;
+
 	entno = num_for_edict(e);
 
 	if(entno >= 8192)
@@ -1206,6 +1256,9 @@ void stopsoundto(float dest, entity e, float chan)
 }
 void stopsound(entity e, float chan)
 {
+	if(!sound_allowed(MSG_BROADCAST, e))
+		return;
+
 	stopsoundto(MSG_BROADCAST, e, chan); // unreliable, gets there fast
 	stopsoundto(MSG_ALL, e, chan); // in case of packet loss
 }
@@ -1232,6 +1285,9 @@ float announce(entity player, string msg)
 // use this one if you might be causing spam (e.g. from touch functions that might get called more than once per frame)
 float spamsound(entity e, float chan, string samp, float vol, float atten)
 {
+	if(!sound_allowed(MSG_BROADCAST, e))
+		return FALSE;
+
 	if(time > e.announcetime)
 	{
 		e.announcetime = time;
@@ -1244,6 +1300,10 @@ float spamsound(entity e, float chan, string samp, float vol, float atten)
 void play2team(float t, string filename)
 {
 	local entity head;
+
+	if(cvar("bot_sound_monopoly"))
+		return;
+
 	FOR_EACH_REALPLAYER(head)
 	{
 		if (head.team == t)
@@ -1253,6 +1313,9 @@ void play2team(float t, string filename)
 
 void play2all(string samp)
 {
+	if(cvar("bot_sound_monopoly"))
+		return;
+
 	sound(world, CHAN_AUTO, samp, VOL_BASE, ATTN_NONE);
 }
 
@@ -2179,6 +2242,7 @@ void SoundEntity_Attach(entity pl)
 {
 	pl.soundentity = spawn();
 	pl.soundentity.classname = "soundentity";
+	pl.soundentity.owner = pl;
 	setattachment(pl.soundentity, pl, "");
 	setmodel(pl.soundentity, "null");
 }

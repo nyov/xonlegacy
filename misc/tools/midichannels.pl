@@ -46,9 +46,15 @@ while(<STDIN>)
 		{
 			my %taken = (0 => 1);
 			my @t = ($tracks->[0]);
+			my $force = 0;
 			for(@arg)
 			{
-				next if $taken{$_}++;
+				if($_ eq '--force')
+				{
+					$force = 1;
+					next;
+				}
+				next if $taken{$_}++ and not $force;
 				push @t, $tracks->[$_];
 			}
 			$opus->tracks_r(\@t);
@@ -65,6 +71,7 @@ while(<STDIN>)
 				my $t = 0;
 				for($tracks->[$_]->events())
 				{
+					$_->[0] = 'note_off' if $_->[0] eq 'note_on' and $_->[4] == 0;
 					$t += $_->[1];
 					my $p = $chanpos{$_->[0]};
 					if(defined $p)

@@ -1,8 +1,6 @@
 #!/usr/bin/perl
 
 # converter from Type 1 MIDI files to CFG files that control bots with the Tuba and other weapons for percussion (requires g_weaponarena all)
-# usage:
-#   perl midi2cfg.pl filename.mid basenote walktime "x y z" "x y z" "x y z" ... "/" "x y z" "x y z" ... > filename.cfg
 
 use strict;
 use warnings;
@@ -13,75 +11,24 @@ use Storable;
 use constant MIDI_FIRST_NONCHANNEL => 17;
 use constant MIDI_DRUMS_CHANNEL => 10;
 
-my ($filename, $transpose, $timeoffset, $timeoffset2, @preallocate) = @ARGV;
-
-my $opus = MIDI::Opus->new({from_file => $filename});
-#$opus->write_to_file("/tmp/y.mid");
-my $ticksperquarter = $opus->ticks();
-my $tracks = $opus->tracks_r();
-my @tempi = (); # list of start tick, time per tick pairs (calculated as seconds per quarter / ticks per quarter)
-my $tick;
-
-$tick = 0;
-for($tracks->[0]->events())
-{   
-    $tick += $_->[1];
-    if($_->[0] eq 'set_tempo')
-    {   
-        push @tempi, [$tick, $_->[2] * 0.000001 / $ticksperquarter];
-    }
-}
-sub tick2sec($)
-{
-    my ($tick) = @_;
-    my $sec = 0;
-    my $curtempo = [0, 0.5 / $ticksperquarter];
-    for(@tempi)
-    {
-        if($_->[0] < $tick)
-        {
-			# this event is in the past
-			# we add the full time since the last one then
-			$sec += ($_->[0] - $curtempo->[0]) * $curtempo->[1];
-        }   
-        else
-        {
-			# if this event is in the future, we break
-			last;
-        }
-		$curtempo = $_;
-    }
-	$sec += ($tick - $curtempo->[0]) * $curtempo->[1];
-	return $sec;
-}
-
-# merge all to a single track
-my @allmidievents = ();
-my $sequence = 0;
-for my $track(0..@$tracks-1)
-{
-	$tick = 0;
-	for($tracks->[$track]->events())
-	{
-		my ($command, $delta, @data) = @$_;
-		$tick += $delta;
-		push @allmidievents, [$command, $tick, $sequence++, $track, @data];
-	}
-}
-@allmidievents = sort { $a->[1] <=> $b->[1] or $a->[2] <=> $b->[2] } @allmidievents;
-
+die "Usage: $0 filename.conf timeoffset_preinit timeoffset_postinit timeoffset_predone timeoffset_postdone timeoffset_preintermission timeoffset_postintermission midifile1 transpose1 midifile2 transpose2 ..."
+	unless @ARGV > 7 and @ARGV % 2;
+my ($config, $timeoffset_preinit, $timeoffset_postinit, $timeoffset_predone, $timeoffset_postdone, $timeoffset_preintermission, $timeoffset_postintermission, @midilist) = @ARGV;
 
 sub unsort(@)
 {
 	return map { $_->[0] } sort { $a->[1] <=> $b->[1] } map { [$_, rand] } @_;
 }
 
-
-
-
-
-my $inittime = undef;
+my $precommands = "";
+my $commands = "";
+my $busybots;
+my @busybots_allocated;
+my %notechannelbots;
+my $transpose = 0;
 my $notetime = undef;
+my $lowestnotestart = undef;
+my $noalloc = 0;
 sub botconfig_read($)
 {
 	my ($fn) = @_;
@@ -102,7 +49,12 @@ sub botconfig_read($)
 			my @cmd = split /\s+/, $_;
 			if($cmd[0] eq 'super')
 			{
-				push @$appendref, @$super;
+				push @$appendref, @$super
+					if $super;
+			}
+			elsif($cmd[0] eq 'percussion') # simple import
+			{
+				push @$appendref, @{$currentbot->{percussion}->{$cmd[1]}};
 			}
 			else
 			{
@@ -144,6 +96,16 @@ sub botconfig_read($)
 				$super = $currentbot->{init};
 				$currentbot->{init} = $appendref = [];
 			}
+			elsif(/^intermission$/)
+			{
+				$super = $currentbot->{intermission};
+				$currentbot->{intermission} = $appendref = [];
+			}
+			elsif(/^done$/)
+			{
+				$super = $currentbot->{done};
+				$currentbot->{done} = $appendref = [];
+			}
 			elsif(/^note on (-?\d+)/)
 			{
 				$super = $currentbot->{notes_on}->{$1};
@@ -166,7 +128,11 @@ sub botconfig_read($)
 		}
 		elsif(/^bot (.*)/)
 		{
-			$currentbot = ($bots{$1} ||= {});
+			$currentbot = ($bots{$1} ||= {count => 0, transpose => 0});
+		}
+		elsif(/^raw (.*)/)
+		{
+			$precommands .= "$1\n";
 		}
 		else
 		{
@@ -174,27 +140,8 @@ sub botconfig_read($)
 		}
 	}
 
-	my $lowesttime = undef;
-	my $highesttime = undef;
-	my $highestbusytime = undef;
-	my $lowestnotestart = undef;
 	for(values %bots)
 	{
-		my $l = $_->{init};
-		next unless defined $l;
-		my $t = $l->[0]->[0] eq 'time' ? $l->[0]->[1] : 0;
-		$lowesttime = $t if not defined $lowesttime or $t < $lowesttime;
-		for(@$l)
-		{
-			if($_->[0] eq 'time')
-			{
-				$highesttime = $_->[1] if not defined $highesttime or $_->[1] > $highesttime;
-			}
-			if($_->[0] eq 'busy')
-			{
-				$highestbusytime = $_->[1] if not defined $highestbusytime or $_->[1] > $highestbusytime;
-			}
-		}
 		for(values %{$_->{notes_on}}, values %{$_->{percussion}})
 		{
 			my $t = $_->[0]->[0] eq 'time' ? $_->[0]->[1] : 0;
@@ -202,25 +149,10 @@ sub botconfig_read($)
 		}
 	}
 
-	my $initdelta = $highesttime - $lowesttime - $lowestnotestart;
-	if(defined $highestbusytime)
-	{
-		my $initdelta2 = $highestbusytime - $lowesttime;
-		$initdelta = $initdelta2
-			if $initdelta2 > $initdelta;
-	}
-
-	# init shall take place at $timeoffset
-	# note playing shall take place at $timeoffset + $initdelta + $timeoffset2
-
-	$inittime = $timeoffset - $lowesttime;
-	$notetime = $timeoffset + $initdelta + $timeoffset2;
-
-	print STDERR "Initialization offset: $inittime (start: @{[$inittime + $lowesttime]}, end: @{[$inittime + $highesttime]})\n";
-	print STDERR "Note offset: $notetime (start: @{[$notetime + $lowestnotestart]})\n";
-
 	return \%bots;
 }
+my $busybots_orig = botconfig_read $config;
+
 
 sub busybot_cmd_bot_test($$@)
 {
@@ -248,7 +180,7 @@ sub busybot_cmd_bot_execute($$@)
 	{
 		if($_->[0] eq 'time')
 		{
-			printf "w %d %f\n", $bot->{id}, $time + $_->[1];
+			$commands .= sprintf "sv_cmd bot_cmd %d wait_until %f\n", $bot->{id}, $time + $_->[1];
 			$bot->{timer} = $time + $_->[1];
 		}
 		elsif($_->[0] eq 'busy')
@@ -265,29 +197,55 @@ sub busybot_cmd_bot_execute($$@)
 			}
 			for(keys %buttons_release)
 			{
-				printf "r %d %s\n", $bot->{id}, $_;
+				$commands .= sprintf "sv_cmd bot_cmd %d releasekey %s\n", $bot->{id}, $_;
 				delete $bot->{buttons}->{$_};
 			}
 			for(@{$_}[1..@$_-1])
 			{
 				/(.*)(\?)?/ or next;
 				defined $2 and next;
-				printf "p %d %s\n", $bot->{id}, $_;
+				$commands .= sprintf "sv_cmd bot_cmd %d presskey %s\n", $bot->{id}, $_;
 				$bot->{buttons}->{$_} = 1;
 			}
 		}
 		elsif($_->[0] eq 'cmd')
 		{
-			printf "sv_cmd bot_cmd %d %s\n", $bot->{id}, join " ", @{$_}[1..@$_-1];
+			$commands .= sprintf "sv_cmd bot_cmd %d %s\n", $bot->{id}, join " ", @{$_}[1..@$_-1];
+		}
+		elsif($_->[0] eq 'barrier')
+		{
+			$commands .= sprintf "sv_cmd bot_cmd %d barrier\n", $bot->{id};
+			$bot->{timer} = $bot->{busytimer} = 0;
+		}
+		elsif($_->[0] eq 'raw')
+		{
+			$commands .= sprintf "%s\n", join " ", @{$_}[1..@$_-1];
 		}
 	}
 
 	return 1;
 }
 
+my $intermissions = 0;
+
+sub busybot_intermission_bot($)
+{
+	my ($bot) = @_;
+	busybot_cmd_bot_execute $bot, 0, ['cmd', 'wait', $timeoffset_preintermission];
+	busybot_cmd_bot_execute $bot, 0, ['barrier'];
+	if($bot->{intermission})
+	{
+		busybot_cmd_bot_execute $bot, 0, @{$bot->{intermission}};
+	}
+	busybot_cmd_bot_execute $bot, 0, ['barrier'];
+	$notetime = $timeoffset_postintermission - $lowestnotestart;
+}
+
 sub busybot_note_off_bot($$$$)
 {
 	my ($bot, $time, $channel, $note) = @_;
+	return 1
+		if $channel == 10;
 	my $cmds = $bot->{notes_off}->{$note - $bot->{transpose} - $transpose};
 	return 1
 		if not defined $cmds; # note off cannot fail
@@ -300,28 +258,38 @@ sub busybot_note_on_bot($$$$$)
 {
 	my ($bot, $time, $channel, $note, $init) = @_;
 	return -1 # I won't play on this channel
-		if defined $bot->{channels} and not grep { $_ == $channel } $bot->{channels};
+		if defined $bot->{channels} and not $bot->{channels}->{$channel};
 	return 0
 		if $bot->{busy};
-	my $cmds = $bot->{notes_on}->{$note - $bot->{transpose} - $transpose};
-	my $cmds_off = $bot->{notes_off}->{$note - $bot->{transpose} - $transpose};
-	if(defined $cmds_off)
-	{
-		$bot->{busy} = 1;
-	}
-	if(not defined $cmds)
+	my $cmds;
+	if($channel == 10)
 	{
 		$cmds = $bot->{percussion}->{$note};
-		return -1 # I won't play this note
-			if not defined $cmds;
 	}
-	if($init && $bot->{init})
+	else
+	{
+		$cmds = $bot->{notes_on}->{$note - $bot->{transpose} - $transpose};
+		my $cmds_off = $bot->{notes_off}->{$note - $bot->{transpose} - $transpose};
+		if(defined $cmds and defined $cmds_off)
+		{
+			$bot->{busy} = 1;
+		}
+	}
+	return -1 # I won't play this note
+		if not defined $cmds;
+	if($init)
 	{
 		return 0
-			if not busybot_cmd_bot_test $bot, $inittime, @{$bot->{init}};
-		return 0
 			if not busybot_cmd_bot_test $bot, $time + $notetime, @$cmds; 
-		busybot_cmd_bot_execute $bot, $inittime, @{$bot->{init}};
+		busybot_cmd_bot_execute $bot, 0, ['cmd', 'wait', $timeoffset_preinit];
+		busybot_cmd_bot_execute $bot, 0, ['barrier'];
+		busybot_cmd_bot_execute $bot, 0, @{$bot->{init}}
+			if @{$bot->{init}};
+		busybot_cmd_bot_execute $bot, 0, ['barrier'];
+		for(1..$intermissions)
+		{
+			busybot_intermission_bot $bot;
+		}
 		busybot_cmd_bot_execute $bot, $time + $notetime, @$cmds; 
 	}
 	else
@@ -333,13 +301,21 @@ sub busybot_note_on_bot($$$$$)
 	return 1;
 }
 
-my $busybots = botconfig_read "midi2cfg-ng.conf";
-my @busybots_allocated;
-my %notechannelbots;
+sub busybots_reset()
+{
+	$busybots = Storable::dclone $busybots_orig;
+	@busybots_allocated = ();
+	%notechannelbots = ();
+	$transpose = 0;
+	$notetime = $timeoffset_postinit - $lowestnotestart;
+}
 
 sub busybot_note_off($$$)
 {
 	my ($time, $channel, $note) = @_;
+
+	return 0
+		if $channel == 10;
 
 	if(my $bot = $notechannelbots{$channel}{$note})
 	{
@@ -384,6 +360,8 @@ sub busybot_note_on($$$)
 		my $canplay = busybot_note_on_bot $bot, $time, $channel, $note, 1;
 		if($canplay > 0)
 		{
+			die "noalloc\n"
+				if $noalloc;
 			--$busybots->{$_}->{count};
 			$notechannelbots{$channel}{$note} = $bot;
 			push @busybots_allocated, $bot;
@@ -395,77 +373,202 @@ sub busybot_note_on($$$)
 
 	if($overflow)
 	{
-		warn "Not enough bots to play this";
-		use Data::Dumper;
-		print STDERR Dumper \@busybots_allocated;
+		warn "Not enough bots to play this (when playing $channel:$note)";
 	}
 	else
 	{
-		warn "Note $channel:$note cannot be played by any bot"
+		warn "Note $channel:$note cannot be played by any bot";
 	}
 
 	return 0;
 }
 
-print 'alias p "sv_cmd bot_cmd $1 presskey $2"' . "\n";
-print 'alias r "sv_cmd bot_cmd $1 releasekey $2"' . "\n";
-print 'alias w "sv_cmd bot_cmd $1 wait_until $2"' . "\n";
-print 'alias m "sv_cmd bot_cmd $1 moveto \"$2 $3 $4\""' . "\n";
-
-for(@preallocate)
+sub Preallocate(@)
 {
-	die "Cannot preallocate any more $_ bots"
-		if $busybots->{$_}->{count} <= 0;
-	my $bot = Storable::dclone $busybots->{$_};
-	$bot->{id} = @busybots_allocated + 1;
-	$bot->{classname} = $_;
-	busybot_cmd_bot_execute $bot, $inittime, @{$bot->{init}};
-	--$busybots->{$_}->{count};
-	push @busybots_allocated, $bot;
-}
-
-my %midinotes = ();
-my $note_min = undef;
-my $note_max = undef;
-my $notes_stuck = 0;
-for(@allmidievents)
-{
-	my $t = tick2sec $_->[1];
-	my $track = $_->[3];
-	if($_->[0] eq 'note_on')
+	my (@preallocate) = @_;
+	busybots_reset();
+	for(@preallocate)
 	{
-		my $chan = $_->[4] + 1;
-		$note_min = $_->[5]
-			if not defined $note_min or $_->[5] < $note_min;
-		$note_max = $_->[5]
-			if not defined $note_max or $_->[5] > $note_max;
-		if($midinotes{$chan}{$_->[5]})
-		{
-			--$notes_stuck;
-			busybot_note_off($t, $chan, $_->[5]);
-		}
-		busybot_note_on($t, $chan, $_->[5]);
-		++$notes_stuck;
-		$midinotes{$chan}{$_->[5]} = 1;
-	}
-	elsif($_->[0] eq 'note_off')
-	{
-		my $chan = $_->[4] + 1;
-		if($midinotes{$chan}{$_->[5]})
-		{
-			--$notes_stuck;
-			busybot_note_off($t, $chan, $_->[5]);
-		}
-		$midinotes{$chan}{$_->[5]} = 0;
+		die "Cannot preallocate any more $_ bots"
+			if $busybots->{$_}->{count} <= 0;
+		my $bot = Storable::dclone $busybots->{$_};
+		$bot->{id} = @busybots_allocated + 1;
+		$bot->{classname} = $_;
+		busybot_cmd_bot_execute $bot, 0, ['cmd', 'wait', $timeoffset_preinit];
+		busybot_cmd_bot_execute $bot, 0, ['barrier'];
+		busybot_cmd_bot_execute $bot, 0, @{$bot->{init}}
+			if @{$bot->{init}};
+		busybot_cmd_bot_execute $bot, 0, ['barrier'];
+		--$busybots->{$_}->{count};
+		push @busybots_allocated, $bot;
 	}
 }
 
-print STDERR "Range of notes: $note_min .. $note_max\n";
-print STDERR "Safe transpose range: @{[$note_max - 19]} .. @{[$note_min + 13]}\n";
-print STDERR "Unsafe transpose range: @{[$note_max - 27]} .. @{[$note_min + 18]}\n";
-print STDERR "Stuck notes: $notes_stuck\n";
-print STDERR "Bots allocated:\n";
-for(@busybots_allocated)
+sub ConvertMIDI($$)
 {
-	print STDERR "$_->{id} is a $_->{classname}\n";
+	my ($filename, $trans) = @_;
+	$transpose = $trans;
+
+	my $opus = MIDI::Opus->new({from_file => $filename});
+	my $ticksperquarter = $opus->ticks();
+	my $tracks = $opus->tracks_r();
+	my @tempi = (); # list of start tick, time per tick pairs (calculated as seconds per quarter / ticks per quarter)
+	my $tick;
+
+	$tick = 0;
+	for($tracks->[0]->events())
+	{   
+		$tick += $_->[1];
+		if($_->[0] eq 'set_tempo')
+		{   
+			push @tempi, [$tick, $_->[2] * 0.000001 / $ticksperquarter];
+		}
+	}
+	my $tick2sec = sub
+	{
+		my ($tick) = @_;
+		my $sec = 0;
+		my $curtempo = [0, 0.5 / $ticksperquarter];
+		for(@tempi)
+		{
+			if($_->[0] < $tick)
+			{
+				# this event is in the past
+				# we add the full time since the last one then
+				$sec += ($_->[0] - $curtempo->[0]) * $curtempo->[1];
+			}   
+			else
+			{
+				# if this event is in the future, we break
+				last;
+			}
+			$curtempo = $_;
+		}
+		$sec += ($tick - $curtempo->[0]) * $curtempo->[1];
+		return $sec;
+	};
+
+	# merge all to a single track
+	my @allmidievents = ();
+	my $sequence = 0;
+	for my $track(0..@$tracks-1)
+	{
+		$tick = 0;
+		for($tracks->[$track]->events())
+		{
+			my ($command, $delta, @data) = @$_;
+			$command = 'note_off' if $command eq 'note_on' and $data[2] == 0;
+			$tick += $delta;
+			push @allmidievents, [$command, $tick, $sequence++, $track, @data];
+		}
+	}
+	@allmidievents = sort { $a->[1] <=> $b->[1] or $a->[2] <=> $b->[2] } @allmidievents;
+
+	my %midinotes = ();
+	my $note_min = undef;
+	my $note_max = undef;
+	my $notes_stuck = 0;
+	my $t = 0;
+	for(@allmidievents)
+	{
+		$t = $tick2sec->($_->[1]);
+		my $track = $_->[3];
+		if($_->[0] eq 'note_on')
+		{
+			my $chan = $_->[4] + 1;
+			$note_min = $_->[5]
+				if not defined $note_min or $_->[5] < $note_min and $chan != 10;
+			$note_max = $_->[5]
+				if not defined $note_max or $_->[5] > $note_max and $chan != 10;
+			if($midinotes{$chan}{$_->[5]})
+			{
+				--$notes_stuck;
+				busybot_note_off($t, $chan, $_->[5]);
+			}
+			busybot_note_on($t, $chan, $_->[5]);
+			++$notes_stuck;
+			$midinotes{$chan}{$_->[5]} = 1;
+		}
+		elsif($_->[0] eq 'note_off')
+		{
+			my $chan = $_->[4] + 1;
+			if($midinotes{$chan}{$_->[5]})
+			{
+				--$notes_stuck;
+				busybot_note_off($t, $chan, $_->[5]);
+			}
+			$midinotes{$chan}{$_->[5]} = 0;
+		}
+	}
+
+	print STDERR "For file $filename:\n";
+	print STDERR "  Range of notes: $note_min .. $note_max\n";
+	print STDERR "  Safe transpose range: @{[$note_max - 19]} .. @{[$note_min + 13]}\n";
+	print STDERR "  Unsafe transpose range: @{[$note_max - 27]} .. @{[$note_min + 18]}\n";
+	print STDERR "  Stuck notes: $notes_stuck\n";
+
+	while(my ($k1, $v1) = each %midinotes)
+	{
+		while(my ($k2, $v2) = each %$v1)
+		{
+			busybot_note_off($t, $k1, $k2);
+		}
+	}
+
+	for(@busybots_allocated)
+	{
+		busybot_intermission_bot $_;
+	}
+	++$intermissions;
+}
+
+sub Deallocate()
+{
+	print STDERR "Bots allocated:\n";
+	for(@busybots_allocated)
+	{
+		print STDERR "$_->{id} is a $_->{classname}\n";
+	}
+	for(@busybots_allocated)
+	{
+		busybot_cmd_bot_execute $_, 0, ['cmd', 'wait', $timeoffset_predone];
+		busybot_cmd_bot_execute $_, 0, ['barrier'];
+		if($_->{done})
+		{
+			busybot_cmd_bot_execute $_, 0, @{$_->{done}};
+		}
+		busybot_cmd_bot_execute $_, 0, ['cmd', 'wait', $timeoffset_postdone];
+		busybot_cmd_bot_execute $_, 0, ['barrier'];
+	}
+}
+
+my @preallocate = ();
+$noalloc = 0;
+for(;;)
+{
+	$commands = "";
+	eval
+	{
+		Preallocate(@preallocate);
+		my @l = @midilist;
+		while(@l)
+		{
+			my $filename = shift @l;
+			my $transpose = shift @l;
+			ConvertMIDI($filename, $transpose);
+		}
+		Deallocate();
+		my @preallocate_new = map { $_->{classname} } @busybots_allocated;
+		if(@preallocate_new == @preallocate)
+		{
+			print "$precommands$commands";
+			exit 0;
+		}
+		@preallocate = @preallocate_new;
+		$noalloc = 1;
+		1;
+	} or do {
+		die "$@"
+			unless $@ eq "noalloc\n";
+	};
 }

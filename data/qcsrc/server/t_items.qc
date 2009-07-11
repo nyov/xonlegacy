@@ -1,6 +1,8 @@
+#define ITEM_RESPAWN_TICKS 10
+
 #define ITEM_RESPAWNTIME(i)         ((i).respawntime + crandom() * (i).respawntimejitter)
 	// range: respawntime - respawntimejitter .. respawntime + respawntimejitter
-#define ITEM_RESPAWNTIME_INITIAL(i) (10 + random() * ((i).respawntime + (i).respawntimejitter - 10))
+#define ITEM_RESPAWNTIME_INITIAL(i) (ITEM_RESPAWN_TICKS + random() * ((i).respawntime + (i).respawntimejitter - ITEM_RESPAWN_TICKS))
 	// range: 10 .. respawntime + respawntimejitter
 
 floatfield Item_CounterField(float it)
@@ -57,7 +59,7 @@ void Item_Respawn (void)
 
 void Item_RespawnCountdown (void)
 {
-	if(self.count >= 5)
+	if(self.count >= ITEM_RESPAWN_TICKS)
 	{
 		if(self.waypointsprite_attached)
 			WaypointSprite_Kill(self.waypointsprite_attached);
@@ -98,12 +100,18 @@ void Item_RespawnCountdown (void)
 			{
 				WaypointSprite_Spawn(name, 0, 0, self, '0 0 64', world, 0, self, waypointsprite_attached, FALSE);
 				if(self.waypointsprite_attached)
+				{
 					WaypointSprite_UpdateTeamRadar(self.waypointsprite_attached, RADARICON_POWERUP, rgb);
+					WaypointSprite_UpdateMaxHealth(self.waypointsprite_attached, ITEM_RESPAWN_TICKS + 1);
+				}
 			}
 		}
 		sound (self, CHAN_TRIGGER, "misc/itemrespawncountdown.wav", VOL_BASE, ATTN_NORM);	// play respawn sound
 		if(self.waypointsprite_attached)
+		{
 			WaypointSprite_Ping(self.waypointsprite_attached);
+			WaypointSprite_UpdateHealth(self.waypointsprite_attached, self.count);
+		}
 	}
 }
 
@@ -112,7 +120,7 @@ void Item_ScheduleRespawnIn(entity e, float t)
 	if(e.flags & FL_POWERUP)
 	{
 		e.think = Item_RespawnCountdown;
-		e.nextthink = time + max(0, t - 5);
+		e.nextthink = time + max(0, t - ITEM_RESPAWN_TICKS);
 		e.count = 0;
 	}
 	else
@@ -1384,22 +1392,28 @@ void spawnfunc_target_items (void)
 	n = tokenize_console(self.netname);
 	for(i = 0; i < n; ++i)
 	{
-		if(argv(i) == "unlimited_ammo")         self.items |= IT_UNLIMITED_AMMO;
-		if(argv(i) == "unlimited_weapon_ammo")  self.items |= IT_UNLIMITED_WEAPON_AMMO;
-		if(argv(i) == "unlimited_superweapons") self.items |= IT_UNLIMITED_SUPERWEAPONS;
-		if(argv(i) == "strength")               self.items |= IT_STRENGTH;
-		if(argv(i) == "invincible")             self.items |= IT_INVINCIBLE;
-		if(argv(i) == "jetpack")                self.items |= IT_JETPACK;
-		if(argv(i) == "fuel_regen")             self.items |= IT_FUEL_REGEN;
-		for(j = WEP_FIRST; j <= WEP_LAST; ++j)
+		if     (argv(i) == "unlimited_ammo")         self.items |= IT_UNLIMITED_AMMO;
+		else if(argv(i) == "unlimited_weapon_ammo")  self.items |= IT_UNLIMITED_WEAPON_AMMO;
+		else if(argv(i) == "unlimited_superweapons") self.items |= IT_UNLIMITED_SUPERWEAPONS;
+		else if(argv(i) == "strength")               self.items |= IT_STRENGTH;
+		else if(argv(i) == "invincible")             self.items |= IT_INVINCIBLE;
+		else if(argv(i) == "jetpack")                self.items |= IT_JETPACK;
+		else if(argv(i) == "fuel_regen")             self.items |= IT_FUEL_REGEN;
+		else
 		{
-			e = get_weaponinfo(j);
-			if(argv(i) == e.netname)
+			for(j = WEP_FIRST; j <= WEP_LAST; ++j)
 			{
-				self.weapons |= e.weapons;
-				if(self.spawnflags == 0 || self.spawnflags == 2)
-					weapon_action(e.weapon, WR_PRECACHE);
+				e = get_weaponinfo(j);
+				if(argv(i) == e.netname)
+				{
+					self.weapons |= e.weapons;
+					if(self.spawnflags == 0 || self.spawnflags == 2)
+						weapon_action(e.weapon, WR_PRECACHE);
+					break;
+				}
 			}
+			if(j > WEP_LAST)
+				print("target_items: invalid item ", argv(i), "\n");
 		}
 	}
 }

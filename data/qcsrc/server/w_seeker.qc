@@ -163,7 +163,7 @@ void Seeker_Fire_Missile(vector f_diff)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_seeker_missile_ammo");
 
 	makevectors(self.v_angle);
-	W_SetupShot_ProjectileSize (self, '-2 -2 -2', '2 2 2', FALSE, 2, "weapons/seeker_fire.wav");
+	W_SetupShot_ProjectileSize (self, '-2 -2 -2', '2 2 2', FALSE, 2, "weapons/seeker_fire.wav", cvar("g_balance_seeker_missile_damage"));
 	w_shotorg += f_diff;
 	pointparticles(particleeffectnum("seeker_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);
 
@@ -255,7 +255,7 @@ void Seeker_Tag_Explode ()
 {
 	//if(other==self.owner)
 	//    return;
-	Damage_DamageInfo(self.origin, 0, 0, 0, self.velocity, WEP_SEEKER | HITTYPE_BOUNCE);
+	Damage_DamageInfo(self.origin, 0, 0, 0, self.velocity, WEP_SEEKER | HITTYPE_BOUNCE, self);
 
 	remove (self);
 }
@@ -286,7 +286,7 @@ void Seeker_Tag_Touch()
 	te_knightspike(org2);
 
 	self.event_damage = SUB_Null;
-	Damage_DamageInfo(self.origin, 0, 0, 0, self.velocity, WEP_SEEKER | HITTYPE_HEADSHOT);
+	Damage_DamageInfo(self.origin, 0, 0, 0, self.velocity, WEP_SEEKER | HITTYPE_HEADSHOT, self);
 
 	if (other.takedamage == DAMAGE_AIM && other.deadflag == DEAD_NO)
 	{
@@ -317,7 +317,7 @@ void Seeker_Fire_Tag()
 	if not(self.items & IT_UNLIMITED_WEAPON_AMMO)
 		self.ammo_rockets = self.ammo_rockets - cvar("g_balance_seeker_tag_ammo");
 
-	W_SetupShot_ProjectileSize (self, '-2 -2 -2', '2 2 2', FALSE, 2, "weapons/tag_fire.wav");
+	W_SetupShot_ProjectileSize (self, '-2 -2 -2', '2 2 2', FALSE, 2, "weapons/tag_fire.wav", 0);
 
 	missile                 = spawn();
 	missile.owner           = self;
@@ -326,7 +326,7 @@ void Seeker_Fire_Tag()
 	missile.bot_dodgerating = 50;
 	missile.touch           = Seeker_Tag_Touch;
 	missile.think           = Seeker_Tag_Think;
-	missile.nextthink       = time + 15;
+	missile.nextthink       = time + cvar("g_balance_seeker_tag_lifetime");
 	missile.movetype        = MOVETYPE_FLY;
 	missile.solid           = SOLID_BBOX;
 	missile.owner           = self;
@@ -392,7 +392,7 @@ void Seeker_Fire_Flac()
 			f_diff = '+1.25 +3.75 0';
 			break;
 	}
-	W_SetupShot_ProjectileSize (self, '-2 -2 -2', '2 2 2', FALSE, 2, "weapons/flac_fire.wav");
+	W_SetupShot_ProjectileSize (self, '-2 -2 -2', '2 2 2', FALSE, 2, "weapons/flac_fire.wav", cvar("g_balance_seeker_flac_damage"));
 	w_shotorg += f_diff;
 
 	pointparticles(particleeffectnum("hagar_muzzleflash"), w_shotorg, w_shotdir * 1000, 1);

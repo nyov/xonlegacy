@@ -29,12 +29,16 @@ void tdeath(entity player, entity teleporter, entity telefragger, vector telefra
 				if(boxesoverlap(deathmin, deathmax, head.absmin, head.absmax))
 				{
 					if ((player.classname == "player") && (player.health >= 1))
+					{
+						if(head.classname == "player")
+						if(head.health >= 1)
+							++tdeath_hit;
 						Damage (head, teleporter, telefragger, 10000, DEATH_TELEFRAG, head.origin, '0 0 0');
+					}
 					else if (telefragger.health < 1) // corpses gib
 						Damage (head, teleporter, telefragger, 10000, DEATH_TELEFRAG, head.origin, '0 0 0');
 					else // dead bodies and monsters gib themselves instead of telefragging
 						Damage (telefragger, teleporter, telefragger, 10000, DEATH_TELEFRAG, telefragger.origin, '0 0 0');
-					++tdeath_hit;
 				}
 }
 
@@ -79,7 +83,7 @@ void TeleportPlayer(entity teleporter, entity player, vector to, vector to_angle
 
 	if(player.classname == "player")
 	{
-		if(player.takedamage && player.deadflag == DEAD_NO && !g_race)
+		if(player.takedamage && player.deadflag == DEAD_NO && !g_race && cvar("g_telefrags"))
 			tdeath(player, teleporter, telefragger, telefragmin, telefragmax);
 
 		// player no longer is on ground
