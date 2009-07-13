@@ -532,8 +532,10 @@ void GetCvars(float f)
     GetCvars_handleFloat(s, f, cvar_cl_voice_directional, "cl_voice_directional");
     GetCvars_handleFloat(s, f, cvar_cl_voice_directional_taunt_attenuation, "cl_voice_directional_taunt_attenuation");
     GetCvars_handleFloat(s, f, cvar_cl_hitsound, "cl_hitsound");
+#ifdef ALLOW_FORCEMODELS
     GetCvars_handleFloat(s, f, cvar_cl_forceplayermodels, "cl_forceplayermodels");
     GetCvars_handleFloat(s, f, cvar_cl_forceplayermodelsfromnexuiz, "cl_forceplayermodelsfromnexuiz");
+#endif
     GetCvars_handleFloat(s, f, cvar_cl_gunalign, "cl_gunalign");
 
 
@@ -876,7 +878,7 @@ void readplayerstartcvars()
             {
                 if (g_lms)
                     t = (e.spawnflags & WEPSPAWNFLAG_NORMAL);
-                else if (g_race)
+                else if (g_race || g_cts)
                     t = (i == WEP_LASER);
                 else if (g_nexball)
                     t = 0; // weapon is set a few lines later
@@ -1018,7 +1020,9 @@ void readlevelcvars(void)
     g_touchexplode_edgedamage = cvar("g_touchexplode_edgedamage");
     g_touchexplode_force = cvar("g_touchexplode_force");
 
+#ifdef ALLOW_FORCEMODELS
     sv_clforceplayermodels = cvar("sv_clforceplayermodels");
+#endif
     sv_loddistance1 = cvar("sv_loddistance1");
     sv_loddistance2 = cvar("sv_loddistance2");
 	if(sv_loddistance2 <= sv_loddistance1)
@@ -1051,7 +1055,7 @@ void readlevelcvars(void)
     g_warmup_allguns = cvar("g_warmup_allguns");
     g_warmup_allow_timeout = cvar("g_warmup_allow_timeout");
 
-    if (g_race && g_race_qualifying == 2 || g_arena || g_assault || cvar("g_campaign"))
+    if ((g_race && g_race_qualifying == 2) || g_arena || g_assault || cvar("g_campaign"))
         inWarmupStage = 0; // these modes cannot work together, sorry
 
     g_pickup_respawntime_weapon = cvar("g_pickup_respawntime_weapon");
@@ -1960,7 +1964,7 @@ string getrecords()
         }
     }
 
-    if (g_race)
+    if (g_race || g_cts)
     {
         for (i = 0; i < MapInfo_count; ++i)
         {
@@ -1975,6 +1979,7 @@ string getrecords()
             }
         }
     }
+
     MapInfo_ClearTemps();
 
     if (s == "")
@@ -2117,7 +2122,7 @@ void zcurveparticles_from_tracetoss(float effectno, vector start, vector end, ve
 string GetGametype(); // g_world.qc
 void write_recordmarker(entity pl, float tstart, float dt)
 {
-    GameLogEcho(strcat(":recordset:", ftos(pl.playerid), ":", ftos(dt / 10)));
+    GameLogEcho(strcat(":recordset:", ftos(pl.playerid), ":", ftos(dt)));
 
     // also write a marker into demo files for demotc-race-record-extractor to find
     stuffcmd(pl,

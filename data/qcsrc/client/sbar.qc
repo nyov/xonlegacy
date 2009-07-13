@@ -1264,10 +1264,11 @@ void Sbar_Score(float margin)
  	topright_z = 0;
 
 	//get the ID (could be "me", or the player I'm spectating)
-	if (spectatee_status)
+	if (spectatee_status > 0)
 		desiredPlayerId = spectatee_status - 1;
 	else
 		desiredPlayerId = player_localentnum - 1;
+	me = playerslots[desiredPlayerId];
 
 	sbar_y = vid_conheight - (32+12);
 	sbar_x -= margin;
@@ -1457,7 +1458,7 @@ void Sbar_Score(float margin)
 		Sbar_DrawXNum(topright - '36 0 0' - '3 0 0' + '0 2 0', seconds, -2, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 	}
 
-	if(gametype == GAME_RACE)
+	if(gametype == GAME_RACE || gametype == GAME_CTS)
 	{
 		drawfont = sbar_bigfont;
 		float a, t;
@@ -1731,6 +1732,8 @@ void centerprint(string strMessage)
 	havail = vid_conheight;
 	if(cvar("con_chatpos") < 0)
 		havail -= (-cvar("con_chatpos") + cvar("con_chat")) * cvar("con_chatsize"); // avoid overlapping chat
+	if(havail > vid_conheight - 70)
+		havail = vid_conheight - 70; // avoid overlapping HUD
 
 	centerprint_start_x = 0;
 

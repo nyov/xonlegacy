@@ -417,11 +417,15 @@ float Client_customizeentityforclient()
 #endif
 
 	modelsource = self;
+
+#ifdef ALLOW_FORCEMODELS
 	if(other.cvar_cl_forceplayermodelsfromnexuiz)
 		if not(self.modelindex_lod0_from_nexuiz)
 			modelsource = other;
 	if(other.cvar_cl_forceplayermodels && sv_clforceplayermodels)
 		modelsource = other;
+#endif
+
 	self.skin = modelsource.skinindex;
 
 #if 0
@@ -1125,6 +1129,9 @@ void ClientKill_TeamChange (float targetteam) // 0 = don't change, -1 = auto
 	float killtime;
 	entity e;
 	killtime = cvar("g_balance_kill_delay");
+	
+	if(g_race_qualifying)
+		killtime = 0;
 
 	self.killindicator_teamchange = targetteam;
 
@@ -2533,7 +2540,7 @@ void PlayerPreThink (void)
 	if(self.spectatee_status != oldspectatee_status)
 	{
 		ClientData_Touch(self);
-		if(g_race)
+		if(g_race || g_cts)
 			race_InitSpectator();
 	}
 
@@ -2837,23 +2844,6 @@ void PlayerPostThink (void)
 
 		//if (TetrisPostFrame()) return;
 
-		// restart countdown
-		if (!cvar("sv_ready_restart_after_countdown"))
-		{
-			if(time < game_starttime)
-			{
-				self.movetype = MOVETYPE_NONE;		
-				self.velocity = '0 0 0';
-				self.avelocity = '0 0 0';
-				self.movement = '0 0 0';
-			}
-			else
-			{
-				//allow the player to move again if sv_ready_restart_after_countdown is not used and countdown is over
-				if(self.movetype == MOVETYPE_NONE)
-					self.movetype = MOVETYPE_WALK;
-			}
-		}
 		GetPressedKeys();
 	} else if (self.classname == "observer") {
 		//do nothing

@@ -363,6 +363,18 @@ void checkpoint_passed()
 
 	if(other.race_checkpoint == -1 || other.race_checkpoint == self.race_checkpoint)
 	{
+		if(self.race_penalty)
+		{
+			if(other.race_lastpenalty != self)
+			{
+				other.race_lastpenalty = self;
+				race_ImposePenaltyTime(other, self.race_penalty, self.race_penalty_reason);
+			}
+		}
+
+		if(other.race_penalty)
+			return;
+
 		/*
 		 * Trigger targets
 		 */
@@ -374,8 +386,6 @@ void checkpoint_passed()
 			SUB_UseTargets();
 			self.message = oldmsg;
 		}
-
-		race_ImposePenaltyTime(other, self.race_penalty, self.race_penalty_reason);
 
 		other.race_checkpoint = race_NextCheckpoint(self.race_checkpoint);
 
@@ -492,7 +502,7 @@ void trigger_race_checkpoint_verify()
 void spawnfunc_trigger_race_checkpoint()
 {
 	vector o;
-	if(!g_race)
+	if(!g_race && !g_cts)
 	{
 		remove(self);
 		return;
@@ -559,7 +569,7 @@ void race_PreparePlayer()
 
 void race_RetractPlayer()
 {
-	if(!g_race)
+	if(!g_race && !g_cts)
 		return;
 	self.race_checkpoint = race_PreviousCheckpoint(self.race_checkpoint);
 	if(self.race_checkpoint == 0)
@@ -571,7 +581,7 @@ void race_RetractPlayer()
 
 void race_PreDie()
 {
-	if(!g_race)
+	if(!g_race && !g_cts)
 		return;
 
 	race_AbandonRaceCheck(self);
@@ -579,7 +589,7 @@ void race_PreDie()
 
 void race_PreSpawn()
 {
-	if(!g_race)
+	if(!g_race && !g_cts)
 		return;
 	if(self.killcount == -666 || g_race_qualifying)
 		race_PreparePlayer();
@@ -589,7 +599,7 @@ void race_PreSpawn()
 
 void race_PostSpawn(entity spot)
 {
-	if(!g_race)
+	if(!g_race && !g_cts)
 		return;
 	if(self.killcount != -666 && !g_race_qualifying)
 	{
@@ -608,14 +618,14 @@ void race_PostSpawn(entity spot)
 
 void race_PreSpawnObserver()
 {
-	if(!g_race)
+	if(!g_race && !g_cts)
 		return;
 	race_PreparePlayer();
 }
 
 void spawnfunc_info_player_race (void)
 {
-	if(!g_race)
+	if(!g_race && !g_cts)
 	{
 		remove(self);
 		return;
@@ -648,6 +658,8 @@ void race_ClearRecords()
 
 void race_ReadyRestart()
 {
+	float s;
+
 	Score_NicePrint(world);
 
 	race_ClearRecords();
@@ -655,7 +667,15 @@ void race_ReadyRestart()
 
 	entity e;
 	FOR_EACH_CLIENT(e)
+	{
+		if(e.race_place)
+		{
+			s = PlayerScore_Add(e, SP_RACE_FASTEST, 0);
+			if(!s)
+				e.race_place = 0;
+		}
 		print(e.netname, " = ", ftos(e.race_place), "\n");
+	}
 
 	if(g_race_qualifying == 2)
 	{
@@ -663,6 +683,7 @@ void race_ReadyRestart()
 		independent_players = 0;
 		cvar_set("fraglimit", ftos(race_fraglimit));
 		cvar_set("leadlimit", ftos(race_leadlimit));
+		cvar_set("timelimit", ftos(race_timelimit));
 		ScoreRules_race();
 	}
 }
