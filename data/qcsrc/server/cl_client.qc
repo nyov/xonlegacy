@@ -28,13 +28,13 @@ float ClientData_Send(entity to, float sf)
 		sf |= 4; // zoomed
 	if(e.porto_v_angle_held)
 		sf |= 8; // angles held
-	
+
 	WriteByte(MSG_ENTITY, ENT_CLIENT_CLIENTDATA);
 	WriteByte(MSG_ENTITY, sf);
 
 	if(sf & 2)
 		WriteByte(MSG_ENTITY, to.spectatee_status);
-	
+
 	if(sf & 8)
 	{
 		WriteAngle(MSG_ENTITY, e.v_angle_x);
@@ -119,7 +119,7 @@ float Spawn_Score(entity spot, entity playerlist, float teamcheck)
 	if(race_spawns)
 		if(spot.target == "")
 			return -1;
-	
+
 	if(clienttype(self) == CLIENTTYPE_REAL)
 	{
 		if(spot.restriction == 1)
@@ -227,7 +227,7 @@ entity Spawn_FilterOutBadSpots(entity firstspot, entity playerlist, float mindis
 				// too short distance
 				spawn_allgood = FALSE;
 			}
-			else 
+			else
 			{
 				// perfect
 				spawn_allbad = FALSE;
@@ -306,25 +306,32 @@ entity SelectSpawnPoint (float anypoint)
 	firstspot = findchain(classname, "info_player_deathmatch");
 	// filter out the bad ones
 	// (note this returns the original list if none survived)
-	firstspot_new = Spawn_FilterOutBadSpots(firstspot, playerlist, 100, teamcheck);
-	if(!firstspot_new)
-		firstspot_new = Spawn_FilterOutBadSpots(firstspot, playerlist, -1, teamcheck);
-	firstspot = firstspot_new;
-
-	// there is 50/50 chance of choosing a random spot or the furthest spot
-	// (this means that roughly every other spawn will be furthest, so you
-	// usually won't get fragged at spawn twice in a row)
-	if (arena_roundbased)
+	if(anypoint)
 	{
-		firstspot_new = Spawn_FilterOutBadSpots(firstspot, playerlist, 800, teamcheck);
-		if(firstspot_new)
-			firstspot = firstspot_new;
 		spot = Spawn_WeightedPoint(firstspot, 1, 1, 1);
 	}
-	else if (random() > cvar("g_spawn_furthest"))
-		spot = Spawn_WeightedPoint(firstspot, 1, 1, 1);
 	else
-		spot = Spawn_WeightedPoint(firstspot, 1, 5000, 5); // chooses a far far away spawnpoint
+	{
+		firstspot_new = Spawn_FilterOutBadSpots(firstspot, playerlist, 100, teamcheck);
+		if(!firstspot_new)
+			firstspot_new = Spawn_FilterOutBadSpots(firstspot, playerlist, -1, teamcheck);
+		firstspot = firstspot_new;
+
+		// there is 50/50 chance of choosing a random spot or the furthest spot
+		// (this means that roughly every other spawn will be furthest, so you
+		// usually won't get fragged at spawn twice in a row)
+		if (arena_roundbased)
+		{
+			firstspot_new = Spawn_FilterOutBadSpots(firstspot, playerlist, 800, teamcheck);
+			if(firstspot_new)
+				firstspot = firstspot_new;
+			spot = Spawn_WeightedPoint(firstspot, 1, 1, 1);
+		}
+		else if (random() > cvar("g_spawn_furthest"))
+			spot = Spawn_WeightedPoint(firstspot, 1, 1, 1);
+		else
+			spot = Spawn_WeightedPoint(firstspot, 1, 5000, 5); // chooses a far far away spawnpoint
+	}
 
 	if(cvar("spawn_debugview"))
 	{
@@ -405,7 +412,7 @@ void Client_uncustomizeentityforclient()
 float Client_customizeentityforclient()
 {
 	entity modelsource;
-	
+
 	if(self.modelindex == 0)
 		return TRUE;
 
@@ -558,7 +565,7 @@ void PutObserverInServer (void)
 		DropBall(self.ballcarried, self.origin + self.ballcarried.origin, self.velocity);
 
 	WaypointSprite_PlayerDead();
-	
+
 	if(self.killcount != -666)
 	{
 		if(g_lms)
@@ -575,7 +582,7 @@ void PutObserverInServer (void)
 	PlayerScore_Clear(self); // clear scores when needed
 
 	self.spectatortime = time;
-	
+
 	self.classname = "observer";
 	self.iscreature = FALSE;
 	self.health = -666;
@@ -599,8 +606,6 @@ void PutObserverInServer (void)
 	self.pain_finished = 0;
 	self.strength_finished = 0;
 	self.invincible_finished = 0;
-	self.damage_hits = 0;
-	self.maxdamage_fired = 0;
 	self.pushltime = 0;
 	self.think = SUB_Null;
 	self.nextthink = 0;
@@ -729,7 +734,7 @@ void FixPlayermodel()
 		oldskin = self.skinindex;
 		self.skinindex = RestrictSkin(stof(self.playerskin));
 	}
-	
+
 	if(chmdl || oldskin != self.skinindex)
 		self.species = player_getspecies(); // model or skin has changed
 
@@ -750,7 +755,7 @@ void PlayerTouchExplode(entity p1, entity p2)
 	entity e;
 	e = spawn();
 	setorigin(e, org);
-	RadiusDamage(e, world, g_touchexplode_damage, g_touchexplode_edgedamage, g_touchexplode_radius, world, g_touchexplode_force, DEATH_TOUCHEXPLODE, world);
+	RadiusDamage(e, world, g_touchexplode_damage, g_touchexplode_edgedamage, g_touchexplode_radius, world, g_touchexplode_force, DEATH_TOUCHEXPLODE, world, 0);
 	remove(e);
 }
 
@@ -873,8 +878,6 @@ void PutClientInServer (void)
 		self.pain_finished = 0;
 		self.strength_finished = 0;
 		self.invincible_finished = 0;
-		self.maxdamage_fired = 0;
-		self.damage_hits = 0;
 		self.pushltime = 0;
 		//self.speed_finished = 0;
 		//self.slowmo_finished = 0;
@@ -1129,7 +1132,7 @@ void ClientKill_TeamChange (float targetteam) // 0 = don't change, -1 = auto
 	float killtime;
 	entity e;
 	killtime = cvar("g_balance_kill_delay");
-	
+
 	if(g_race_qualifying)
 		killtime = 0;
 
@@ -1238,7 +1241,7 @@ void FixClientCvars(entity e)
 	// send prediction settings to the client
 	stuffcmd(e, "\nin_bindmap 0 0\n");
 	/*
-	 * we no longer need to stuff this. Remove this comment block if you feel 
+	 * we no longer need to stuff this. Remove this comment block if you feel
 	 * 2.3 and higher (or was it 2.2.3?) don't need these any more
 	stuffcmd(e, strcat("cl_gravity ", ftos(cvar("sv_gravity")), "\n"));
 	stuffcmd(e, strcat("cl_movement_accelerate ", ftos(cvar("sv_accelerate")), "\n"));
@@ -1473,12 +1476,12 @@ void ClientDisconnect (void)
 
 	if(self.entcs)
 		detach_entcs();
-	
+
 	if(cvar("sv_eventlog"))
 		GameLogEcho(strcat(":part:", ftos(self.playerid)));
 	bprint ("^4",self.netname);
 	bprint ("^4 disconnected\n");
-	
+
 	SoundEntity_Detach(self);
 
 	DropAllRunes(self);
@@ -1951,7 +1954,7 @@ void GetPressedKeys(void) {
 		self.pressedkeys &~= KEY_FORWARD;
 		self.pressedkeys &~= KEY_BACKWARD;
 	}
-	
+
 	if (self.movement_y > 0)
 	{	// right key pressed
 		self.pressedkeys |= KEY_RIGHT;
@@ -1967,7 +1970,7 @@ void GetPressedKeys(void) {
 		self.pressedkeys &~= KEY_RIGHT;
 		self.pressedkeys &~= KEY_LEFT;
 	}
-	
+
 	if (self.BUTTON_JUMP) // get if jump and crouch keys are pressed
 		self.pressedkeys |= KEY_JUMP;
 	else
@@ -1998,8 +2001,6 @@ void SpectateCopy(entity spectatee) {
 	self.metertime = spectatee.metertime;
 	self.strength_finished = spectatee.strength_finished;
 	self.invincible_finished = spectatee.invincible_finished;
-	self.maxdamage_fired = spectatee.maxdamage_fired;
-	self.damage_hits = spectatee.damage_hits;
 	self.pressedkeys = spectatee.pressedkeys;
 	self.weapons = spectatee.weapons;
 	self.switchweapon = spectatee.switchweapon;
@@ -2024,7 +2025,7 @@ float SpectateUpdate() {
 
 	if (self == self.enemy)
 		return 0;
-	
+
 	if(self.enemy.classname != "player")
 		return 0;
 
@@ -2274,7 +2275,7 @@ void PlayerPreThink (void)
 	if(blockSpectators && frametime)
 		// WORKAROUND: only use dropclient in server frames (frametime set). Never use it in cl_movement frames (frametime zero).
 		checkSpectatorBlock();
-	
+
 	zoomstate_set = 0;
 
 	if(self.netname_previous != self.netname)
@@ -2472,7 +2473,7 @@ void PlayerPreThink (void)
 				}
 			}
 		}
-		
+
 		if(self.health <= g_bloodloss && self.deadflag == DEAD_NO)
 		{
 			if(self.bloodloss_timer < time)
@@ -2706,7 +2707,7 @@ void Drag_Update(entity dragger)
 
 	if(Drag_MayChangeAngles(draggee))
 		draggee.angles_y = draggee.angles_y * (1 - f) + (dragger.v_angle_y + dragger.draglocalangle) * f;
-	
+
 	draggee.ltime = max(servertime + serverframetime, draggee.ltime); // fixes func_train breakage
 
 	te_lightning1(dragger, dragger.origin + dragger.view_ofs, curorigin);
@@ -2800,7 +2801,7 @@ void PlayerPostThink (void)
 								detach_sameorigin(self.cursor_trace_ent);
 							Drag_Begin(self, self.cursor_trace_ent, self.cursor_trace_endpos);
 						}
-	
+
 	if(Drag_IsDragging(self))
 	{
 		if(self.BUTTON_DRAG)

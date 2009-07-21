@@ -291,13 +291,11 @@ float cvar_or(string cv, float v)
 vector project_3d_to_2d(vector vec)
 { 
 	vec = cs_project(vec);
-	if(cs_project_is_b0rked)
+	if(cs_project_is_b0rked > 0)
 	{
-		vec_x += vid_width / 2;
-		vec_y += vid_height / 2;
+		vec_x *= vid_conwidth / vid_width;
+		vec_y *= vid_conheight / vid_height;
 	}
-	vec_x *= vid_conwidth / vid_width;
-	vec_y *= vid_conheight / vid_height;
 	return vec;
 }
 

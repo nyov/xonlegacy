@@ -954,7 +954,7 @@ vector Sbar_Scoreboard_MakeTable(vector pos, entity tm, vector rgb, vector bg_si
 		if (sbar_scoreboard_highlight)
 		{
 			if (mod(i,2))
-				drawfill(pos - '0 1 0' - sbar_fontsize_x / 2 * '1 0 0', column_dim, '0 0 0', sbar_scoreboard_alpha_bg * 0.4, DRAWFLAG_NORMAL);
+				drawfill(pos - '0 1 0' - sbar_fontsize_x / 2 * '1 0 0', column_dim, '0 0 0', sbar_scoreboard_alpha_bg * 0.2, DRAWFLAG_NORMAL);
 		}
 		drawstring(pos, sbar_title[i], sbar_fontsize, rgb, 1, DRAWFLAG_NORMAL);
 		pos_x += column_dim_x;
@@ -966,17 +966,12 @@ vector Sbar_Scoreboard_MakeTable(vector pos, entity tm, vector rgb, vector bg_si
 		{
 			if(sbar_field[i] == SP_SEPARATOR)
 				break;
-			/**
-			 * FTEQCC BUG!
-			 * Using strlen(sbar_title[i])*8 instead of
-			 * stringwidth(sbar_title[i], FALSE) will mess it all up
-			 */
-			pos_x -= stringwidth(sbar_title[i], FALSE)*sbar_fontsize_x;
+			pos_x -= sbar_size[i]*sbar_fontsize_x;
 
 			if (sbar_scoreboard_highlight)
 			{
 				if (i == sbar_num_fields-1)
-					column_dim_x = sbar_fontsize_x*sbar_size[i] + sbar_fontsize_x / 2;
+					column_dim_x = sbar_fontsize_x*sbar_size[i] + sbar_fontsize_x / 2 + 1;
 				else
 					column_dim_x = sbar_fontsize_x*sbar_size[i] + sbar_fontsize_x;
 				if (!mod(i,2))
@@ -1067,7 +1062,7 @@ void Sbar_DrawScoreboard()
 		//for(tm = sortedTeams.sort_next; tm; tm = tm.sort_next)
 		for(tm = teams.sort_next; tm; tm = tm.sort_next)
 		{
-			if(!tm.team_size || tm.team == COLOR_SPECTATOR)
+			if(tm.team == COLOR_SPECTATOR)
 				continue;
 
 			rgb = GetTeamRGB(tm.team);
@@ -1249,7 +1244,9 @@ string MakeRaceString(float cp, float mytime, float histime, float lapdelta, str
 void Sbar_Score(float margin)
 {
 	float timelimit, minutes, seconds, timeleft, minutesLeft, secondsLeft, distribution, score, desiredPlayerId;
-	vector sbar_save, score_offset, timer_color, offset;
+	float racemin, racesec, racemsec;
+	float distsec, distmsec;
+	vector sbar_save, score_offset, timer_color, offset, distribution_color, minuspos;
 	entity tm, pl, me;
 	sbar_save = sbar;
 
@@ -1285,153 +1282,172 @@ void Sbar_Score(float margin)
 	}
 	score_offset_z = 0;
 	
-	if(teamplay)
+	if((scores_flags[ps_primary] & SFL_TIME) && !teamplay)
 	{
-		// Layout:
-		//
-		//   team1 team3 team4
-		//
-		//         TEAM2
-		//for(i = 0; i < 4; ++i)
-
-		float max_fragcount;
-		max_fragcount = -999;
-
-		for(tm = teams.sort_next; tm; tm = tm.sort_next)
-		{
-			if(tm.team == COLOR_SPECTATOR || !tm.team_size) // no players? don't display
-				continue;
-			// -32*4 = -128
-			score = tm.(teamscores[ts_primary]);
-
-			if (score > max_fragcount)
-				max_fragcount = score;
-
-			if(tm.team == myteam) {
-				if (max_fragcount == score)
-					Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, GetTeamRGB(tm.team) * 0.8, 1, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
-				else
-					Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, GetTeamRGB(tm.team) * 0.8, 0, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
-			}
-			else
-			{
-				if (max_fragcount == score)
-					Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0' - offset, score, 4, 16, GetTeamRGB(tm.team) * 0.8, 1, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
-				else
-					Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0' - offset, score, 4, 16, GetTeamRGB(tm.team) * 0.8, 0, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
-				offset_y -= 16;
-			}
-		}
-	} else {
 		// me vector := [team/connected frags id]
 
 		pl = players.sort_next;
 		if(pl == me)
 			pl = pl.sort_next;
-
-		if(pl) {
-			distribution = me.(scores[ps_primary]);
-			distribution -= pl.(scores[ps_primary]);
-		} else
-			distribution = 0;
+		if(scores_flags[ps_primary] & SFL_ZERO_IS_WORST)
+			if(pl.scores[ps_primary] == 0)
+				pl = world;
 
 		score = me.(scores[ps_primary]);
-
-		if(distribution >= 0)
-		{
-			if (distribution != 0) {
-				// draw a + sign in front of the score
-				if (distribution < 10) { drawpic(bottomright - element_offset - score_offset + '132 -6 0' + '32 0 0', "gfx/hud/num_plus", '16 16 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE); }
-				else if (distribution < 100) { drawpic(bottomright - element_offset - score_offset + '132 -6 0' + '16 0 0', "gfx/hud/num_plus", '16 16 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE); }
-				else if (distribution < 1000) { drawpic(bottomright - element_offset - score_offset + '132 -6 0', "gfx/hud/num_plus", '16 16 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE); }
+		
+		racemin = floor(score/600);
+		racesec = floor((score - racemin*600)/10);
+		racemsec = score - racemin*600 - racesec*10;
+		
+		if (pl && ((!(scores_flags[ps_primary] & SFL_ZERO_IS_WORST)) || score)) {
+			// distribution display
+			distribution = me.(scores[ps_primary]);
+			distribution -= pl.(scores[ps_primary]);
+			
+			if (distribution < 10 && distribution > -10)
+				distmsec = fabs(distribution);
+			else {
+				distsec = floor(fabs(distribution)/10);
+				distmsec = fabs(distribution) - distsec*10;
 			}
-
-			Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0', distribution, 4, 16, ' 1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-			Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, '1 1 1', 1, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			
+			if (distribution < 100 && distribution > -100) 
+				minuspos = bottomright - element_offset - score_offset + '130 -6 0' + '16 0 0';
+			else if (distribution < 1000 && distribution > -1000)
+				minuspos = bottomright - element_offset - score_offset + '130 -6 0';
+			else if (distribution < 10000 && distribution > -10000)
+				minuspos = bottomright - element_offset - score_offset + '130 -6 0' - '16 0 0';
+			else
+				minuspos = bottomright - element_offset - score_offset + '130 -6 0' - '32 0 0';
+			
+			if (distribution <= 0) {
+				distribution_color = '0 1 0';
+				drawpic(minuspos, "gfx/hud/num_minus", '16 16 0', distribution_color, sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+			}
+			else {
+				distribution_color = '1 0 0';
+				drawpic(minuspos, "gfx/hud/num_plus", '16 16 0', distribution_color, sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+			}
+			
+			Sbar_DrawXNum(bottomright - element_offset - score_offset + '180 -6 0', distmsec, 1, 16, distribution_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			Sbar_DrawXNum(bottomright - element_offset - score_offset + '112 -6 0', distsec, 4, 16, distribution_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			drawpic(bottomright - element_offset - score_offset + '170 -6 0', "gfx/hud/num_dot", '16 16 0', distribution_color, sbar_alpha_fg, DRAWFLAG_ADDITIVE);
 		}
-		else if(distribution >= -5)
+		
+		// big timer
+		if (distribution <= 0 || distribution == score) // draw the highlight background behind the timer if we have the lead
+			drawpic(bottomright - element_offset - score_offset + '20 10 0', "gfx/hud/sb_highlight_4", '178 28 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+		
+		Sbar_DrawXNum(bottomright - element_offset - score_offset + '166 10 0', racemsec, 1, 30, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+		Sbar_DrawXNum(bottomright - element_offset - score_offset + '96 10 0', racesec, -2, 30, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawpic(bottomright - element_offset - score_offset + '145 10 0', "gfx/hud/num_dot", '30 30 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+		
+		Sbar_DrawXNum(bottomright - element_offset - score_offset + '24 10 0', racemin, -2, 30, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawpic(bottomright - element_offset - score_offset + '76 8 0', "gfx/hud/num_colon", '30 30 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+	}
+	else {
+		if(teamplay)
 		{
-			Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0', distribution, 4, 16, ' 1 1 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-			Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, '1 1 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-		}
-		else {
-			Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0', distribution, 4, 16, ' 1 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-			Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, '1 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			// Layout:
+			//
+			//   team1 team3 team4
+			//
+			//         TEAM2
+			//for(i = 0; i < 4; ++i)
+
+			float max_fragcount;
+			max_fragcount = -999;
+
+			for(tm = teams.sort_next; tm; tm = tm.sort_next)
+			{
+				if(tm.team == COLOR_SPECTATOR || !tm.team_size) // no players? don't display
+					continue;
+				// -32*4 = -128
+				score = tm.(teamscores[ts_primary]);
+
+				if (score > max_fragcount)
+					max_fragcount = score;
+
+				if(tm.team == myteam) {
+					if (max_fragcount == score)
+						Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, GetTeamRGB(tm.team) * 0.8, 1, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
+					else
+						Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, GetTeamRGB(tm.team) * 0.8, 0, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
+				}
+				else
+				{
+					if (max_fragcount == score)
+						Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0' - offset, score, 4, 16, GetTeamRGB(tm.team) * 0.8, 1, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
+					else
+						Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0' - offset, score, 4, 16, GetTeamRGB(tm.team) * 0.8, 0, 1, sbar_alpha_fg, DRAWFLAG_NORMAL);
+					offset_y -= 16;
+				}
+			}
+		} else {
+			// me vector := [team/connected frags id]
+
+			pl = players.sort_next;
+			if(pl == me)
+				pl = pl.sort_next;
+
+			if(pl) {
+				distribution = me.(scores[ps_primary]);
+				distribution -= pl.(scores[ps_primary]);
+			} else
+				distribution = 0;
+
+			score = me.(scores[ps_primary]);
+
+			if(distribution >= 0)
+			{
+				if (distribution != 0) {
+					// draw a + sign in front of the score
+					if (distribution < 10) { drawpic(bottomright - element_offset - score_offset + '132 -6 0' + '32 0 0', "gfx/hud/num_plus", '16 16 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE); }
+					else if (distribution < 100) { drawpic(bottomright - element_offset - score_offset + '132 -6 0' + '16 0 0', "gfx/hud/num_plus", '16 16 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE); }
+					else if (distribution < 1000) { drawpic(bottomright - element_offset - score_offset + '132 -6 0', "gfx/hud/num_plus", '16 16 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE); }
+				}
+
+				Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0', distribution, 4, 16, ' 1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+				Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, '1 1 1', 1, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			}
+			else if(distribution >= -5)
+			{
+				Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0', distribution, 4, 16, ' 1 1 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+				Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, '1 1 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			}
+			else {
+				Sbar_DrawXNum(bottomright - element_offset - score_offset + '132 -6 0', distribution, 4, 16, ' 1 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+				Sbar_DrawXNum(bottomright - element_offset - score_offset, score, 4, 34, '1 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			}
 		}
 	}
 
 	//draw the remaining or elapsed time
 	timelimit = getstatf(STAT_TIMELIMIT);
-
 	vector bgpos;
-	if(timelimit > 0)
-	{
-		timeleft = max(0, timelimit * 60 + getstatf(STAT_GAMESTARTTIME) - time);
-		timeleft = ceil(timeleft);
-		minutesLeft = floor(timeleft / 60);
-		secondsLeft = timeleft - minutesLeft*60;
 
-		if(minutesLeft >= 5 || warmup_stage) //don't use red or yellow for timer during warmup
-			timer_color = '1 1 1'; //white
-		else if(minutesLeft >= 1)
-			timer_color = '1 1 0'; //yellow
-		else
-			timer_color = '1 0 0'; //red
+	timeleft = max(0, timelimit * 60 + getstatf(STAT_GAMESTARTTIME) - time);
+	timeleft = ceil(timeleft);
+	minutesLeft = floor(timeleft / 60);
+	secondsLeft = timeleft - minutesLeft*60;
 
-		if (cvar("sbar_increment_maptime")) {
-			if (time < getstatf(STAT_GAMESTARTTIME)) {
-				//while restart is still active, show negative counter
-				minutes = 0;
-				seconds = ceil(getstatf(STAT_GAMESTARTTIME) - time);
-			} else {
-				float elapsedTime;
-				elapsedTime = floor(time - getstatf(STAT_GAMESTARTTIME)); //127
-				minutes = floor(elapsedTime / 60);
-				seconds = elapsedTime - minutes*60;
-			}
-		} else {
-			minutes = minutesLeft;
-			seconds = secondsLeft;
-		}
-
-		if (minutes == 0) {
-			if (cvar("sbar_increment_maptime") == 1)
-				bgpos_x = topright_x - 54 - 17 - 12;
-			else
-				bgpos_x = topright_x - 36 - 7 - 12;
-		}
-		else if (minutes < 10) // nudge the timer background left if more digits are drawn
-			bgpos_x = topright_x - 54 - 17 - 12;
-		else if (minutes < 100)
-			bgpos_x = topright_x - 72 - 17 - 12;
-		else
-			bgpos_x = topright_x - 90 - 17 - 12;
-		bgpos_y = 0;
-		bgpos_z = 0;
-
-		if (cvar("viewsize") <= 100) { // draw timer background when viewsize <= 100
-			if (teamplay)
-				drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', GetTeamRGB(myteam) * sbar_color_bg_team, sbar_alpha_bg, DRAWFLAG_NORMAL); // timer bg color = myteam color
-			else {
-				color_x = cvar("sbar_color_bg_r");
-				color_y = cvar("sbar_color_bg_g");
-				color_z = cvar("sbar_color_bg_b");
-
-				drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', color, sbar_alpha_bg, DRAWFLAG_NORMAL);
-			}
-		}
-
-		if(minutesLeft >= 1) {
-			Sbar_DrawXNum(topright - '103 0 0' + '0 2 0', minutes, 3, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-			drawpic(topright - '53 0 0' + '0 1 0', "gfx/hud/num_colon", '18 18 0', timer_color, sbar_alpha_fg, DRAWFLAG_NORMAL);
-		}
-		Sbar_DrawXNum(topright - '36 0 0' - '3 0 0' + '0 2 0', seconds, -2, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-
-	} else {
+	if(minutesLeft >= 5 || warmup_stage || timelimit == 0) //don't use red or yellow in warmup or when there is no timelimit
 		timer_color = '1 1 1'; //white
-		minutes = floor(time / 60);
-		seconds = floor(time - minutes*60);
+	else if(minutesLeft >= 1)
+		timer_color = '1 1 0'; //yellow
+	else
+		timer_color = '1 0 0'; //red
 
+	if (cvar("sbar_increment_maptime") || timelimit == 0) {
+		if (time < getstatf(STAT_GAMESTARTTIME)) {
+			//while restart is still active, show 00:00
+			minutes = seconds = 0;
+		} else {
+			float elapsedTime;
+			elapsedTime = floor(time - getstatf(STAT_GAMESTARTTIME)); //127
+			minutes = floor(elapsedTime / 60);
+			seconds = elapsedTime - minutes*60;
+		}
 		if (minutes < 10)
 			bgpos_x = topright_x - 54 - 17 - 12;
 		else if (minutes < 100)	// nudge the timer background left if more digits are drawn
@@ -1440,24 +1456,39 @@ void Sbar_Score(float margin)
 			bgpos_x = topright_x - 90 - 17 - 12;
 		bgpos_y = 0;
 		bgpos_z = 0;
-
-		if (cvar("viewsize") <= 100) { // draw timer background when viewsize <= 100
-			if (teamplay)
-				drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', GetTeamRGB(myteam) * sbar_color_bg_team, sbar_alpha_bg, DRAWFLAG_NORMAL); // timer bg color = myteam color
-			else {
-				color_x = cvar("sbar_color_bg_r");
-				color_y = cvar("sbar_color_bg_g");
-				color_z = cvar("sbar_color_bg_b");
-
-				drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', color, sbar_alpha_bg, DRAWFLAG_NORMAL);
-			}
-		}
-
-		Sbar_DrawXNum(topright - '103 0 0' + '0 2 0', minutes, 3, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-		drawpic(topright - '53 0 0' + '0 1 0', "gfx/hud/num_colon", '18 18 0', timer_color, sbar_alpha_fg, DRAWFLAG_NORMAL);
-		Sbar_DrawXNum(topright - '36 0 0' - '3 0 0' + '0 2 0', seconds, -2, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+	} else {
+		minutes = minutesLeft;
+		seconds = secondsLeft;
+		if (minutes == 0)
+		bgpos_x = topright_x - 36 - 7 - 12;
+		else if (minutes < 10) // nudge the timer background left if more digits are drawn
+			bgpos_x = topright_x - 54 - 17 - 12;
+		else if (minutes < 100)
+			bgpos_x = topright_x - 72 - 17 - 12;
+		else
+			bgpos_x = topright_x - 90 - 17 - 12;
+		bgpos_y = 0;
+		bgpos_z = 0;
 	}
 
+	if (cvar("viewsize") <= 100) { // draw timer background when viewsize <= 100
+		if (teamplay)
+			drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', GetTeamRGB(myteam) * sbar_color_bg_team, sbar_alpha_bg, DRAWFLAG_NORMAL); // timer bg color = myteam color
+		else {
+			color_x = cvar("sbar_color_bg_r");
+			color_y = cvar("sbar_color_bg_g");
+			color_z = cvar("sbar_color_bg_b");
+
+			drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', color, sbar_alpha_bg, DRAWFLAG_NORMAL);
+		}
+	}
+
+	if(minutesLeft >= 1 || cvar("sbar_increment_maptime") || timelimit == 0) {
+		Sbar_DrawXNum(topright - '103 0 0' + '0 2 0', minutes, 3, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawpic(topright - '53 0 0' + '0 1 0', "gfx/hud/num_colon", '18 18 0', timer_color, sbar_alpha_fg, DRAWFLAG_NORMAL);
+	}
+	Sbar_DrawXNum(topright - '36 0 0' - '3 0 0' + '0 2 0', seconds, -2, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+	
 	if(gametype == GAME_RACE || gametype == GAME_CTS)
 	{
 		drawfont = sbar_bigfont;

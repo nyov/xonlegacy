@@ -122,24 +122,6 @@ void CSQC_Init(void)
 
 	cvar_clientsettemp("_supports_weaponpriority", "1");
 
-
-
-
-	cs_project_is_b0rked = TRUE;
-	R_SetView(VF_VIEWPORT, '0 0 0', '640 480 0');
-	R_SetView(VF_FOV, '90 90 0');
-	R_SetView(VF_ORIGIN, '0 0 0');
-	R_SetView(VF_ANGLES, '0 0 0');
-	R_SetView(VF_PERSPECTIVE, 1);
-	makevectors('0 0 0');
-	vector v;
-	v = cs_project(v_forward);
-	if(v_x - 320 < +1)
-	if(v_x - 320 > -1)
-	if(v_y - 240 < +1)
-	if(v_y - 240 > -1)
-		cs_project_is_b0rked = FALSE;
-
 	RegisterWeapons();
 
 	WaypointSprite_Load();
