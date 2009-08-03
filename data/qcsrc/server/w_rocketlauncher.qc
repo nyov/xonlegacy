@@ -15,7 +15,7 @@ void W_Rocket_Explode (void)
 	W_Rocket_Unregister();
 
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.owner, cvar("g_balance_rocketlauncher_damage"), cvar("g_balance_rocketlauncher_edgedamage"), cvar("g_balance_rocketlauncher_radius"), world, cvar("g_balance_rocketlauncher_force"), self.projectiledeathtype, other, WEP_ROCKET_LAUNCHER);
+	RadiusDamage (self, self.owner, cvar("g_balance_rocketlauncher_damage"), cvar("g_balance_rocketlauncher_edgedamage"), cvar("g_balance_rocketlauncher_radius"), world, cvar("g_balance_rocketlauncher_force"), self.projectiledeathtype, other);
 
 	if (self.owner.weapon == WEP_ROCKET_LAUNCHER)
 	{
@@ -276,7 +276,7 @@ void W_Rocket_Attack (void)
 	missile.event_damage = W_Rocket_Damage;
 
 	missile.movetype = MOVETYPE_FLY;
-	missile.solid = SOLID_BBOX;
+	PROJECTILE_MAKETRIGGER(missile);
 	missile.projectiledeathtype = WEP_ROCKET_LAUNCHER;
 	setsize (missile, '-3 -3 -3', '3 3 3'); // give it some size so it can be shot
 

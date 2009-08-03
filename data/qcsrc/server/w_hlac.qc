@@ -5,7 +5,7 @@ void W_HLAC_Touch (void)
 
 	self.event_damage = SUB_Null;
 
-    RadiusDamage (self, self.owner, cvar("g_balance_hlac_primary_damage"), cvar("g_balance_hlac_primary_edgedamage"), cvar("g_balance_hlac_primary_radius"), world, cvar("g_balance_hlac_primary_force"), self.projectiledeathtype, other, WEP_HLAC);
+    RadiusDamage (self, self.owner, cvar("g_balance_hlac_primary_damage"), cvar("g_balance_hlac_primary_edgedamage"), cvar("g_balance_hlac_primary_radius"), world, cvar("g_balance_hlac_primary_force"), self.projectiledeathtype, other);
 
 	remove (self);
 }
@@ -16,7 +16,7 @@ void W_HLAC_Touch2 (void)
 
 	self.event_damage = SUB_Null;
 
-    RadiusDamage (self, self.owner, cvar("g_balance_hlac_secondary_damage"), cvar("g_balance_hlac_secondary_edgedamage"), cvar("g_balance_hlac_secondary_radius"), world, cvar("g_balance_hlac_secondary_force"), self.projectiledeathtype, other, WEP_HLAC);
+    RadiusDamage (self, self.owner, cvar("g_balance_hlac_secondary_damage"), cvar("g_balance_hlac_secondary_edgedamage"), cvar("g_balance_hlac_secondary_radius"), world, cvar("g_balance_hlac_secondary_force"), self.projectiledeathtype, other);
 
 	remove (self);
 }
@@ -53,7 +53,7 @@ void W_HLAC_Attack (void)
     missile.bot_dodgerating = cvar("g_balance_hlac_primary_damage");
 
 	missile.movetype = MOVETYPE_FLY;
-	missile.solid = SOLID_BBOX;
+	PROJECTILE_MAKETRIGGER(missile);
 
 	setorigin (missile, w_shotorg);
 	setsize(missile, '0 0 0', '0 0 0');
@@ -97,7 +97,7 @@ void W_HLAC_Attack2f (void)
     missile.bot_dodgerating = cvar("g_balance_hlac_secondary_damage");
 
 	missile.movetype = MOVETYPE_FLY;
-	missile.solid = SOLID_BBOX;
+	PROJECTILE_MAKETRIGGER(missile);
 
 	setorigin (missile, w_shotorg);
 	setsize(missile, '0 0 0', '0 0 0');

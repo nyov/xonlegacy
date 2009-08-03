@@ -755,7 +755,7 @@ void PlayerTouchExplode(entity p1, entity p2)
 	entity e;
 	e = spawn();
 	setorigin(e, org);
-	RadiusDamage(e, world, g_touchexplode_damage, g_touchexplode_edgedamage, g_touchexplode_radius, world, g_touchexplode_force, DEATH_TOUCHEXPLODE, world, 0);
+	RadiusDamage(e, world, g_touchexplode_damage, g_touchexplode_edgedamage, g_touchexplode_radius, world, g_touchexplode_force, DEATH_TOUCHEXPLODE, world);
 	remove(e);
 }
 
@@ -790,6 +790,9 @@ void PutClientInServer (void)
 
 	if(g_arena)
 	if(!self.spawned)
+		self.classname = "observer";
+
+	if(gameover)
 		self.classname = "observer";
 
 	if(self.classname == "player") {
@@ -2047,6 +2050,7 @@ float SpectateNext() {
 		WriteByte(MSG_ONE, SVC_SETVIEW);
 		WriteEntity(MSG_ONE, self.enemy);
 	 	//stuffcmd(self, "set viewsize $tmpviewsize \n");
+		self.movetype = MOVETYPE_NONE;
 		if(!SpectateUpdate())
 			PutObserverInServer();
 		return 1;

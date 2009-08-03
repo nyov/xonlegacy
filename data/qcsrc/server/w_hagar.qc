@@ -2,7 +2,7 @@
 void W_Hagar_Explode (void)
 {
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_primary_damage"), cvar("g_balance_hagar_primary_edgedamage"), cvar("g_balance_hagar_primary_radius"), world, cvar("g_balance_hagar_primary_force"), self.projectiledeathtype, other, WEP_HAGAR);
+	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_primary_damage"), cvar("g_balance_hagar_primary_edgedamage"), cvar("g_balance_hagar_primary_radius"), world, cvar("g_balance_hagar_primary_force"), self.projectiledeathtype, other);
 
 	remove (self);
 }
@@ -10,7 +10,7 @@ void W_Hagar_Explode (void)
 void W_Hagar_Explode2 (void)
 {
 	self.event_damage = SUB_Null;
-	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_secondary_damage"), cvar("g_balance_hagar_secondary_edgedamage"), cvar("g_balance_hagar_secondary_radius"), world, cvar("g_balance_hagar_secondary_force"), self.projectiledeathtype, other, WEP_HAGAR);
+	RadiusDamage (self, self.realowner, cvar("g_balance_hagar_secondary_damage"), cvar("g_balance_hagar_secondary_edgedamage"), cvar("g_balance_hagar_secondary_radius"), world, cvar("g_balance_hagar_secondary_force"), self.projectiledeathtype, other);
 
 	remove (self);
 }
@@ -55,7 +55,7 @@ void W_Hagar_Attack (void)
 	missile.use = W_Hagar_Explode;
 	missile.think = adaptor_think2use;
 	missile.nextthink = time + cvar("g_balance_hagar_primary_lifetime");
-	missile.solid = SOLID_BBOX;
+	PROJECTILE_MAKETRIGGER(missile);
 	missile.projectiledeathtype = WEP_HAGAR;
 	setorigin (missile, w_shotorg);
 	setsize(missile, '0 0 0', '0 0 0');
@@ -91,7 +91,7 @@ void W_Hagar_Attack2 (void)
 	missile.use = W_Hagar_Explode;
 	missile.think = adaptor_think2use;
 	missile.nextthink = time + cvar("g_balance_hagar_secondary_lifetime");
-	missile.solid = SOLID_BBOX;
+	PROJECTILE_MAKETRIGGER(missile);
 	missile.projectiledeathtype = WEP_HAGAR | HITTYPE_SECONDARY;
 	setorigin (missile, w_shotorg);
 	setsize(missile, '0 0 0', '0 0 0');

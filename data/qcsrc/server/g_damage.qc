@@ -807,7 +807,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 						// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
 						vector headmins, headmaxs, org;
 						org = antilag_takebackorigin(targ, time - ANTILAG_LATENCY(attacker));
-						headmins = org + '0.7 0 0' * targ.mins_x + '0 0.7 0' * targ.mins_y + '0 0 1' * targ.view_ofs_z;
+						headmins = org + '0.7 0 0' * targ.mins_x + '0 0.7 0' * targ.mins_y + '0 0 1' * (1.5 * targ.view_ofs_z - 0.5 * targ.maxs_z);
 						headmaxs = org + '0.7 0 0' * targ.maxs_x + '0 0.7 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
 						if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
 						{
@@ -931,11 +931,8 @@ FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(actual_damage);
 FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(max_damage);
 
 
-float RadiusDamage_EnemyDamageDone;
-float RadiusDamage_EnemyMaxDamage;
 float RadiusDamage_running;
-float RadiusDamage (entity inflictor, entity attacker, float coredamage, float edgedamage, float rad, entity ignore,
-					float forceintensity, float deathtype, entity directhitentity, float weaponid)
+float RadiusDamage (entity inflictor, entity attacker, float coredamage, float edgedamage, float rad, entity ignore, float forceintensity, float deathtype, entity directhitentity)
 // Returns total damage applies to creatures
 {
 	entity	targ;
@@ -948,6 +945,10 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 	vector  nearest;
 	float   total_damage_to_creatures;
 	entity  next;
+	float weaponid;
+
+	float stat_damagedone;
+	float stat_maxdamage;
 
 	if(RadiusDamage_running)
 	{
@@ -981,8 +982,8 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 			Damage_DamageInfo(blastorigin, coredamage, edgedamage, -rad, (-forceintensity) * force, deathtype, attacker);
 	}
 
-	RadiusDamage_EnemyDamageDone = 0;
-	RadiusDamage_EnemyMaxDamage = 0;
+	stat_damagedone = 0;
+	stat_maxdamage = 0;
 
 	targ = findradius (blastorigin, rad);
 	while (targ)
@@ -1031,22 +1032,11 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 
 									if(targ.flags & FL_CLIENT)
 									if(targ.deadflag == DEAD_NO)
-									if (targ != attacker)
+									if(targ != attacker)
+									if(!teamplay || targ.team != attacker.team)
 									{
-										if (!teamplay)
-										{
-											RadiusDamage_EnemyDamageDone += finaldmg;
-											//print("DmgDone:",ftos(RadiusDamage_EnemyDamageDone), "\n");
-											RadiusDamage_EnemyMaxDamage += coredamage;
-											//print("MaxDamage:",ftos(RadiusDamage_EnemyMaxDamage), "\n");
-										}
-										else if(targ.team != attacker.team)
-										{
-											RadiusDamage_EnemyDamageDone += finaldmg;
-											//print("DmgDone",ftos(RadiusDamage_EnemyDamageDone, "\n"));
-											RadiusDamage_EnemyMaxDamage += coredamage;
-											//print("MaxDamage",ftos(RadiusDamage_EnemyMaxDamage), "\n");
-										}
+										stat_damagedone += finaldmg;
+										stat_maxdamage += coredamage;
 									}
 								}
 
@@ -1068,17 +1058,17 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 
 	RadiusDamage_running = 0;
 
-	//Calculates stats for all RadiusDamage weapons
+	weaponid = DEATH_WEAPONOF(deathtype);
+
+	// Calculates stats for all RadiusDamage weapons
+	if not(inWarmupStage)
 	if(weaponid)
 	if(clienttype(attacker) == CLIENTTYPE_REAL)
 	{
-		float f;
-		f = min(RadiusDamage_EnemyMaxDamage, RadiusDamage_EnemyDamageDone);
-		attacker.actual_damage[weaponid] += f;  // actual damage done
-		//attacker.max_damage[attacker.weapon] += coredamage;  // max damage, potential damage
-		// update the client and store into addstat() in g_world
+		// Track damage done and update the stat to be sent later in g_world.qc
+		float f = min(stat_maxdamage, stat_damagedone);
+		attacker.actual_damage[weaponid] += f; // value temporarily stored in f due to a ftqecc bug
 		attacker.damage_hits = weaponid + 64 * rint(attacker.actual_damage[weaponid]);
-		attacker.maxdamage_fired = weaponid + 64 * rint(attacker.max_damage[weaponid]);
 	}
 
 	return total_damage_to_creatures;

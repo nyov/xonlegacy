@@ -1,6 +1,6 @@
 title Aggressor
-description Small map with brutal fast vertical action
-author Kevin "Tyrann" Shanahan, Paul Evers
+description Aggressor retextured by FruitieX
+author FruitieX, Kevin "Tyrann" Shanahan, Paul Evers
 _diameter 2554.305176
 _spawnpoints 7
 has weapons
@@ -11,4 +11,5 @@ type rune 200 20
 type lms 9 20
 type arena 10 20
 type kh 1000 20 3
+type rc 20 5 10 20
 cdtrack 4
