@@ -1243,6 +1243,8 @@ void FixClientCvars(entity e)
 {
 	// send prediction settings to the client
 	stuffcmd(e, "\nin_bindmap 0 0\n");
+	if(g_race || g_cts)
+		stuffcmd(e, "cl_cmd settemp cl_movecliptokeyboard 2\n");
 	/*
 	 * we no longer need to stuff this. Remove this comment block if you feel
 	 * 2.3 and higher (or was it 2.2.3?) don't need these any more
@@ -1553,7 +1555,11 @@ void ChatBubbleThink()
 		remove(self);
 		return;
 	}
-	if (self.owner.BUTTON_CHAT && !self.owner.deadflag)
+	if ((self.owner.BUTTON_CHAT && !self.owner.deadflag)
+#ifdef TETRIS
+		|| self.owner.tetris_on
+#endif
+	)
 		self.model = self.mdl;
 	else
 		self.model = "";
@@ -2329,6 +2335,11 @@ void PlayerPreThink (void)
 		self.max_armorvalue = 0;
 	}
 
+#ifdef TETRIS
+	if (TetrisPreFrame())
+		return;
+#endif
+
 	if(frametime)
 		antilag_record(self);
 
@@ -2519,8 +2530,6 @@ void PlayerPreThink (void)
 		self.dmg_team = max(0, self.dmg_team - cvar("g_teamdamage_resetspeed") * frametime);
 
 		//self.angles_y=self.v_angle_y + 90;   // temp
-
-		//if (TetrisPreFrame()) return;
 	} else if(gameover) {
 		if (intermission_running)
 			IntermissionThink ();	// otherwise a button could be missed between
@@ -2792,6 +2801,13 @@ void PlayerPostThink (void)
 		self.idlekick_lasttimeleft = timeleft;
 	}
 
+#ifdef TETRIS
+	if(self.impulse == 100)
+		ImpulseCommands();
+	if (TetrisPostFrame())
+		return;
+#endif
+
 	if(sv_cheats || self.maycheat)
 		if(Drag_CanDrag(self))
 			if(self.BUTTON_DRAG)
@@ -2846,8 +2862,6 @@ void PlayerPostThink (void)
 			ImpulseCommands();
 		if (intermission_running)
 			return;		// intermission or finale
-
-		//if (TetrisPostFrame()) return;
 
 		GetPressedKeys();
 	} else if (self.classname == "observer") {

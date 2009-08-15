@@ -2,28 +2,36 @@
 
 Installation:
 
-in cl_impulse.qc add TetrisImpulses(); to ImpulseCommands
-
-in progs.src add g_tetris.qc after g_subs.qc
-in cl_client.qc add if (TetrisPreFrame()) return; to  PlayerPreThink
-in cl_client.qc add if (TetrisPostFrame()) return; to PlayerPostThink
+compile with -DTETRIS
 
 */
 
+#ifdef TETRIS
+
 .vector tet_org;
 
-.float tetris_on, tet_time, tet_autodown;
+float tet_vs_current_id;
+float tet_vs_current_timeout;
+.float tet_vs_id, tet_vs_addlines;
+.float tet_highest_line;
+.float tetris_on, tet_gameovertime, tet_drawtime, tet_autodown;
 .vector piece_pos;
 .float piece_type, next_piece, tet_score, tet_lines;
+.float tet_piece_bucket;
+
+// tetris_on states:
+//   1 = running
+//   2 = game over
+//   3 = waiting for VS players
 
 var float tet_high_score = 0;
 
 float TET_LINES = 20;
 float TET_WIDTH = 10;
 //character values
-float TET_BORDER = 132;
-float TET_BLOCKS = 132; // +1 = first color, +2, +3;
-float TET_SPACE = 32; // blankness
+float TET_BORDER = 139;
+float TET_BLOCK = 133;
+float TET_SPACE = 160; // blankness
 
 
 
@@ -33,6 +41,8 @@ float TETKEY_LEFT = 4;
 float TETKEY_RIGHT = 8;
 float TETKEY_ROTLEFT = 16;
 float TETKEY_ROTRIGHT = 32;
+float TETKEY_DROP = 64;
+string TET_PADDING_RIGHT = "\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0"; // get away from crosshair
 
 float PIECES = 7;
 
@@ -43,6 +53,15 @@ line16, line17, line18, line19, line20;
 
 float	SVC_CENTERPRINTa		= 26;
 
+float Tetris_Level()
+{ 
+	return ((floor((self.tet_lines / 10)) + 1)); 
+}; 
+
+void tetsnd(string snd)
+{
+	play2(self, strcat("sounds/tetris/", snd));
+}
 
 /*
 *********************************
@@ -208,70 +227,44 @@ void SetSquare(float x, float y, float val)
 	SetLine(y, dat);
 };
 
-
-
 vector PieceShape(float pc)
 {
-
-/*
-1 =
- ##
- ##
-*/
 	if (pc == 1)
-		return '20 20 0'; // 1 * 4 + 1 * 16
-/*
-2 =
-
-####
-*/
+		return '5 5 0'; // O
 	else if (pc == 2)
-		return '85 0 0';
-
-/*
-3 =
-
-###
-#
-*/
+		return '1 21 0'; // J
 	else if (pc == 3)
-		return '21 1 0';
-/*
-4 =
-
-#
-###
-*/
+		return '21 1 0'; // L
 	else if (pc == 4)
-		return '1 21 0';
-/*
-5 =
-##
- ##
-*/
+		return '85 0 0'; // I
 	else if (pc == 5)
-		return '5 20 0';
-
-/*
-6 =
- ##
-##
-*/
+		return '5 20 0'; // Z
 	else if (pc == 6)
-		return '20 5 0';
-
-/*
-7 =
- #
-###
-*/
+		return '20 5 0'; // S
 	else if (pc == 7)
-		return '4 21 0';
-
-
+		return '4 21 0'; // T
 	else
 		return '0 0 0';
+}
 
+vector PieceCenter(float pc)
+{
+	if(pc == 1)
+		return '1.5 1.5 0'; // O
+	else if (pc == 2)
+		return '2 2 0'; // J
+	else if (pc == 3)
+		return '2 1 0'; // L
+	else if (pc == 4)
+		return '2.5 1.5 0'; // I
+	else if (pc == 5)
+		return '2 2 0'; // Z
+	else if (pc == 6)
+		return '2 2 0'; // S
+	else if (pc == 7)
+		return '2 2 0'; // T
+	else
+		return '0 0 0';
 }
 
 // do x 1..4 and y 1..4 in case of rotation
@@ -279,24 +272,35 @@ float PieceMetric(float x, float y, float rot, float pc)
 {
 	float t;
 	vector piece_dat;
+	float wid;
 
 	// return bits of a piece
+	wid = piece_dat_z + 1;
+	piece_dat = PieceCenter(pc);
 	if (rot == 1) // 90 degrees
 	{
+		// x+cx, y+cy -> -y+cx, x+cy
+		// X, Y       -> -Y+cy+cx, X-cx+cy
+		//   x = X-cx
+		//   y = Y-cy
 		t = y;
-		y = x;
-		x = 5 - t;
+		y = x - piece_dat_x + piece_dat_y;
+		x = -t + piece_dat_x + piece_dat_y;
 	}
 	else if (rot == 2)//180
 	{
-		x = 5 - x;
-		y = 3 - y;
+		x = 2 * piece_dat_x - x;
+		y = 2 * piece_dat_y - y;
 	}
 	else if (rot == 3) // 270
 	{
+		// x+cx, y+cy -> y+cx, -x+cy
+		// X, Y       -> Y-cy+cx, -X+cx+cy
+		//   x = X-cx
+		//   y = Y-cy
 		t = y;
-		y = 5 - x;
-		x = t;
+		y = -x + piece_dat_y + piece_dat_x;
+		x =  t - piece_dat_y + piece_dat_x;
 	}
 	if (x < 1 || y < 1 || x > 4 || y > 2)
 		return 0;
@@ -305,8 +309,6 @@ float PieceMetric(float x, float y, float rot, float pc)
 		return GetXBlock(x, piece_dat_x); // first row
 	else if (y == 2)
 		return GetXBlock(x, piece_dat_y); // second row
-	else if (y == 3)
-		return GetXBlock(x, piece_dat_z); // third row (doesn't exist)
 	else
 		return 0; // illegal parms
 };
@@ -325,24 +327,17 @@ somewhat modified because we don't need all the fanciness Prydon Gate is capable
 
 */
 
-// remove warnings by adding underscores, i hate warnings, warnings suck
-// --blub
-void p6(float _c1, float _c2, float _c3, float _c4, float c5, float c6)
+void WriteTetrisString(string s)
 {
-	WriteChar(MSG_ONE, _c1);
-	WriteChar(MSG_ONE, _c2);
-	WriteChar(MSG_ONE, _c3);
-	WriteChar(MSG_ONE, _c4);
-	WriteChar(MSG_ONE, c5);
-	WriteChar(MSG_ONE, c6);
-};
+	WriteUnterminatedString(MSG_ONE, strconv(0, 2, 2, s));
+}
 
 float pnum(float num, float dig)
 {
 	local float f, i;
 	if (num < 0)
 	{
-		WriteChar(MSG_ONE, 45);
+		WriteChar(MSG_ONE, 173);
 		num = 0 - num;
 	}
 	f = floor(num / 10);
@@ -355,7 +350,7 @@ float pnum(float num, float dig)
 		for (i = 0; i < (5 - dig); i = i + 1)
 			WriteChar(MSG_ONE, TET_SPACE);
 	}
-	WriteChar(MSG_ONE, 48 + num);
+	WriteChar(MSG_ONE, 176 + num);
 	return dig;
 };
 
@@ -368,10 +363,16 @@ void DrawLine(float ln)
 	{
 		d = GetSquare(x, ln);
 		if (d)
-			WriteChar(MSG_ONE, TET_BLOCKS + d);
+		{
+			WriteChar(MSG_ONE, '^');
+			WriteChar(MSG_ONE, d * d - 2 * d + 50); // 1, 2, 5
+			WriteChar(MSG_ONE, TET_BLOCK);
+		}
 		else
 			WriteChar(MSG_ONE, TET_SPACE);
 	}
+	WriteChar(MSG_ONE, '^');
+	WriteChar(MSG_ONE, '7');
 	WriteChar(MSG_ONE, TET_BORDER);
 }
 
@@ -379,9 +380,7 @@ void DrawPiece(float pc, float ln)
 {
 	float x, d, piece_ln, pcolor;
 	vector piece_dat;
-	pcolor = pc & 3;
-	if (pcolor == 0) // 4
-		pcolor = 1;
+	pcolor = mod(pc, 3) + 1;
 	WriteChar(MSG_ONE, TET_SPACE); // pad to 6
 
 	piece_dat = PieceShape(pc);
@@ -393,7 +392,11 @@ void DrawPiece(float pc, float ln)
 	{
 		d = GetXBlock(x, piece_ln) * pcolor;
 		if (d)
-			WriteChar(MSG_ONE, TET_BLOCKS + d);
+		{
+			WriteChar(MSG_ONE, '^');
+			WriteChar(MSG_ONE, d * d - 2 * d + 50); // 1, 2, 5
+			WriteChar(MSG_ONE, TET_BLOCK);
+		}
 		else
 			WriteChar(MSG_ONE, TET_SPACE);
 	}
@@ -402,50 +405,87 @@ void DrawPiece(float pc, float ln)
 void Draw_Tetris()
 {
 	float i;
+	entity head;
 	msg_entity = self;
 	WriteChar(MSG_ONE, SVC_CENTERPRINTa);
 	// decoration
 	for (i = 1; i <= (TET_WIDTH + 2); i = i + 1)
 		WriteChar(MSG_ONE, TET_BORDER);
-	p6(' ', ' ', ' ', ' ', ' ', ' ');
+	WriteTetrisString("      ");
+	WriteUnterminatedString(MSG_ONE, TET_PADDING_RIGHT);
 	WriteChar(MSG_ONE, 10);
 	for (i = 1; i <= TET_LINES; i = i + 1)
 	{
-		DrawLine(i);
+		if(self.tetris_on == 2)
+			WriteTetrisString(" GAME  OVER ");
+		else if(self.tetris_on == 3)
+			WriteTetrisString("PLEASE  WAIT");
+		else
+			DrawLine(i);
 		if (i == 1)
-			p6(' ', 'N', 'E', 'X', 'T', ' ');
+			WriteTetrisString(" NEXT ");
 		else if (i == 3)
 			DrawPiece(self.next_piece, 1);
 		else if (i == 4)
 			DrawPiece(self.next_piece, 2);
 		else if (i == 6)
-			p6(' ', 'L', 'I', 'N', 'E', 'S');
+			WriteTetrisString(" LINES");
 		else if (i == 7)
 			pnum(self.tet_lines, 0);
 		else if (i == 9)
-			p6(' ', 'S', 'C', 'O', 'R', 'E');
+			WriteTetrisString(" SCORE");
 		else if (i == 10)
 			pnum(self.tet_score, 0);
 		else if (i == 12)
-			p6(' ', 'H', 'I', 'G', 'H', ' ');
+			WriteTetrisString(" HIGH ");
 		else if (i == 13)
-			p6(' ', 'S', 'C', 'O', 'R', 'E');
+			WriteTetrisString(" SCORE");
 		else if (i == 14)
 			pnum(tet_high_score, 0);
 		else if (i == 16)
-			p6(' ', 'L', 'E', 'V', 'E', 'L');
+			WriteTetrisString(" LEVEL");
 		else if (i == 17)
-			pnum(floor(self.tet_lines / 20)+ 1, 0);
+			pnum(Tetris_Level(), 0);
 		else
-			p6(' ', ' ', ' ', ' ', ' ', ' ');
+			WriteTetrisString("      ");
+		WriteUnterminatedString(MSG_ONE, TET_PADDING_RIGHT);
 		WriteChar(MSG_ONE, 10);
 	}
 	// decoration
 
 	for (i = 1; i <= (TET_WIDTH + 2); i = i + 1)
 		WriteChar(MSG_ONE, TET_BORDER);
-	p6(' ', ' ', ' ', ' ', ' ', ' ');
+	WriteTetrisString("      ");
+	WriteUnterminatedString(MSG_ONE, TET_PADDING_RIGHT);
 	WriteChar(MSG_ONE, 10);
+
+	// VS game status
+	if(self.tet_vs_id)
+	{
+		WriteChar(MSG_ONE, 10);
+		WriteChar(MSG_ONE, 10);
+		if(self.tetris_on == 3)
+		{
+			WriteUnterminatedString(MSG_ONE, strcat("WAITING FOR OTHERS (", ftos(ceil(tet_vs_current_timeout - time)), " SEC)\n"));
+		}
+
+		WriteChar(MSG_ONE, 10);
+		FOR_EACH_REALCLIENT(head) if(head.tetris_on) if(head.tet_vs_id == self.tet_vs_id)
+		{
+			if(head == self)
+				WriteUnterminatedString(MSG_ONE, ">");
+			else
+				WriteUnterminatedString(MSG_ONE, " ");
+			if(head.tetris_on == 2)
+				WriteUnterminatedString(MSG_ONE, "   X_X");
+			else
+				pnum(head.tet_highest_line, 0);
+			WriteUnterminatedString(MSG_ONE, " ");
+			WriteUnterminatedString(MSG_ONE, head.netname);
+			WriteChar(MSG_ONE, 10);
+		}
+	}
+
 	WriteChar(MSG_ONE, 0);
 }
 /*
@@ -466,13 +506,14 @@ void ResetTetris()
 	self.piece_pos = '0 0 0';
 	self.piece_type = 0;
 	self.next_piece = self.tet_lines = self.tet_score = 0;
-
+	self.tet_piece_bucket = 0;
 };
 
-void Tet_GameOver()
+void Tet_GameExit()
 {
-	centerprint(self, "Game Over");
+	centerprint(self, " ");
 	self.tetris_on = 0;
+	self.tet_vs_id = 0;
 	ResetTetris();
 	self.movetype = MOVETYPE_WALK;
 };
@@ -486,14 +527,46 @@ Game Mechanics
 
 *********************************
 */
+.float tet_piece_bucket;
 float RandomPiece()
 {
-	return floor(random() * PIECES) + 1;
+	float i, j;
+	float p, q;
+	float b;
+	float seen;
+	if(self.tet_piece_bucket > 1)
+	{
+		p = mod(self.tet_piece_bucket, 7);
+		self.tet_piece_bucket = floor(self.tet_piece_bucket / 7);
+		return p + 1;
+	}
+	else
+	{
+		p = floor(random() * 7);
+		seen = pow(2, p);
+		b = 1;
+		for(i = 6; i > 0; --i)
+		{
+			q = floor(random() * i);
+			for(j = 0; j <= q; ++j)
+				if(seen & pow(2, j))
+					++q;
+			if(seen & pow(2, q))
+				error("foo 1");
+			if(q >= 7)
+				error("foo 2");
+			seen |= pow(2, q);
+			b *= 7;
+			b += q;
+		}
+		self.tet_piece_bucket = b;
+		return p + 1;
+	}
 };
 
 void TetAddScore(float n)
 {
-	self.tet_score = self.tet_score + n;
+	self.tet_score = self.tet_score + n * Tetris_Level();
 	if (self.tet_score > tet_high_score)
 		tet_high_score = self.tet_score;
 };
@@ -506,9 +579,9 @@ float CheckMetrics(float piece, float orgx, float orgy, float rot) /*FIXDECL*/
 	orgx = orgx - 1;
 	orgy = orgy - 1;
 
-	for (y = 1; y < 5; y = y + 1)
+	for (y = 0; y < 5; y = y + 1)
 	{
-		for (x = 1; x < 5; x = x + 1)
+		for (x = 0; x < 5; x = x + 1)
 		{
 			if (PieceMetric(x, y, rot, piece))
 			{
@@ -530,9 +603,9 @@ void ClearPiece(float piece, float orgx, float orgy, float rot) /*FIXDECL*/
 	orgx = orgx - 1;
 	orgy = orgy - 1;
 
-	for (y = 1; y < 5; y = y + 1)
+	for (y = 0; y < 5; y = y + 1)
 	{
-		for (x = 1; x < 5; x = x + 1)
+		for (x = 0; x < 5; x = x + 1)
 		{
 			if (PieceMetric(x, y, rot, piece))
 			{
@@ -549,13 +622,11 @@ void CementPiece(float piece, float orgx, float orgy, float rot) /*FIXDECL*/
 	orgx = orgx - 1;
 	orgy = orgy - 1;
 
-	pcolor = piece & 3;
-	if (pcolor == 0) // 4
-		pcolor = 1;
+	pcolor = mod(piece, 3) + 1;
 
-	for (y = 1; y < 5; y = y + 1)
+	for (y = 0; y < 5; y = y + 1)
 	{
-		for (x = 1; x < 5; x = x + 1)
+		for (x = 0; x < 5; x = x + 1)
 		{
 			if (PieceMetric(x, y, rot, piece))
 			{
@@ -568,9 +639,18 @@ void CementPiece(float piece, float orgx, float orgy, float rot) /*FIXDECL*/
 float LINE_LOW = 349525;
 float LINE_HIGH = 699050; // above number times 2
 
+void AddLines(float n)
+{
+	entity head;
+	if(!self.tet_vs_id)
+		return;
+	FOR_EACH_REALCLIENT(head) if(head != self) if(head.tetris_on) if(head.tet_vs_id == self.tet_vs_id)
+		head.tet_vs_addlines += n;
+}
+
 void CompletedLines()
 {
-	float y, cleared, ln;
+	float y, cleared, ln, added, pos, i;
 
 	cleared = 0;
 	y = TET_LINES;
@@ -584,20 +664,63 @@ void CompletedLines()
 		ln = GetLine(y - cleared);
 		SetLine(y, ln);
 	}
+
+	if(cleared >= 4)
+		AddLines(cleared);
+	else if(cleared >= 1)
+		AddLines(cleared - 1);
+
 	self.tet_lines = self.tet_lines + cleared;
 	TetAddScore(cleared * cleared * 10);
+
+	added = self.tet_vs_addlines;
+	self.tet_vs_addlines = 0;
+
+	if(added)
+	{
+		for(y = 1; y <= TET_LINES - added; ++y)
+		{
+			SetLine(y, GetLine(y + added));
+		}
+		for(y = max(1, TET_LINES - added + 1); y <= TET_LINES; ++y)
+		{
+			pos = floor(random() * TET_WIDTH);
+			ln = 0;
+			for(i = 1; i <= TET_WIDTH; ++i)
+				if(i != pos)
+					ln = SetXBlock(i, ln, floor(random() * 3 + 1));
+			SetLine(y, ln);
+		}
+	}
+
+	self.tet_highest_line = 0;
+	for(y = 1; y <= TET_LINES; ++y)
+		if(GetLine(y) != 0)
+		{
+			self.tet_highest_line = TET_LINES + 1 - y;
+			break;
+		}
+
+	if(added)
+		tetsnd("tetadd");
+	else if(cleared >= 4)
+		tetsnd("tetris");
+	else if(cleared)
+		tetsnd("tetline");
+	else
+		tetsnd("tetland");
 };
 
 void HandleGame(float keyss)
 {
 
 	// first off, we need to see if we need a new piece
+	vector piece_data;
 	vector check_pos;
+	vector old_pos;
 	float brand_new;
+	float i;
 	brand_new = 0;
-	if (self.tet_time > time)
-		return;
-	self.tet_time = time + 0.1;
 
 
 	if (self.piece_type == 0)
@@ -618,16 +741,34 @@ void HandleGame(float keyss)
 	// next we need to check the piece metrics against what's on the level
 	// based on the key order
 
-	check_pos = self.piece_pos;
+	old_pos = check_pos = self.piece_pos;
 
+	float nudge;
+	nudge = 0;
 	if (keyss & TETKEY_RIGHT)
+	{
 		check_pos_x = check_pos_x + 1;
+		tetsnd("tetmove");
+	}
 	else if (keyss & TETKEY_LEFT)
+	{
 		check_pos_x = check_pos_x - 1;
+		tetsnd("tetmove");
+	}
 	else if (keyss & TETKEY_ROTRIGHT)
+	{
 		check_pos_z = check_pos_z + 1;
+		piece_data = PieceShape(self.piece_type);
+		nudge = 1;
+		tetsnd("tetrot");
+	}
 	else if (keyss & TETKEY_ROTLEFT)
+	{
 		check_pos_z = check_pos_z - 1;
+		piece_data = PieceShape(self.piece_type);
+		nudge = 1;
+		tetsnd("tetrot");
+	}
 	// bounds check
 	if (check_pos_z > 3)
 		check_pos_z = 0;
@@ -638,23 +779,60 @@ void HandleGame(float keyss)
 	if (CheckMetrics(self.piece_type, check_pos_x, check_pos_y, check_pos_z))
 		self.piece_pos = check_pos;
 	else if (brand_new)
-		Tet_GameOver();
+	{
+		self.tetris_on = 2;
+		self.tet_gameovertime = time + 5;
+		return;
+	}
+	else
+	{
+		for(i = 1; i <= nudge; ++i)
+		{
+			if(CheckMetrics(self.piece_type, check_pos_x + i, check_pos_y, check_pos_z))
+			{
+				self.piece_pos = check_pos + '1 0 0' * i;
+				break;
+			}
+			else if(CheckMetrics(self.piece_type, check_pos_x - i, check_pos_y, check_pos_z))
+			{
+				self.piece_pos = check_pos - '1 0 0' * i;
+				break;
+			}
+		}
+	}
 	check_pos = self.piece_pos;
-	if (keyss & TETKEY_DOWN)
+	if(keyss & TETKEY_DROP)
+	{
+		// drop to bottom, but do NOT cement it yet
+		// this allows sliding it
+		++check_pos_y;
+		while(CheckMetrics(self.piece_type, check_pos_x, check_pos_y + 1, check_pos_z))
+			++check_pos_y;
+		self.tet_autodown = time + 2 / (1 + Tetris_Level());
+	}
+	else if (keyss & TETKEY_DOWN)
+	{
 		check_pos_y = check_pos_y + 1;
+		self.tet_autodown = time + 2 / (1 + Tetris_Level());
+	}
 	else if (self.tet_autodown < time)
 	{
 		check_pos_y = check_pos_y + 1;
-		self.tet_autodown = time + 1 / (floor(self.tet_lines / 20) + 1);
+		self.tet_autodown = time + 2 / (1 + Tetris_Level());
 	}
 	if (CheckMetrics(self.piece_type, check_pos_x, check_pos_y, check_pos_z))
+	{
+		if(old_pos != check_pos)
+			self.tet_drawtime = 0;
 		self.piece_pos = check_pos;
+	}
 	else
 	{
 		CementPiece(self.piece_type, self.piece_pos_x, self.piece_pos_y, self.piece_pos_z);
 		TetAddScore(1);
 		CompletedLines();
 		self.piece_type = 0;
+		self.tet_drawtime = 0;
 		return;
 	}
 	CementPiece(self.piece_type, self.piece_pos_x, self.piece_pos_y, self.piece_pos_z);
@@ -669,15 +847,34 @@ Important Linking Into Quake stuff
 */
 
 
-void TetrisImpulses(float imp)
+void TetrisImpulse()
 {
-	if (imp == 200)
+	if(self.tetris_on == 0 || self.tetris_on == 2) // from "off" or "game over"
 	{
-		self.tetris_on = 1;
+		self.tetris_on = 3;
+
+		if(time < tet_vs_current_timeout)
+		{
+			// join VS game
+			self.tet_vs_id = tet_vs_current_id;
+		}
+		else
+		{
+			// start new VS game
+			++tet_vs_current_id;
+			tet_vs_current_timeout = time + 15;
+			self.tet_vs_id = tet_vs_current_id;
+			bprint("^1TET^7R^1IS: ", self.netname, "^1 started a new game. Do ^7impulse 100^1 to join.\n");
+		}
+		self.tet_highest_line = 0;
 		ResetTetris();
 		self.tet_org = self.origin;
 		self.movetype = MOVETYPE_NOCLIP;
-		stuffcmd(self, "cl_bob 0\ncl_rollangle 0\n");
+	}
+	else if(self.tetris_on == 1) // from "on"
+	{
+		Tet_GameExit();
+		self.impulse = 0;
 	}
 };
 
@@ -688,11 +885,14 @@ float TetrisPreFrame()
 		return 0;
 
 	self.tet_org = self.origin;
-	if (self.tet_time > time)
+	if (self.tet_drawtime > time)
 		return 1;
 	Draw_Tetris();
+	if(self.tetris_on == 3)
+		self.tet_drawtime = ceil(time - tet_vs_current_timeout + 0.1) + tet_vs_current_timeout;
+	else
+		self.tet_drawtime = time + 0.5;
 	return 1;
-
 };
 float frik_anglemoda(float v)
 {
@@ -712,34 +912,83 @@ float angcompa(float y1, float y2)
 	return answer;
 };
 
+.float tetkey_down, tetkey_rotright, tetkey_left, tetkey_right, tetkey_rotleft, tetkey_drop;
+
+float TetrisKeyRepeat(.float fld, float f)
+{
+	if(f)
+	{
+		if(self.fld == 0) // initial key press
+		{
+			self.fld = time + 0.3;
+			return 1;
+		}
+		else if(time > self.fld)
+		{
+			self.fld = time + 0.1;
+			return 1;
+		}
+		else
+		{
+			// repeating too fast
+			return 0;
+		}
+	}
+	else
+	{
+		self.fld = 0;
+		return 0;
+	}
+}
 
 float TetrisPostFrame()
 {
-	vector mov;
-	float keysa, norm;
+	float keysa;
 
 	keysa = 0;
 
 	if (!self.tetris_on)
 		return 0;
-	
-	if (self.origin != self.tet_org)
+
+	if(self.tetris_on == 2 && time > self.tet_gameovertime)
 	{
-		self.origin = self.tet_org;
-		if(self.movement_x < 0)
-			keysa |= TETKEY_DOWN;
-		else if(self.movement_x > 0)
-			keysa |= TETKEY_UP;
-		if(self.movement_y < 0)
-			keysa |= TETKEY_LEFT;
-		else if(self.movement_y > 0)
-			keysa |= TETKEY_RIGHT;
+		Tet_GameExit();
+		return 0;
 	}
-	if (self.BUTTON_ATCK)
-		keysa = keysa | TETKEY_ROTRIGHT;
-	if (self.BUTTON_JUMP)
-		keysa = keysa | TETKEY_ROTLEFT;
-	HandleGame(keysa);
+
+	if(self.tetris_on == 3 && time > tet_vs_current_timeout)
+	{
+		self.tetris_on = 1; // start VS game
+		self.tet_drawtime = 0;
+	}
+	
+	self.origin = self.tet_org;
+	self.movetype = MOVETYPE_NONE;
+
+	if(self.tetris_on == 1)
+	{
+		if(TetrisKeyRepeat(tetkey_down, self.movement_x < 0))
+			keysa |= TETKEY_DOWN;
+
+		if(TetrisKeyRepeat(tetkey_rotright, self.movement_x > 0))
+			keysa |= TETKEY_ROTRIGHT;
+
+		if(TetrisKeyRepeat(tetkey_left, self.movement_y < 0))
+			keysa |= TETKEY_LEFT;
+
+		if(TetrisKeyRepeat(tetkey_right, self.movement_y > 0))
+			keysa |= TETKEY_RIGHT;
+		
+		if(TetrisKeyRepeat(tetkey_rotleft, self.BUTTON_CROUCH))
+			keysa |= TETKEY_ROTLEFT;
+
+		if(TetrisKeyRepeat(tetkey_drop, self.BUTTON_JUMP))
+			keysa |= TETKEY_DROP;
+
+		HandleGame(keysa);
+	}
+
 	return 1;
 };
 
+#endif

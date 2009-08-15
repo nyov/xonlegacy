@@ -993,9 +993,15 @@ void spawnfunc_onslaught_generator()
 .float waslinked;
 .float cp_bob_spd;
 .vector cp_origin, cp_bob_origin, cp_bob_dmg;
+
+float ons_notification_time_team1;
+float ons_notification_time_team2;
+
 void onslaught_controlpoint_icon_damage(entity inflictor, entity attacker, float damage, float deathtype, vector hitloc, vector force)
 {
 	entity oself;
+	float nag;
+
 	if (damage <= 0)
 		return;
 	if (self.owner.isshielded)
@@ -1009,12 +1015,32 @@ void onslaught_controlpoint_icon_damage(entity inflictor, entity attacker, float
 			}
 		return;
 	}
-	if (time > self.pain_finished)
-		if (attacker.classname == "player")
+
+	if (attacker.classname == "player")
+	{
+		if(self.team == COLOR_TEAM1)
 		{
-			play2team(self.team, "onslaught/controlpoint_underattack.wav");
-			self.pain_finished = time + 10;
+			if(time - ons_notification_time_team1 > 10)
+			{
+				nag = TRUE;
+				ons_notification_time_team1 = time;
+			}
 		}
+		else if(self.team == COLOR_TEAM2)
+		{
+			if(time - ons_notification_time_team2 > 10)
+			{
+				nag = TRUE;
+				ons_notification_time_team2 = time;
+			}
+		}
+		else
+			nag = TRUE;
+
+		if(nag)
+			play2team(self.team, "onslaught/controlpoint_underattack.wav");
+	}
+
 	self.health = self.health - damage;
 	if(self.owner.iscaptured)
 		WaypointSprite_UpdateHealth(self.owner.sprite, self.health);
@@ -1398,7 +1424,7 @@ void onslaught_link_checkupdate()
 		cc = (COLOR_TEAM2 - 1) * 0x11;
 	else
 		cc = 0;
-	
+
 	//print(etos(self), " rp=", ftos(redpower), " bp=", ftos(bluepower), " ");
 	//print("cc=", ftos(cc), "\n");
 

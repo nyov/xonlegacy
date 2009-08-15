@@ -100,19 +100,8 @@ void GameCommand_MarkupInit()
 
 string GameCommand_Markup(string s2)
 {
-	float red, ccase, i, j, x;
+	float red, ccase, i, j;
 	string s, s3;
-
-	x = 0;
-	for(i = 0; i < 16; ++i)
-	{
-		for(j = 0; j < 16; ++j)
-		{
-			print(chr2str(x));
-			++x;
-		}
-		print("\n");
-	}
 
 	GameCommand_MarkupInit();
 

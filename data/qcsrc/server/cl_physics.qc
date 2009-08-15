@@ -92,6 +92,17 @@ void PlayerJump (void)
 		mjumpheight = mjumpheight * cvar("g_minstagib_speed_jumpheight");
 	}
 
+	if(!(self.lastflags & FL_ONGROUND))
+	{
+		if(cvar("speedmeter"))
+			dprint(strcat("landing velocity: ", vtos(self.velocity), " (abs: ", ftos(vlen(self.velocity)), ")\n"));
+		if(self.lastground < time - 0.3)
+			self.velocity = self.velocity * (1 - cvar("sv_friction_on_land"));
+		if(self.jumppadcount > 1)
+			dprint(strcat(ftos(self.jumppadcount), "x jumppad combo\n"));
+		self.jumppadcount = 0;
+	}
+
 	self.velocity_z = self.velocity_z + mjumpheight;
 	self.oldvelocity_z = self.velocity_z;
 
@@ -465,6 +476,21 @@ void PM_AirAccelerate(vector wishdir, float wishspeed)
 
 void Nixnex_GiveCurrentWeapon();
 .float() PlayerPhysplug;
+
+string specialcommand = "xwxwxsxsxaxdxaxdx1x ";
+.float specialcommand_pos;
+void SpecialCommand()
+{
+#ifdef TETRIS
+	TetrisImpulse();
+#else
+	if(sv_cheats || self.maycheat)
+		self.impulse = 99;
+	else
+		print("A hollow voice says \"Plugh\".\n");
+#endif
+}
+
 void SV_PlayerPhysics()
 {
 	local vector wishvel, wishdir, v;
@@ -472,12 +498,90 @@ void SV_PlayerPhysics()
 	string temps;
 	float buttons_prev;
 	float not_allowed_to_move;
+	string c;
+	
+	if(g_race || g_cts)
+	{
+		// if record times matter
+		// ensure nothing EVIL is being done (i.e. strafebot)
+		// this hinders joystick users though
+		// but it still gives SOME analog control
+		// TODO implement this for engine cl_movement code too (basically, clipping to the four axes)
+		wishvel_x = fabs(self.movement_x);
+		wishvel_y = fabs(self.movement_y);
+		if(wishvel_x != 0 && wishvel_y != 0 && wishvel_x != wishvel_y)
+		{
+			wishvel_z = 0;
+			wishspeed = vlen(wishvel);
+			if(wishvel_x >= 2 * wishvel_y)
+			{
+				// pure X motion
+				if(self.movement_x > 0)
+					self.movement_x = wishspeed;
+				else
+					self.movement_x = -wishspeed;
+				self.movement_y = 0;
+			}
+			else if(wishvel_y >= 2 * wishvel_x)
+			{
+				// pure Y motion
+				self.movement_x = 0;
+				if(self.movement_y > 0)
+					self.movement_y = wishspeed;
+				else
+					self.movement_y = -wishspeed;
+			}
+			else
+			{
+				// diagonal
+				if(self.movement_x > 0)
+					self.movement_x = 0.70710678118654752440 * wishspeed;
+				else
+					self.movement_x = -0.70710678118654752440 * wishspeed;
+				if(self.movement_y > 0)
+					self.movement_y = 0.70710678118654752440 * wishspeed;
+				else
+					self.movement_y = -0.70710678118654752440 * wishspeed;
+			}
+		}
+	}
 
+	buttons = self.BUTTON_ATCK + 2 * self.BUTTON_JUMP + 4 * self.BUTTON_ATCK2 + 8 * self.BUTTON_ZOOM + 16 * self.BUTTON_CROUCH + 32 * self.BUTTON_HOOK + 64 * self.BUTTON_USE + 128 * (self.movement_x < 0) + 256 * (self.movement_x > 0) + 512 * (self.movement_y < 0) + 1024 * (self.movement_y > 0);
+
+	if(!buttons)
+		c = "x";
+	else if(buttons == 1)
+		c = "1";
+	else if(buttons == 2)
+		c = " ";
+	else if(buttons == 128)
+		c = "s";
+	else if(buttons == 256)
+		c = "w";
+	else if(buttons == 512)
+		c = "a";
+	else if(buttons == 1024)
+		c = "d";
+	else
+		c = "?";
+
+	if(c == substring(specialcommand, self.specialcommand_pos, 1))
+	{
+		self.specialcommand_pos += 1;
+		if(self.specialcommand_pos >= strlen(specialcommand))
+		{
+			self.specialcommand_pos = 0;
+			SpecialCommand();
+			return;
+		}
+	}
+	else if(self.specialcommand_pos && (c != substring(specialcommand, self.specialcommand_pos - 1, 1)))
+		self.specialcommand_pos = 0;
+	
     if(self.PlayerPhysplug)
         if(self.PlayerPhysplug())
             return;
 
-	buttons = self.BUTTON_ATCK + 2 * self.BUTTON_JUMP + 4 * self.BUTTON_ATCK2 + 8 * self.BUTTON_ZOOM + 16 * self.BUTTON_CROUCH + 32 * self.BUTTON_HOOK + 64 * self.BUTTON_USE;
 	if(!sv_maxidle_spectatorsareidle || self.movetype == MOVETYPE_WALK)
 	{
 		if(buttons != self.buttons_old || self.movement != self.movement_old || self.v_angle != self.v_angle_old)
@@ -917,12 +1021,25 @@ void SV_PlayerPhysics()
 			self.jumppadcount = 0;
 		}
 
-		if (self.velocity_x || self.velocity_y)
-		if (!(self.flags & FL_JUMPRELEASED) || !self.BUTTON_JUMP)
+#ifdef LETS_TEST_FTEQCC
+		if(self.velocity_x || self.velocity_y)
 		{
-			v = self.velocity;
-			v_z = 0;
-			f = vlen(v);
+			// good
+		}
+		else
+		{
+			if(self.velocity_x)
+				checkclient();
+			if(self.velocity_y)
+				checkclient();
+		}
+#endif
+
+		v = self.velocity;
+		v_z = 0;
+		f = vlen(v);
+		if(f > 0)
+		{
 			if (f < sv_stopspeed)
 				f = 1 - frametime * (sv_stopspeed / f) * sv_friction;
 			else
@@ -932,6 +1049,7 @@ void SV_PlayerPhysics()
 			else
 				self.velocity = '0 0 0';
 		}
+
 		// acceleration
 		wishdir = normalize(wishvel);
 		wishspeed = vlen(wishvel);
