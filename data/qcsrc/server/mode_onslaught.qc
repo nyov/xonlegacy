@@ -402,8 +402,10 @@ void onslaught_generator_think()
 	local float d;
 	local entity e;
 	self.nextthink = ceil(time + 1);
-	if (cvar("timelimit"))
-		if (time > cvar("timelimit") * 60 - 60)
+	if (!gameover)
+	{
+		if (cvar("timelimit"))
+		if (time > game_starttime + cvar("timelimit") * 60)
 		{
 			// self.max_health / 300 gives 5 minutes of overtime.
 			// control points reduce the overtime duration.
@@ -420,7 +422,7 @@ void onslaught_generator_think()
 			d = d * self.max_health / 300;
 			Damage(self, self, self, d, DEATH_HURTTRIGGER, self.origin, '0 0 0');
 		}
-
+	}
 };
 
 void onslaught_generator_ring_think()
@@ -623,6 +625,8 @@ void onslaught_generator_damage(entity inflictor, entity attacker, float damage,
 	local float i;
 	if (damage <= 0)
 		return;
+	if(inWarmupStage)
+		return;
 	if (attacker != self)
 	{
 		if (self.isshielded)
@@ -659,7 +663,7 @@ void onslaught_generator_damage(entity inflictor, entity attacker, float damage,
 #endif
 		self.lasthealth = self.health;
 	}
-	else
+	else if not(inWarmupStage)
 	{
 		if (attacker == self)
 			bprint(ColoredTeamName(self.team), " generator spontaneously exploded due to overtime!\n");
@@ -683,6 +687,7 @@ void onslaught_generator_damage(entity inflictor, entity attacker, float damage,
 
 		onslaught_updatelinks();
 	}
+
 	if(self.health <= 0)
 		setmodel(self, "models/onslaught/generator_dead.md3");
 	else if(self.health < self.max_health * 0.10)
