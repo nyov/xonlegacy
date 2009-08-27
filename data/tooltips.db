@@ -61,6 +61,7 @@
 \cl_weaponpriority_useforcycling\Make use of the list above when cycling through weapons with the mouse wheel
 \cl_autoswitch\Automatically switch to newly picked up weapons if they are better than what you are carrying
 \r_drawviewmodel\Draw the weapon model
+\cl_gunalign\Position of the weapon model; requires reconnect
 
 \crosshair_per_weapon\Set a different crosshair for each weapon, good if you play without weapon models
 \crosshair_color_override\Also set the color of the crosshair depending on the weapon you are currently holding
@@ -151,7 +152,7 @@
 \r_coronas_occlusionquery\Fade coronas according to visibility (default: enabled)
 \r_bloom\Enable bloom effect, which brightens the neighboring pixels of very bright pixels. Has a big impact on performance. (default: disabled)
 \r_hdr\Higher quality version of bloom, which has a huge impact on performance. (default: disabled)
-\r_motionblur\Motion blur strength from 0.0 to 1.0 - 0.7 recommended
+\r_motionblur\Motion blur strength from 0.0 to 1.0 - 0.5 recommended
 \r_damageblur\Amount of motionblur when hurt - 0.4 recommended
 
 \NexuizSettingsDialog/Audio\Audio settings
@@ -193,6 +194,9 @@
 \showtopspeed\Show your top speed, kept on the screen for a maximum of 3 seconds
 
 \NexuizSettingsDialog/Advanced settings...\Advanced settings where you can tweak every single variable of the game
+\g_friendlyfire\Percentage of damage dealt to teammates
+\g_mirrordamage\Percentage of teamdamage that will be mirrored to you
+\g_tdm_teams_override\Override the default amount of teams in teamgames
 
 \cl_teamradar_position\-
 \cl_teamradar_size\-

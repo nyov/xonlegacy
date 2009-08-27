@@ -3622,3 +3622,432 @@ bounce 1.5
 airfriction 3
 liquidfriction 6
 velocityjitter 400 400 0
+
+// Team / hit minsta effects
+effect TE_TEI_G3RED
+countabsolute 1
+type beam
+tex 60 60
+color 0xFF0000 0xFF0000
+size 4 4
+alpha 128 128 256
+// experimental
+effect TE_TEI_G3RED
+trailspacing 4
+type static
+color 0x200000 0x400000
+size 0.3 0.3
+sizeincrease 3
+tex 46 46
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+velocityjitter 3 3 3
+type smoke
+
+effect TE_TEI_G3RED_HIT
+countabsolute 1
+type beam
+tex 60 60
+color 0xFF0000 0xFF0000
+size 8 8
+alpha 128 128 256
+// experimental
+effect TE_TEI_G3RED_HIT
+trailspacing 10
+type static
+color 0xFFFFFF 0xFF0011
+size 2 2
+sizeincrease -2
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+velocityjitter 2 2 2
+type smoke
+// rings
+effect TE_TEI_G3RED_HIT
+trailspacing 20
+type static
+color 0xFF0000 0xFF0011
+size 10 10 
+sizeincrease -6
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+type smoke
+
+effect TE_TEI_G3BLUE
+countabsolute 1
+type beam
+tex 60 60
+color 0x0000FF 0x1100FF
+size 4 4
+alpha 128 128 256
+// experimental
+effect TE_TEI_G3BLUE
+trailspacing 4
+type static
+color 0x000020 0x000040
+size 0.3 0.3
+sizeincrease 3
+tex 46 46
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+velocityjitter 3 3 3
+type smoke
+
+effect TE_TEI_G3BLUE_HIT
+countabsolute 1
+type beam
+tex 60 60
+color 0x0000FF 0x1100FF
+size 8 8
+alpha 128 128 256
+// experimental
+effect TE_TEI_G3BLUE_HIT
+trailspacing 10
+type static
+color 0xFFFFFF 0x100FF
+size 2 2
+sizeincrease -2
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+velocityjitter 2 2 2
+type smoke
+// rings
+effect TE_TEI_G3BLUE_HIT
+trailspacing 20
+type static
+color 0x0000FF 0x1100FF
+size 10 10 
+sizeincrease -6
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+type smoke
+
+// Yellow 
+effect TE_TEI_G3YELLOW
+countabsolute 1
+type beam
+tex 60 60
+color 0xffff00 0xffff11
+size 4 4
+alpha 128 128 256
+effect TE_TEI_G3YELLOW
+trailspacing 4
+type static
+color 0x202000 0x404000
+size 0.3 0.3
+sizeincrease 3
+tex 46 46
+alpha 256 256 512
+airfriction -4
+velocityjitter 3 3 3
+type smoke
+
+effect TE_TEI_G3YELLOW_HIT
+countabsolute 1
+type beam
+tex 60 60
+color 0xffff00 0xffff11
+size 8 8
+alpha 128 128 256
+effect TE_TEI_G3YELLOW_HIT
+trailspacing 10
+type static
+color 0xFFFFFF 0xffff10
+size 2 2
+sizeincrease -2
+alpha 256 256 512
+airfriction -4
+velocityjitter 2 2 2
+type smoke
+// rings
+effect TE_TEI_G3YELLOW_HIT
+trailspacing 20
+type static
+color 0xffff00 0xffff11
+size 10 10 
+sizeincrease -6
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+type smoke
+
+
+// Pink
+effect TE_TEI_G3PINK
+countabsolute 1
+type beam
+tex 60 60
+color 0xFF00FF 0xFF11FF
+size 4 4
+alpha 128 128 256
+// experimental
+effect TE_TEI_G3PINK
+trailspacing 4
+type static
+color 0x200020 0x400040
+size 0.3 0.3
+sizeincrease 3
+tex 46 46
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+velocityjitter 3 3 3
+type smoke
+
+effect TE_TEI_G3PINK_HIT
+countabsolute 1
+type beam
+tex 60 60
+color 0xFF00FF 0xFF11FF
+size 8 8
+alpha 128 128 256
+// experimental
+effect TE_TEI_G3PINK_HIT
+trailspacing 10
+type static
+color 0xFFFFFF 0xFF10FF
+size 2 2
+sizeincrease -2
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+velocityjitter 2 2 2
+type smoke
+// rings
+effect TE_TEI_G3PINK_HIT
+trailspacing 20
+type static
+color 0xFF00FF 0xFF11FF
+size 10 10 
+sizeincrease -6
+alpha 256 256 512
+airfriction -4
+//liquidfriction -4
+type smoke
+
+
+
+
+// cl_gentle impact effect indicating damage
+// maintained by particlegibs
+// used in qcsrc/client/gibs.qc:                        pointparticles(particleeffectnum("damage_hit"), org, vel, amount * 16)
+// core decal
+effect particlegibs_damage_hit
+type blood
+count 1
+tex 0 8
+size 5 10
+color 0xA8FFFF 0xA8FFFFF
+alpha 256 256 428
+gravity 1
+bounce -1
+airfriction 3
+liquidfriction 6
+velocityjitter 156 156 212
+// front blood
+effect particlegibs_damage_hit
+type blood
+count 0.2
+tex 24 32
+size 10 20
+color 0xA8FFFF 0xA8FFFFF
+sizeincrease -15
+alpha 256 256 328
+bounce -1
+gravity 0.5
+airfriction 1
+liquidfriction 3
+velocityjitter 6 6 30
+velocitymultiplier -1
+// back blood
+effect particlegibs_damage_hit
+type blood
+count 0.2
+tex 24 32
+size 5 15
+color 0xA8FFFF 0xA8FFFFF
+sizeincrease 10
+alpha 256 256 328
+bounce -1
+gravity 1
+airfriction 1
+liquidfriction 3
+velocityjitter 26 26 112
+originjitter 3 3 3
+velocitymultiplier 2
+ 
+// effect for removing player model
+// "teleport"
+ 
+// cl_gentle deathfx
+// used in qcsrc/client/gibs.qc:                        pointparticles(particleeffectnum("damage_dissolve"), org, vel, amount)
+// small core blood no decals
+effect particlegibs_damage_dissolve
+type blood
+count 64
+tex 0 8
+size 15 20
+color 0x00ffff 0x82ffff
+alpha 256 256 328
+gravity 1
+airfriction 3
+liquidfriction 6
+originjitter 10 10 25
+velocityjitter 256 256 312
+// core decal
+effect particlegibs_damage_dissolve
+type blood
+count 24
+tex 0 8
+size 20 40
+color 0xA8FFFF 0xA8FFFFF
+alpha 256 256 528
+gravity 2
+bounce -1
+airfriction 2
+liquidfriction 6
+originjitter 10 10 25
+velocityjitter 356 356 412
+// front blood
+effect particlegibs_damage_dissolve
+type blood
+count 64
+tex 24 32
+size 10 20
+color 0xA8FFFF 0xA8FFFFF
+sizeincrease -15
+alpha 256 256 328
+bounce -1
+gravity 0.5
+airfriction 1
+liquidfriction 3
+velocityjitter 56 56 212
+originjitter 5 5 10
+velocitymultiplier -0.3
+// back blood
+effect particlegibs_damage_dissolve
+type blood
+count 64
+tex 24 32
+size 5 15
+color 0xA8FFFF 0xA8FFFFF
+sizeincrease 10
+alpha 256 256 328
+bounce -1
+gravity 1
+airfriction 1
+liquidfriction 3
+velocityjitter 56 56 212
+originjitter 5 5 10
+velocitymultiplier 0.5
+// small bits
+effect particlegibs_damage_dissolve
+type blood
+count 150
+tex 24 32
+size 1 1
+color 0xA8FFFF 0xA8FFFFF
+sizeincrease 10
+alpha 256 256 328
+gravity 1
+airfriction 1.5
+liquidfriction 3
+originjitter 10 10 25
+velocityjitter 656 656 912
+
+// fire effect which expands then slows
+effect onslaught_generator_gib_explode
+notunderwater
+count 34
+type static
+tex 48 55
+color 0x8f0d00 0xff5a00
+size 20 26
+sizeincrease 45
+alpha 128 256 356
+bounce 1.5
+airfriction 5
+liquidfriction 8
+originjitter 8 8 8
+velocityjitter 286 286 286
+
+// smoke
+effect onslaught_generator_gib_explode
+type alphastatic
+notunderwater
+tex 0 8
+count 12
+size 1 10
+sizeincrease 90
+gravity -0.3
+alpha 200 500 600
+velocityjitter 244 244 244
+airfriction 5
+color 0x000000 0x111111
+bounce 2
+
+// underwater bubbles
+effect onslaught_generator_gib_explode
+underwater
+count 32
+type bubble
+tex 62 62
+color 0x404040 0x808080
+size 3 3
+alpha 128 256 64
+gravity -0.125
+bounce 1.5
+liquidfriction 0.25
+originjitter 16 16 16
+velocityjitter 96 96 96
+
+// fire effect which expands then slows
+effect onslaught_generator_gib_flame
+notunderwater
+count 30
+type static
+tex 48 55
+color 0x8f0d00 0xff5a00
+size 5 10
+sizeincrease 25
+alpha 128 256 356
+gravity -0.5
+airfriction 5
+liquidfriction 8
+originjitter 3 3 3
+velocityjitter 86 86 86
+// smoke
+effect onslaught_generator_gib_flame
+type alphastatic
+notunderwater
+tex 0 8
+count 2
+size 10 20
+sizeincrease 30
+gravity -0.8
+alpha 200 500 600
+velocityjitter 44 44 44
+airfriction 5
+color 0x000000 0x111111
+bounce 2
+
+// underwater bubbles
+effect onslaught_generator_gib_flame
+underwater
+count 32
+type bubble
+tex 62 62
+color 0x404040 0x808080
+size 3 3
+alpha 128 256 64
+gravity -0.125
+bounce 1.5
+liquidfriction 0.25
+originjitter 16 16 16
+velocityjitter 96 96 96
