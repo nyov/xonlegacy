@@ -1284,14 +1284,8 @@ void Sbar_Score(float margin)
 
 	offset = '0 0 0';
 
-	if (vid_conwidth >= 800) {
-		score_offset_x = 196;
-		score_offset_y = 36;
-	}
-	else { // move the scores if vid_conwidth < 800
-		score_offset_x = 196;
-		score_offset_y = 84;
-	}
+	score_offset_x = 196;
+	score_offset_y = 36;
 	score_offset_z = 0;
 
 	if((scores_flags[ps_primary] & SFL_TIME) && !teamplay)
@@ -1625,6 +1619,7 @@ float Sbar_WouldDrawScoreboard ()
 }
 
 void CSQC_Strength_Timer() {
+	vector pos;
 	vector bottom;
 
 	bottom_x = vid_conwidth/2;
@@ -1648,6 +1643,11 @@ void CSQC_Strength_Timer() {
 	picsize = '22 22 0';
 	countdown_fontsize = 18;
 
+	if (vid_conwidth >= 800)
+		pos = bottom + '192 -46 0';
+	else
+		pos = bottom + '192 -94 0';
+
 	//strength
 	strength_time = getstatf(STAT_STRENGTH_FINISHED);
 	invincibility_time = getstatf(STAT_INVINCIBLE_FINISHED);
@@ -1658,18 +1658,18 @@ void CSQC_Strength_Timer() {
 		{
 			if(dt < 5)
 			{
-				drawpic_expanding_two(bottom + '192 -46 0', "gfx/hud/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
+				drawpic_expanding_two(pos, "gfx/hud/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
 					bound(0, (ceil(dt) - dt) / 0.5, 1));
 			}
 			else
 			{
-				drawpic(bottom + '192 -46 0', "gfx/hud/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+				drawpic(pos, "gfx/hud/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
 			}
-			Sbar_DrawXNum(bottom + '152 -44 0', ceil(dt), 2, countdown_fontsize, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			Sbar_DrawXNum(pos - '40 -2 0', ceil(dt), 2, countdown_fontsize, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 		}
 		else if(dt > -1)
 		{
-			drawpic_expanding(bottom + '192 -46 0', "gfx/hud/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
+			drawpic_expanding(pos, "gfx/hud/sb_str", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
 				bound(0, -dt / 0.5, 1));
 		}
 	}
@@ -1681,18 +1681,18 @@ void CSQC_Strength_Timer() {
 		{
 			if(dt < 5)
 			{
-				drawpic_expanding_two(bottom + '192 -24 0', "gfx/hud/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
+				drawpic_expanding_two(pos - '0 -22 0', "gfx/hud/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
 					bound(0, (ceil(dt) - dt) / 0.5, 1));
 			}
 			else
 			{
-				drawpic(bottom + '192 -24 0', "gfx/hud/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
+				drawpic(pos - '0 -22 0', "gfx/hud/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE);
 			}
-			Sbar_DrawXNum(bottom + '152 -22 0', ceil(dt), 2, countdown_fontsize, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+			Sbar_DrawXNum(pos - '40 -24 0', ceil(dt), 2, countdown_fontsize, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 		}
 		else if(dt > -1)
 		{
-			drawpic_expanding(bottom + '192 -24 0', "gfx/hud/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
+			drawpic_expanding(pos - '0 -22 0', "gfx/hud/sb_invinc", picsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_ADDITIVE,
 				bound(0, -dt / 0.5, 1));
 		}
 	}
@@ -2206,6 +2206,7 @@ void Sbar_Draw (void)
 	pos = '0 0 0';
 
 	sbar_fontsize = Sbar_GetFontsize("sbar_fontsize");
+	sbar_fontsize_spec = Sbar_GetFontsize("sbar_fontsize_spec");
 
 	if(spectatee_status && !intermission)
 	{
@@ -2215,9 +2216,9 @@ void Sbar_Draw (void)
 			s = GetPlayerName(spectatee_status - 1);
 		// spectated player name between HUD and chat area, aligned to the left
 		pos_x = bottomleft_x;
-		pos_y = bottom_y - 61;
-		s = textShortenToWidth(s, vid_conwidth/2.5/sbar_fontsize_x, stringwidth_colors);
-		drawcolorcodedstring(pos, s, sbar_fontsize, 1, DRAWFLAG_NORMAL);
+		pos_y = bottom_y - 50 - sbar_fontsize_spec_y;
+		s = textShortenToWidth(s, vid_conwidth/2.5/sbar_fontsize_spec_x, stringwidth_colors);
+		drawcolorcodedstring(pos, s, sbar_fontsize_spec, 1, DRAWFLAG_NORMAL);
 
 		// spectator text in the upper right corner
 		if(spectatee_status == -1)
@@ -2276,7 +2277,7 @@ void Sbar_Draw (void)
 	else
 		blinkcolor = "^3";
 
-	if(ready_waiting && !intermission)
+	if(ready_waiting && !intermission && !spectatee_status)
 	{
 		if(ready_waiting_for_me)
 		{
@@ -2294,7 +2295,7 @@ void Sbar_Draw (void)
 		}
 		o = Sbar_DrawNoteLine(o, s);
 	}
-	else if(warmup_stage && !intermission)
+	else if(warmup_stage && !intermission && !spectatee_status)
 	{
 		s = strcat("^2Press ^3", getcommandkey("ready", "ready"), "^2 to end warmup");
 		o = Sbar_DrawNoteLine(o, s);
@@ -2392,29 +2393,20 @@ void Sbar_Draw (void)
 		fade = bound(0.7, fade, 1);
 
 		vector bg_size; // hud background size
-		bg_size_x = 800;
-		if (vid_conwidth > 800) // if conwidth > 800, resize the background image
-			bg_size_x = vid_conwidth;
+		bg_size_x = 1600;
 		bg_size_y = 58;
 		bg_size_z = 0;
 
-		vector bgoffset; // hud background offset
-		bgoffset_x = 0;
-		bgoffset_y = 0;
-		bgoffset_z = 0;
-		if (vid_conwidth < 800) // if conwidth < 800 we need to offset the background image to keep it centered, as it will be scaled up
-			bgoffset_x = (vid_conwidth - 800) / 2;
-
-		if (cvar("viewsize") <= 100) {
+		if (cvar("viewsize") <= 100 && vid_conwidth <= 1600) {
 			if (teamplay)
-				drawpic(bottomleft - '0 58 0' + bgoffset, "gfx/hud/sbar", bg_size, GetTeamRGB(myteam) * sbar_color_bg_team, sbar_alpha_bg, DRAWFLAG_NORMAL); // hud color = myteam color
+				drawpic(bottom - '800 58 0', "gfx/hud/sbar", bg_size, GetTeamRGB(myteam) * sbar_color_bg_team, sbar_alpha_bg, DRAWFLAG_NORMAL); // hud color = myteam color
 			else {
 				// allow for custom HUD colors in non-teamgames
 				color_x = cvar("sbar_color_bg_r");
 				color_y = cvar("sbar_color_bg_g");
 				color_z = cvar("sbar_color_bg_b");
 
-				drawpic(bottomleft - '0 58 0' + bgoffset, "gfx/hud/sbar", bg_size, color, sbar_alpha_bg, DRAWFLAG_NORMAL);
+				drawpic(bottom - '800 58 0', "gfx/hud/sbar", bg_size, color, sbar_alpha_bg, DRAWFLAG_NORMAL);
 			}
 		}
 
@@ -2498,43 +2490,47 @@ void Sbar_Draw (void)
 			{
 				if (stat_items & GetAmmoItemCode(i))
 				{
-					if (vid_conwidth < 800)
-						pos_x = 105;
-					else
-						pos_x = 170;
-					pos_y = -40;
+					if (vid_conwidth >= 800) {
+						pos_x = 230;
+						pos_y = 40;
+					}
+					else {
+						pos_x = 206;
+						pos_y = 33;
+					}
 
-					drawpic(bottomleft + pos + '0 1.5 0', "gfx/hud/sb_ammobg", '107 29 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
-					drawpic(bottomleft + pos + '76 3 0', GetAmmoPicture(i), '24 24 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+					if(vid_conwidth >= 800)
+						drawpic(bottom - pos + '0 1.5 0', "gfx/hud/sb_ammobg", '107 29 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+					drawpic(bottom - pos + '76 3 0', GetAmmoPicture(i), '24 24 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 					if(a < 10)
-						Sbar_DrawXNum(bottomleft + pos + '5 5 0', a, 3, 24, '0.7 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+						Sbar_DrawXNum(bottom - pos + '5 5 0', a, 3, 24, '0.7 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 					else
-						Sbar_DrawXNum(bottomleft + pos + '5 5 0', a, 3, 24, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+						Sbar_DrawXNum(bottom - pos + '5 5 0', a, 3, 24, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 				}
 			}
 			else
 			{
 				if (a > 0) {
 					switch (i) {
-						case 0: pos_x = 114; pos_y = -48; break; // shells
-						case 1: pos_x = 114; pos_y = -26; break; // bullets
-						case 2: pos_x = 200; pos_y = -48; break; // rockets
-						case 3: pos_x = 200; pos_y = -26; break; // cells
+						case 0: pos_x = 286; pos_y = 48; break; // shells
+						case 1: pos_x = 286; pos_y = 26; break; // bullets
+						case 2: pos_x = 200; pos_y = 48; break; // rockets
+						case 3: pos_x = 200; pos_y = 26; break; // cells
 					}
 
 					if (stat_items & GetAmmoItemCode(i))
-						drawpic(bottomleft + pos + '0 1.5 0', "gfx/hud/sb_ammobg", '80 22 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
-					drawpic(bottomleft + pos + '56 3 0', GetAmmoPicture(i), '18 18 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+						drawpic(bottom - pos + '0 1.5 0', "gfx/hud/sb_ammobg", '80 22 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+					drawpic(bottom - pos + '56 3 0', GetAmmoPicture(i), '18 18 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 					if (a < 10) {
 						if(stat_items & GetAmmoItemCode(i))
-							Sbar_DrawXNum(bottomleft + pos + '6 4.5 0', a, 3, 16, '0.7 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+							Sbar_DrawXNum(bottom - pos + '6 4.5 0', a, 3, 16, '0.7 0 0', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 						else
-							Sbar_DrawXNum(bottomleft + pos + '6 4.5 0', a, 3, 16, '0.7 0 0', 0, 0, sbar_alpha_fg * 0.7, DRAWFLAG_NORMAL);
+							Sbar_DrawXNum(bottom - pos + '6 4.5 0', a, 3, 16, '0.7 0 0', 0, 0, sbar_alpha_fg * 0.7, DRAWFLAG_NORMAL);
 					} else {
 						if(stat_items & GetAmmoItemCode(i))
-							Sbar_DrawXNum(bottomleft + pos + '6 4.5 0', a, 3, 16, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+							Sbar_DrawXNum(bottom - pos + '6 4.5 0', a, 3, 16, '1 1 1', 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 						else
-							Sbar_DrawXNum(bottomleft + pos + '6 4.5 0', a, 3, 16, '0.7 0.7 0.7', 0, 0, sbar_alpha_fg * 0.7, DRAWFLAG_NORMAL);
+							Sbar_DrawXNum(bottom - pos + '6 4.5 0', a, 3, 16, '0.7 0.7 0.7', 0, 0, sbar_alpha_fg * 0.7, DRAWFLAG_NORMAL);
 					}
 				}
 			}
@@ -2547,13 +2543,19 @@ void Sbar_Draw (void)
 			float invincibility_time, dt;
 			invincibility_time = getstatf(STAT_INVINCIBLE_FINISHED);
 			dt = invincibility_time - time;
-			if (dt > 0) { // if the invincibility timer is active, draw fuel ammo elsewhere
-				pos_x = bottom_x + 140;
-				pos_y = bottom_y - 72;
+			if (vid_conwidth >= 800) {
+				if (dt > 0) { // if the invincibility timer is active, draw fuel ammo elsewhere
+					pos_x = bottom_x + 140;
+					pos_y = bottom_y - 72;
+				}
+				else { // if the invincibility timer is inactive, draw the fuel ammo there (it's rare to have invincibility + fuel anyway)
+					pos_x = bottom_x + 140;
+					pos_y = bottom_y - 20;
+				}
 			}
-			else { // if the invincibility timer is inactive, draw the fuel ammo there (it's rare to have invincibility + fuel anyway)
-				pos_x = bottom_x + 140;
-				pos_y = bottom_y - 22;
+			else { // draw fuel on top of ammo if vid_conwidth < 800
+				pos_x = bottom_x - 200;
+				pos_y = bottom_y - 45;
 			}
 			drawpic(pos - '0 2 0' + '52 0 0', GetAmmoPicture(4), '20 20 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 			if (a > 10)
