@@ -360,7 +360,9 @@ void FlagThink()
 		{
 			bprint("The ", self.netname, " became impatient after ", ftos_decimals(flagcaptimerecord, 2), " seconds and returned itself\n");
 
-			self.owner.impulse = 77; // returning!
+			sound (self, CHAN_TRIGGER, self.noise3, VOL_BASE, ATTN_NONE);
+			self.owner.impulse = 141; // returning!
+
 			e = self;
 			self = self.owner;
 			ReturnFlag(e);
@@ -690,7 +692,7 @@ void spawnfunc_info_player_team2()
 
 /*QUAKED spawnfunc_info_player_team3 (1 0 0) (-16 -16 -24) (16 16 24)
 CTF Starting point for a player in
-team three (Magenta).
+team three (Yellow).
 
 Keys:
 "angle"
@@ -703,14 +705,14 @@ void spawnfunc_info_player_team3()
 		remove(self);
 		return;
 	}
-	self.team = COLOR_TEAM3; // purple
+	self.team = COLOR_TEAM3; // yellow
 	spawnfunc_info_player_deathmatch();
 };
 
 
 /*QUAKED spawnfunc_info_player_team4 (1 0 0) (-16 -16 -24) (16 16 24)
 CTF Starting point for a player in
-team four (Yellow).
+team four (Magenta).
 
 Keys:
 "angle"
@@ -723,7 +725,7 @@ void spawnfunc_info_player_team4()
 		remove(self);
 		return;
 	}
-	self.team = COLOR_TEAM4; // yellow
+	self.team = COLOR_TEAM4; // purple
 	spawnfunc_info_player_deathmatch();
 };
 
