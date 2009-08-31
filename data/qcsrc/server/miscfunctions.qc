@@ -1026,6 +1026,9 @@ float g_touchexplode_damage;
 float g_touchexplode_edgedamage;
 float g_touchexplode_force;
 
+float sv_autotaunt;
+float sv_taunt;
+
 void readlevelcvars(void)
 {
     g_bugrigs = cvar("g_bugrigs");
@@ -1079,6 +1082,8 @@ void readlevelcvars(void)
     sv_pogostick = cvar("sv_pogostick");
     sv_doublejump = cvar("sv_doublejump");
     g_ctf_reverse = cvar("g_ctf_reverse");
+	sv_autotaunt = cvar("sv_autotaunt");
+	sv_taunt = cvar("sv_taunt");
 
     inWarmupStage = cvar("g_warmup");
     g_warmup_limit = cvar("g_warmup_limit");
@@ -2421,14 +2426,12 @@ entity GetCommandPlayerSlotTargetFromTokenizedCommand(float tokens, float idx) /
                     s = argv(idx);
                     ++idx;
                 }
+			ParseCommandPlayerSlotTarget_firsttoken = idx;
             if (s == ftos(stof(s)))
             {
                 e = edict_num(stof(s));
                 if (e.flags & FL_CLIENT)
-                {
-                    ParseCommandPlayerSlotTarget_firsttoken = idx;
                     return e;
-                }
             }
         }
         else
@@ -2436,6 +2439,7 @@ entity GetCommandPlayerSlotTargetFromTokenizedCommand(float tokens, float idx) /
             // it must be a nick name
             s = argv(idx);
             ++idx;
+			ParseCommandPlayerSlotTarget_firsttoken = idx;
 
             n = 0;
             FOR_EACH_CLIENT(head)
@@ -2445,10 +2449,7 @@ entity GetCommandPlayerSlotTargetFromTokenizedCommand(float tokens, float idx) /
                 ++n;
             }
             if (n == 1)
-            {
-                ParseCommandPlayerSlotTarget_firsttoken = idx;
                 return e;
-            }
 
             s = strdecolorize(s);
             n = 0;
@@ -2459,10 +2460,7 @@ entity GetCommandPlayerSlotTargetFromTokenizedCommand(float tokens, float idx) /
                 ++n;
             }
             if (n == 1)
-            {
-                ParseCommandPlayerSlotTarget_firsttoken = idx;
                 return e;
-            }
         }
     }
 
