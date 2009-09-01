@@ -1,10 +1,5 @@
-<<<<<<< .working
 string CVAR_CHECK_DEFAULT = "ff6f4ae047891b3b61ecfc5b3d3b38b4";
 string CVAR_CHECK_WEAPONS = "a7ca57b891d66754b856e24e5c1745e3";
-=======
-string CVAR_CHECK_DEFAULT = "ff6f4ae047891b3b61ecfc5b3d3b38b4";
-string CVAR_CHECK_WEAPONS = "a7ca57b891d66754b856e24e5c1745e3";
->>>>>>> .merge-right.r7577
 
 float	FALSE					= 0;
 float	TRUE					= 1;

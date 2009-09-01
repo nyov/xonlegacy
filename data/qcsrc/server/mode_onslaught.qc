@@ -400,36 +400,11 @@ void onslaught_generator_think()
 	}
 };
 
-void onslaught_generator_ring_think()
-{
-	self.nextthink = time + 0.05;
-	if(self.count > 24)
-	{
-		self.think = SUB_Remove;
-		return;
-	}
-
-	self.scale = self.count * 4;
-
-	self.frame = self.count;
-
-	self.count += 1;
-	self.alpha = 0.1;
-};
-
 void onslaught_generator_ring_spawn(vector org)
 {
-	entity e;
-	e = spawn();
-	setmodel(e, "models/onslaught/shockwavetransring.md3");
-	setorigin(e, org);
-
-	e.count = 1;
-	e.alpha = 0;
-
-	e.think = onslaught_generator_ring_think;
-	e.nextthink = time + 0.05;
+	modeleffect_spawn("models/onslaught/shockwavetransring.md3", 0, org, '0 0 0', '0 0 0', '0 0 0', 0, -16, 0.1, 1.25, 0.25);
 };
+
 void onslaught_generator_ray_think()
 {
 	self.nextthink = time + 0.05;
@@ -461,41 +436,9 @@ void onslaught_generator_ray_spawn(vector org)
 	e.nextthink = time + 0.05;
 };
 
-void onslaught_generator_shockwave_think()
-{
-	self.nextthink = time + 0.05;
-	if(self.count > 25)
-	{
-		self.think = SUB_Remove;
-		return;
-	}
-
-	if(self.count > 15)
-		self.alpha -= 0.1;
-	else
-		self.alpha = 1;
-
-	self.scale = self.count * 4;
-	setsize(self, self.mins * self.scale, self.maxs * self.scale);
-	self.frame = self.count;
-
-	self.count +=1;
-};
-
 void onslaught_generator_shockwave_spawn(vector org)
 {
-	entity e;
-	e = spawn();
-	setmodel(e, "models/onslaught/shockwave.md3");
-	setorigin(e, org);
-
-	e.alpha = 0;
-	e.frame = 0;
-	e.count = 0;
-
-
-	e.think = onslaught_generator_shockwave_think;
-	e.nextthink = time + 0.05;
+	shockwave_spawn("models/onslaught/shockwave.md3", org, -64, 0.75, 0.5);
 };
 
 void onslaught_generator_damage_think()

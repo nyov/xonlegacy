@@ -2466,3 +2466,84 @@ entity GetCommandPlayerSlotTargetFromTokenizedCommand(float tokens, float idx) /
 
     return world;
 }
+
+.float scale2;
+
+float modeleffect_SendEntity(entity to, float sf)
+{
+	float f;
+	WriteByte(MSG_ENTITY, ENT_CLIENT_MODELEFFECT);
+
+	f = 0;
+	if(self.velocity != '0 0 0')
+		f |= 1;
+	if(self.angles != '0 0 0')
+		f |= 2;
+	if(self.avelocity != '0 0 0')
+		f |= 4;
+	
+	WriteByte(MSG_ENTITY, f);
+	WriteShort(MSG_ENTITY, self.modelindex);
+	WriteByte(MSG_ENTITY, self.frame);
+	WriteCoord(MSG_ENTITY, self.origin_x);
+	WriteCoord(MSG_ENTITY, self.origin_y);
+	WriteCoord(MSG_ENTITY, self.origin_z);
+	if(f & 1)
+	{
+		WriteCoord(MSG_ENTITY, self.velocity_x);
+		WriteCoord(MSG_ENTITY, self.velocity_y);
+		WriteCoord(MSG_ENTITY, self.velocity_z);
+	}
+	if(f & 2)
+	{
+		WriteCoord(MSG_ENTITY, self.angles_x);
+		WriteCoord(MSG_ENTITY, self.angles_y);
+		WriteCoord(MSG_ENTITY, self.angles_z);
+	}
+	if(f & 4)
+	{
+		WriteCoord(MSG_ENTITY, self.avelocity_x);
+		WriteCoord(MSG_ENTITY, self.avelocity_y);
+		WriteCoord(MSG_ENTITY, self.avelocity_z);
+	}
+	WriteShort(MSG_ENTITY, self.scale * 256.0);
+	WriteShort(MSG_ENTITY, self.scale2 * 256.0);
+	WriteByte(MSG_ENTITY, self.teleport_time * 100.0);
+	WriteByte(MSG_ENTITY, self.fade_time * 100.0);
+	WriteByte(MSG_ENTITY, self.alpha * 255.0);
+
+	return TRUE;
+}
+
+void modeleffect_spawn(string m, float f, vector o, vector v, vector ang, vector angv, float s0, float s2, float a, float t1, float t2)
+{
+	entity e;
+	float sz;
+	e = spawn();
+	e.classname = "modeleffect";
+	setmodel(e, m);
+	e.frame = f;
+	setorigin(e, o);
+	e.velocity = v;
+	e.angles = ang;
+	e.avelocity = angv;
+	e.alpha = a;
+	e.teleport_time = t1;
+	e.fade_time = t2;
+	if(s0 >= 0)
+		e.scale = s0 / max6(-e.mins_x, -e.mins_y, -e.mins_z, e.maxs_x, e.maxs_y, e.maxs_z);
+	else
+		e.scale = -s0;
+	if(s2 >= 0)
+		e.scale2 = s2 / max6(-e.mins_x, -e.mins_y, -e.mins_z, e.maxs_x, e.maxs_y, e.maxs_z);
+	else
+		e.scale2 = -s2;
+	sz = max(e.scale, e.scale2);
+	setsize(e, e.mins * sz, e.maxs * sz);
+	Net_LinkEntity(e, FALSE, 0.1, modeleffect_SendEntity);
+}
+
+void shockwave_spawn(string m, vector org, float sz, float t1, float t2)
+{
+	return modeleffect_spawn(m, 0, org, '0 0 0', '0 0 0', '0 0 0', 0, sz, 1, t1, t2);
+}
