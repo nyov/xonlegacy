@@ -1258,7 +1258,6 @@ float waypoint_loadall()
 void waypoint_spawnforitem_force(entity e, vector org)
 {
 	local entity w;
-	local vector org;
 
 	// Fix the waypoint altitude if necessary
 	traceline(org, org + '0 0 -65535', TRUE, e);
