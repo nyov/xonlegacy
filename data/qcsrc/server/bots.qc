@@ -1255,16 +1255,10 @@ float waypoint_loadall()
 	return cwp + cwb;
 };
 
-void waypoint_spawnforitem(entity e)
+void waypoint_spawnforitem_force(entity e, vector org)
 {
 	local entity w;
 	local vector org;
-
-	if(!bot_waypoints_for_items)
-		return;
-
-	// Center of entity
-	org = (e.absmax + e.absmin) * 0.5;
 
 	// Fix the waypoint altitude if necessary
 	traceline(org, org + '0 0 -65535', TRUE, e);
@@ -1273,10 +1267,6 @@ void waypoint_spawnforitem(entity e)
 		|| org_z - trace_endpos_z < (PL_MAX_z - PL_MIN_z) * 0.5 // or below half player height
 	)
 		org_z = trace_endpos_z + PL_MAX_z - PL_MIN_z;
-
-	// TODO: Cleaner solution
-	if(e.classname!="item_flag_team")
-		e.nearestwaypointtimeout = time + 1000000000;
 
 	// don't spawn an item spawnfunc_waypoint if it already exists
 	w = findchain(classname, "waypoint");
@@ -1301,6 +1291,14 @@ void waypoint_spawnforitem(entity e)
 		w = w.chain;
 	}
 	e.nearestwaypoint = waypoint_spawn(org, org, WAYPOINTFLAG_GENERATED | WAYPOINTFLAG_ITEM);
+}
+
+void waypoint_spawnforitem(entity e)
+{
+	if(!bot_waypoints_for_items)
+		return;
+
+	waypoint_spawnforitem_force(e, e.origin);
 };
 
 void waypoint_spawnforteleporter(entity e, vector destination, float timetaken)
@@ -1756,6 +1754,7 @@ entity navigation_get_bestgoal()
 void() havocbot_role_ctf_offense;
 void navigation_routerating(entity e, float f, float rangebias)
 {
+	entity nwp;
 	if (!e)
 		return;
 
@@ -1852,24 +1851,32 @@ void navigation_routerating(entity e, float f, float rangebias)
 	//bprint(etos(e));
 	//bprint("\n");
 	// update the cached spawnfunc_waypoint link on a dynamic item entity
-	if (time > e.nearestwaypointtimeout)
+	if(e.classname == "waypoint" && !(e.wpflags & WAYPOINTFLAG_PERSONAL))
 	{
-		e.nearestwaypoint = navigation_findnearestwaypoint(e, TRUE);
+		nwp = e;
+	}
+	else
+	{
+		if (time > e.nearestwaypointtimeout)
+		{
+			e.nearestwaypoint = navigation_findnearestwaypoint(e, TRUE);
 
-		// TODO: Cleaner solution, probably handling this timeout from ctf.qc
-		if(e.classname=="item_flag_team")
-			e.nearestwaypointtimeout = time + 2;
-		else
-			e.nearestwaypointtimeout = time + random() * 3 + 5;
+			// TODO: Cleaner solution, probably handling this timeout from ctf.qc
+			if(e.classname=="item_flag_team")
+				e.nearestwaypointtimeout = time + 2;
+			else
+				e.nearestwaypointtimeout = time + random() * 3 + 5;
+		}
+		nwp = e.nearestwaypoint;
 	}
 
-	//dprint("-- checking ", e.classname, " (with cost ", ftos(e.nearestwaypoint.wpcost), ")\n");
-	if (e.nearestwaypoint)
-	if (e.nearestwaypoint.wpcost < 10000000)
+	//dprint("-- checking ", e.classname, " (with cost ", ftos(nwp.wpcost), ")\n");
+	if (nwp)
+	if (nwp.wpcost < 10000000)
 	{
-		//te_wizspike(e.nearestwaypoint.wpnearestpoint);
-	//	dprint(e.classname, " ", ftos(f), "/(1+", ftos((e.nearestwaypoint.wpcost + vlen(e.origin - e.nearestwaypoint.wpnearestpoint))), "/", ftos(rangebias), ") = ");
-		f = f * rangebias / (rangebias + (e.nearestwaypoint.wpcost + vlen(e.origin - e.nearestwaypoint.wpnearestpoint)));
+		//te_wizspike(nwp.wpnearestpoint);
+	//	dprint(e.classname, " ", ftos(f), "/(1+", ftos((nwp.wpcost + vlen(e.origin - nwp.wpnearestpoint))), "/", ftos(rangebias), ") = ");
+		f = f * rangebias / (rangebias + (nwp.wpcost + vlen(e.origin - nwp.wpnearestpoint)));
 		//if (self.havocbot_role == havocbot_role_ctf_offense)
 		//dprint("considering ", e.classname, " (with rating ", ftos(f), ")\n");
 		//dprint(ftos(f));
@@ -1906,7 +1913,8 @@ float navigation_routetogoal(entity e, vector startposition)
 		return TRUE;
 
 	// see if there are waypoints describing a path to the item
-	e = e.nearestwaypoint;
+	if(e.classname != "waypoint" || (e.wpflags & WAYPOINTFLAG_PERSONAL))
+		e = e.nearestwaypoint;
 	if(e == world)
 		return FALSE;
 
