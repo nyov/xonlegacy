@@ -1137,7 +1137,7 @@ void trigger_impulse_touch1()
     other.lastpushtime = time;
     if(!pushdeltatime) return;
 
-    other.velocity = other.velocity + normalize(targ.origin - self.origin) * self.strength * pushdeltatime;
+    other.velocity = other.velocity + normalize(targ.origin - self.origin) * str * pushdeltatime;
 	other.flags &~= FL_ONGROUND;
 }
 
@@ -1173,10 +1173,8 @@ void trigger_impulse_touch2()
     other.lastpushtime = time;
     if(!pushdeltatime) return;
 
-    //if(self.strength > 1)
-        other.velocity = other.velocity * (self.strength * pushdeltatime);
-    //else
-    //    other.velocity = other.velocity - (other.velocity * self.strength * pushdeltatime);
+    // div0: ticrate independent, 1 = identity (not 20)
+    other.velocity = other.velocity * pow(self.strength, * pushdeltatime);
 }
 
 // Spherical (gravity/repulsor) mode
