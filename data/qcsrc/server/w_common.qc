@@ -189,6 +189,8 @@ void W_BallisticBullet_Hit (void)
 
 	if(other && other != self.enemy)
 	{
+		endzcurveparticles();
+
 		headshot = 0;
 		yoda = 0;
 		damage_headshotbonus = self.dmg_edge;
@@ -344,6 +346,10 @@ void W_BallisticBullet_Touch (void)
 	self.projectiledeathtype |= HITTYPE_BOUNCE;
 }
 
+void endFireBallisticBullet()
+{
+	endzcurveparticles();
+}
 void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, float lifetime, float damage, float headshotbonus, float force, float dtype, float tracereffects, float gravityfactor, float bulletconstant)
 {
 	float lag, dt, savetime;

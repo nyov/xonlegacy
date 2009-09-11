@@ -2802,9 +2802,6 @@ void PlayerPostThink (void)
 		self.idlekick_lasttimeleft = timeleft;
 	}
 
-	if(frametime)
-		antilag_record(self);
-
 #ifdef TETRIS
 	if(self.impulse == 100)
 		ImpulseCommands();

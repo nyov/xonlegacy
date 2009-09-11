@@ -12,18 +12,18 @@ void antilag_dummy()
 	self.antilag_origins = '0 0 0';
 }
 
-void antilag_record(entity e)
+void antilag_record(entity e, float t)
 {
 	if(time < e.(antilag_times[e.antilag_index]))
 		return;
 	e.antilag_index = e.antilag_index + 1;
 	if(e.antilag_index >= ANTILAG_MAX_ORIGINS)
 		e.antilag_index = 0;
-	e.(antilag_times[e.antilag_index]) = time;
+	e.(antilag_times[e.antilag_index]) = t;
 	e.(antilag_origins[e.antilag_index]) = e.origin;
 
 	if(e.antilag_debug)
-		te_spark(antilag_takebackorigin(e, time - e.antilag_debug), '0 0 0', 32);
+		te_spark(antilag_takebackorigin(e, t - e.antilag_debug), '0 0 0', 32);
 }
 
 // finds the index BEFORE t
@@ -60,7 +60,11 @@ vector antilag_takebackorigin(entity e, float t)
 
 	i0 = antilag_find(e, t);
 	if(i0 < 0)
-		return e.origin;
+	{
+		i0 = e.antilag_index - 1;
+		if(i0 < 0)
+			i0 = ANTILAG_MAX_ORIGINS - 1;
+	}
 	i1 = i0 + 1;
 	if(i1 >= ANTILAG_MAX_ORIGINS)
 		i1 = 0;
@@ -71,10 +75,10 @@ vector antilag_takebackorigin(entity e, float t)
 void antilag_takeback(entity e, float t)
 {
 	e.antilag_saved_origin = e.origin;
-	e.origin = antilag_takebackorigin(e, t);
+	setorigin(e, antilag_takebackorigin(e, t));
 }
 
 void antilag_restore(entity e)
 {
-	e.origin = e.antilag_saved_origin;
+	setorigin(e, e.antilag_saved_origin);
 }
