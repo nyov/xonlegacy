@@ -409,7 +409,7 @@ void CSQC_UpdateView(float w, float h)
 		}
 	}
 
-	sbar_alpha_fg = cvar("sbar_alpha_fg" );
+	sbar_alpha_fg = cvar("sbar_alpha_fg" ) * (1 - cvar("_menu_alpha"));
 	sbar_currentammo = cvar("sbar_showcurrentammo");
 	sbar_hudselector = cvar("sbar_hudselector");
 	sbar_hud_accuracy = cvar("sbar_hud_accuracy");
@@ -609,8 +609,8 @@ void CSQC_UpdateView(float w, float h)
                 wcross_color_x = cvar("crosshair_color_red");
                 wcross_color_y = cvar("crosshair_color_green");
                 wcross_color_z = cvar("crosshair_color_blue");
-                wcross_alpha = cvar("crosshair_color_alpha");
-                wcross_sizefloat = cvar("crosshair_size");
+                wcross_alpha = cvar("crosshair_color_alpha") * (1-cvar("_menu_alpha"));
+                wcross_sizefloat = cvar("crosshair_size") * (1-cvar("_menu_alpha"));
                 if (cvar("crosshair_per_weapon")) {
                     e = get_weaponinfo(activeweapon);
                     if (e && e.netname != "")

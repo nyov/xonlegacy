@@ -2198,7 +2198,7 @@ void Sbar_Draw (void)
 	bottomleft_y = vid_conheight;
 	bottomleft_z = 0;
 
-	sbar_alpha_bg = cvar("sbar_alpha_bg");
+	sbar_alpha_bg = cvar("sbar_alpha_bg") * (1 - cvar("_menu_alpha"));
 	sbar_border_thickness = bound(0, cvar("sbar_border_thickness"), 5);
 	sbar_color_bg_team = cvar("sbar_color_bg_team");
 	sbar_scoreboard_alpha_bg = cvar("sbar_scoreboard_alpha_bg");
@@ -2237,7 +2237,7 @@ void Sbar_Draw (void)
 		pos_x = bottomleft_x;
 		pos_y = bottom_y - 50 - sbar_fontsize_spec_y;
 		s = textShortenToWidth(s, vid_conwidth/2.5/sbar_fontsize_spec_x, stringwidth_colors);
-		drawcolorcodedstring(pos, s, sbar_fontsize_spec, 1, DRAWFLAG_NORMAL);
+		drawcolorcodedstring(pos, s, sbar_fontsize_spec, sbar_alpha_fg, DRAWFLAG_NORMAL);
 
 		// spectator text in the upper right corner
 		if(spectatee_status == -1)
