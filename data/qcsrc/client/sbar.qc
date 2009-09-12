@@ -1952,6 +1952,51 @@ void Sbar_ShowSpeed(void)
 	drawstringcenter('1 0 0' + pos * '0 1 0', speed, numsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 }
 
+vector acc_prevspeed;
+float acc_prevtime;
+float acc_avg;
+
+void Sbar_ShowAcceleration(void)
+{
+	float acceleration, sz, scale, alpha, f;
+	vector pos, top, rgb;
+	top_x = vid_conwidth/2;
+	top_y = 0;
+
+	f = time - acc_prevtime;
+	if(cvar("cl_showacceleration_z"))
+		acceleration = (vlen(pmove_vel) - vlen(acc_prevspeed)) * (1 / f);
+	else
+		acceleration = (vlen(pmove_vel - '0 0 1' * pmove_vel_z) - vlen(acc_prevspeed - '0 0 1' * acc_prevspeed_z)) * (1 / f);
+	acc_prevspeed = pmove_vel;
+	acc_prevtime = time;
+
+	f = bound(0, f * 10, 1);
+	acc_avg = acc_avg * (1 - f) + acceleration * f;
+	acceleration = acc_avg / getstatf(STAT_MOVEVARS_MAXSPEED);
+
+	pos = top - sz/2 * '0 1 0' + (cvar("cl_showacceleration_position") * vid_conheight) * '0 1 0';
+
+	sz = cvar("cl_showacceleration_size");
+	scale = cvar("cl_showacceleration_scale");
+	alpha = cvar("cl_showacceleration_alpha");
+	if (cvar("cl_showacceleration_color_custom"))
+		rgb = stov(cvar_string("cl_showacceleration_color"));
+	else {
+		rgb = '1 1 1';
+		if (acceleration < 0) {
+			rgb = '1 .5 .5' - '0 .5 .5' * bound(0, -acceleration * 0.2, 1);
+		} else if (acceleration > 0) {
+			rgb = '.5 1 .5' - '.5 0 .5' * bound(0, +acceleration * 0.2, 1);
+		}
+	}
+		
+	if (acceleration > 0)
+		drawpic(pos, "gfx/hud/accelerometer_gradient", acceleration * scale * '40 0 0' + sz * '0 1 0', rgb, alpha, DRAWFLAG_NORMAL);
+	else if (acceleration < 0)
+		drawpic(pos + acceleration * scale * '40 0 0', "gfx/hud/accelerometer_gradient", -acceleration * scale * '40 0 0' + sz * '0 1 0', rgb, alpha, DRAWFLAG_NORMAL);
+}
+
 void Sbar_DrawAccuracyStats_Description_Hitscan(vector position)
 {
 	drawstring(position + '0 3 0' * sbar_fontsize_y, "Shots fired:", sbar_fontsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
