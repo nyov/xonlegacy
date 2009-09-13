@@ -111,6 +111,9 @@ void Draw_WaypointSprite()
 
 	if(cvar("cl_hidewaypoints") >= 2)
 		return;
+	
+	if(cvar("r_letterbox") == 1)
+		return;
 
 	if(self.hideflags & 1)
 		if(cvar("cl_hidewaypoints"))
