@@ -159,7 +159,7 @@ void Draw_WaypointSprite()
 	dist = vlen(self.origin - view_origin);
 	
 	float a;
-	a = self.alpha;
+	a = self.alpha * sbar_alpha_fg;
 
 	if(self.maxdistance > waypointsprite_normdistance)
 		a *= pow(bound(0, (self.maxdistance - dist) / (self.maxdistance - waypointsprite_normdistance), 1), waypointsprite_distancealphaexponent);
@@ -386,9 +386,9 @@ void WaypointSprite_Load()
 	waypointsprite_minalpha = cvar("g_waypointsprite_minalpha");
 	waypointsprite_distancealphaexponent = cvar("g_waypointsprite_distancealphaexponent");
 	waypointsprite_timealphaexponent = cvar("g_waypointsprite_timealphaexponent");
-	waypointsprite_scale = cvar("g_waypointsprite_scale");
+	waypointsprite_scale = cvar("g_waypointsprite_scale") * (1 - cvar("_menu_alpha"));
 	if(!waypointsprite_scale)
-		waypointsprite_scale = 1.0;
+		waypointsprite_scale = 1.0 * (1 - cvar("_menu_alpha"));
 
 	if(!waypointsprite_initialized)
 	{
