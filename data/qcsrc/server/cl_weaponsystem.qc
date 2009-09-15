@@ -131,17 +131,26 @@ void W_SetupShot_ProjectileSize(entity ent, vector mi, vector ma, float antilag,
 	float nudge = 1; // added to traceline target and subtracted from result
 	local vector trueaimpoint;
 	local float oldsolid;
+	float oldmask;
 	vector vecs, dv;
 	oldsolid = ent.dphitcontentsmask;
+	if(ent.weapon == WEP_CAMPINGRIFLE)
+		ent.dphitcontentsmask = DPCONTENTS_BODY | DPCONTENTS_CORPSE;
+	else
+		ent.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_CORPSE;
+	if(antilag)
+		traceline_antilag(world, ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + s_forward * MAX_SHOT_DISTANCE, MOVE_NORMAL, ent, ANTILAG_LATENCY(ent));
+		// passing world, because we do NOT want it to touch dphitcontentsmask
+	else
+		traceline(ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + s_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, ent);
 	ent.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_CORPSE;
-	traceline(ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, ent); // no antilag needed
 	trueaimpoint = trace_endpos;
 
 	// Track max damage and set the stat to be sent later in g_world.qc
 	if not(inWarmupStage)
 	{
-		self.max_damage[self.weapon] += maxdamage;
-		self.maxdamage_fired = self.weapon + 64 * rint(self.max_damage[self.weapon]);
+		ent.max_damage[ent.weapon] += maxdamage;
+		ent.maxdamage_fired = ent.weapon + 64 * rint(ent.max_damage[ent.weapon]);
 	}
 
 	W_HitPlotAnalysis(ent, v_forward, v_right, v_up);
