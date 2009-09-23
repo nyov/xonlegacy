@@ -131,7 +131,6 @@ void W_SetupShot_ProjectileSize(entity ent, vector mi, vector ma, float antilag,
 	float nudge = 1; // added to traceline target and subtracted from result
 	local vector trueaimpoint;
 	local float oldsolid;
-	float oldmask;
 	vector vecs, dv;
 	oldsolid = ent.dphitcontentsmask;
 	if(ent.weapon == WEP_CAMPINGRIFLE)
