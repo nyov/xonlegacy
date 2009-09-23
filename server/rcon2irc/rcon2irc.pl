@@ -201,10 +201,10 @@ sub color_dp2irc($)
 			my $oldcolor = $color;
 			$color = $color_dp2irc_table[$data];
 
-			$color == $oldcolor ? '' :
-			$color < 0          ? "\017" :
-			$next eq ','        ? "\003$color\002\002" :
-			                      sprintf "\003%02d", $color;
+			$color == $oldcolor        ? '' :
+			$color < 0                 ? "\017" :
+			index '0123456789,', $next ? "\003$color\002\002" :
+			                             "\003$color";
 		} :
 			die "Invalid type";
 	}
@@ -1538,7 +1538,7 @@ sub cond($)
 				my $sep = ' ';
 				for(@t)
 				{
-					$scores_string .= $sep . sprintf "\003%02d\%d\017", $color_team2irc_table{$_->{team}}, $_->{score};
+					$scores_string .= $sep . "\003" . $color_team2irc_table{$_->{team}}. "\002\002" . $_->{score} . "\017";
 					$sep = ':';
 				}
 			}
