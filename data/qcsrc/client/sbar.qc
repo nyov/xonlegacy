@@ -1979,6 +1979,7 @@ void Sbar_ShowSpeed(void)
 	
 	drawfont = sbar_bigfont;
 	drawstringcenter('1 0 0' + pos * '0 1 0', speed, numsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+	drawfont = sbar_font;
 }
 
 vector acc_prevspeed;
