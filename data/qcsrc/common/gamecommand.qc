@@ -374,13 +374,22 @@ float GameCommand_Generic(string command)
 				} else if(rpncmd == "def" || rpncmd == "=") {
 					s = rpn_pop();
 					s2 = rpn_pop();
+
+					if(s2 != "")
+					{
 #ifdef MENUQC
-					registercvar(s2, "", 0);
+						registercvar(s2, "", 0);
 #else
-					registercvar(s2, "");
+						registercvar(s2, "");
 #endif
-					if(!rpn_error) // don't change cvars if a stack error had happened!
-						cvar_set(s2, s);
+						if(!rpn_error) // don't change cvars if a stack error had happened!
+							cvar_set(s2, s);
+					}
+					else
+					{
+						print("rpn: empty cvar name for 'def'\n");
+						rpn_error = TRUE;
+					}
 				} else if(rpncmd == "defs" || rpncmd == "@") {
 					s = "";
 					i = rpn_popf();
@@ -391,13 +400,21 @@ float GameCommand_Generic(string command)
 						--i;
 					}
 					s2 = rpn_pop();
+					if(s2 != "")
+					{
 #ifdef MENUQC
-					registercvar(s2, "", 0);
+						registercvar(s2, "", 0);
 #else
-					registercvar(s2, "");
+						registercvar(s2, "");
 #endif
-					if(!rpn_error) // don't change cvars if a stack error had happened!
-						cvar_set(s2, s);
+						if(!rpn_error) // don't change cvars if a stack error had happened!
+							cvar_set(s2, s);
+					}
+					else
+					{
+						print("rpn: empty cvar name for 'defs'\n");
+						rpn_error = TRUE;
+					}
 				} else if(rpncmd == "load") {
 					rpn_set(cvar_string(rpn_get()));
 				} else if(rpncmd == "exch") {
