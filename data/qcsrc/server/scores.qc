@@ -49,24 +49,31 @@ vector ScoreField_Compare(entity t1, entity t2, .float field, float fieldflags, 
 
 float TeamScore_SendEntity(entity to, float sendflags)
 {
-	float i;
+	float i, p, longflags;
 
 	WriteByte(MSG_ENTITY, ENT_CLIENT_TEAMSCORES);
 	WriteByte(MSG_ENTITY, self.team - 1);
-#if MAX_TEAMSCORE <= 3
-	for(i = 0; i < MAX_TEAMSCORE; ++i)
-		WriteShort(MSG_ENTITY, self.teamscores[i]);
-#else
+
+	longflags = 0;
+	for(i = 0, p = 1; i < MAX_TEAMSCORE; ++i, p *= 2)
+		if(self.teamscores[i] > 127 || self.teamscores[i] <= -128)
+			longflags |= p;
+
 #if MAX_TEAMSCORE <= 8
 	WriteByte(MSG_ENTITY, sendflags);
+	WriteByte(MSG_ENTITY, longflags);
 #else
 	WriteShort(MSG_ENTITY, sendflags);
+	WriteShort(MSG_ENTITY, longflags);
 #endif
-	float p;
 	for(i = 0, p = 1; i < MAX_TEAMSCORE; ++i, p *= 2)
 		if(sendflags & p)
-			WriteShort(MSG_ENTITY, self.teamscores[i]);
-#endif
+		{
+			if(longflags & p)
+				WriteInt24_t(MSG_ENTITY, self.teamscores[i]);
+			else
+				WriteChar(MSG_ENTITY, self.teamscores[i]);
+		}
 
 	return TRUE;
 }
@@ -202,24 +209,31 @@ void ScoreInfo_Init(float teams)
 
 float PlayerScore_SendEntity(entity to, float sendflags)
 {
-	float i;
+	float i, p, longflags;
 
 	WriteByte(MSG_ENTITY, ENT_CLIENT_SCORES);
 	WriteByte(MSG_ENTITY, num_for_edict(self.owner));
-#if MAX_SCORE <= 3
-	for(i = 0; i < MAX_SCORE; ++i)
-		WriteShort(MSG_ENTITY, self.scores[i]);
-#else
+
+	longflags = 0;
+	for(i = 0, p = 1; i < MAX_SCORE; ++i, p *= 2)
+		if(self.scores[i] > 127 || self.scores[i] <= -128)
+			longflags |= p;
+
 #if MAX_SCORE <= 8
 	WriteByte(MSG_ENTITY, sendflags);
+	WriteByte(MSG_ENTITY, longflags);
 #else
 	WriteShort(MSG_ENTITY, sendflags);
+	WriteShort(MSG_ENTITY, longflags);
 #endif
-	float p;
 	for(i = 0, p = 1; i < MAX_SCORE; ++i, p *= 2)
 		if(sendflags & p)
-			WriteShort(MSG_ENTITY, self.scores[i]);
-#endif
+		{
+			if(longflags & p)
+				WriteInt24_t(MSG_ENTITY, self.scores[i]);
+			else
+				WriteChar(MSG_ENTITY, self.scores[i]);
+		}
 
 	return TRUE;
 }

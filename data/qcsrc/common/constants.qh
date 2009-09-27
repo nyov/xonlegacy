@@ -405,12 +405,15 @@ float PROJECTILE_HAGAR = 16;
 float PROJECTILE_HAGAR_BOUNCING = 17;
 float PROJECTILE_BULLET_GLOWING = 18;
 float PROJECTILE_CRYLINK_BOUNCING = 19;
+float PROJECTILE_FIREBALL = 20;
+float PROJECTILE_FIREMINE = 21;
 
 float SPECIES_HUMAN        =  0;
-float SPECIES_ROBOT_SHINY  =  1;
+float SPECIES_ROBOT_SOLID  =  1;
 float SPECIES_ALIEN        =  2;
-float SPECIES_ROBOT_RUSTY  =  3;
-float SPECIES_ANIMAL       =  4;
+float SPECIES_ANIMAL       =  3;
+float SPECIES_ROBOT_RUSTY  =  4;
+float SPECIES_ROBOT_SHINY  =  5;
 float SPECIES_RESERVED     = 15;
 
 // Deathtypes (weapon deathtypes are the IT_* constants below)
@@ -433,6 +436,7 @@ float DEATH_ROT = 10013;
 float DEATH_MIRRORDAMAGE = 10014;
 float DEATH_TOUCHEXPLODE = 10015;
 float DEATH_CHEAT = 10016;
+float DEATH_FIRE = 10017;
 float DEATH_TURRET = 10100;
 
 float DEATH_WEAPONMASK = 0xFF;

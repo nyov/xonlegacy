@@ -271,6 +271,10 @@ float TrueAimCheck()
 			mi = '-3 -3 -3';
 			ma = '3 3 3';
 			break;
+		case WEP_FIREBALL: // projectile has a size!
+			mi = '-16 -16 -16';
+			ma = '16 16 16';
+			break;
 		case WEP_ELECTRO: // projectile has a size!
 			mi = '0 0 -3';
 			ma = '0 0 -3';
@@ -714,6 +718,11 @@ void CSQC_UpdateView(float w, float h)
 		cvar_set("vid_conwidth", w0);
 		cvar_set("vid_conheight", h0);
 	}
+
+	// be safe against triggerbots until everyone has the fixed engine
+	// this call is meant to overwrite the trace globals by something
+	// unsuspicious
+	traceline('0 0 0', '0 0 0', MOVE_WORLDONLY, world);
 }
 
 void Sbar_Draw();

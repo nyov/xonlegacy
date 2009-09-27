@@ -24,11 +24,10 @@ void W_GiveWeapon (entity e, float wep, string name)
 		sprint (other, "\n");
 	}
 
-
 	self = oldself;
 }
 
-void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, float deathtype)
+void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, float mindist, float maxdist, float halflifedist, float forcehalflifedist, float deathtype)
 {
 	local vector hitloc, force, endpoint, dir;
 	local entity ent, endent;
@@ -39,7 +38,7 @@ void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, f
 	vector beampos;
 	string snd;
 	entity pseudoprojectile;
-	float f;
+	float f, ffs;
 
 	did_hit = 0;
 
@@ -138,9 +137,12 @@ void FireRailgunBullet (vector start, vector end, float bdamage, float bforce, f
 		if(ent.team == self.team)
 			did_hit = 0;
 
+		f = ExponentialFalloff(mindist, maxdist, halflifedist, (ent.origin - start) * dir);
+		ffs = ExponentialFalloff(mindist, maxdist, forcehalflifedist, (ent.origin - start) * dir);
+
 		// apply the damage
-		if (ent.takedamage || ent.classname == "case")
-			Damage (ent, self, self, bdamage, deathtype, hitloc, force);
+		if (ent.takedamage)
+			Damage (ent, self, self, bdamage * f, deathtype, hitloc, force * ffs);
 
 		// create a small explosion to throw gibs around (if applicable)
 		//setorigin (explosion, hitloc);
@@ -288,7 +290,7 @@ float W_BallisticBullet_LeaveSolid(entity e, vector vel, float constant)
 	// maxdist = 0.5 * v0 * v0 / constant
 	// dprint("max dist = ", ftos(maxdist), "\n");
 
-	if(maxdist <= 0.5)
+	if(maxdist <= cvar("g_ballistics_mindistance"))
 		return 0;
 
 	traceline_inverted (self.origin, self.origin + normalize(vel) * maxdist, MOVE_NORMAL, self);
@@ -396,6 +398,13 @@ void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, f
 	if(cvar("g_antilag_bullets"))
 	if(pSpeed >= cvar("g_antilag_bullets"))
 	{
+		float eff;
+
+		if(tracereffects & EF_RED)
+			eff = particleeffectnum("tr_rifle");
+		else
+			eff = particleeffectnum("tr_bullet");
+
 		// NOTE: this may severely throw off weapon balance
 		lag = ANTILAG_LATENCY(self);
 		if(lag < 0.001)
@@ -438,8 +447,8 @@ void fireBallisticBullet(vector start, vector dir, float spread, float pSpeed, f
 				self.maxdamage_fired = self.weapon + 64 * rint(self.bullets_fired[self.weapon]);
 			}
 
-			if(vlen(trace_endpos - self.origin) > 32)
-				zcurveparticles_from_tracetoss(particleeffectnum("tr_bullet"), self.origin, trace_endpos, self.velocity);
+			if(vlen(trace_endpos - self.origin) > 16)
+				zcurveparticles_from_tracetoss(eff, self.origin, trace_endpos, self.velocity);
 			if(trace_fraction == 1)
 				break;
 				// won't hit anything anytime soon (DP's

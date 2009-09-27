@@ -376,6 +376,52 @@ COMPAT_FILES="
 	textures/tuba_gloss.tga
 	textures/tuba_glow.tga
 	textures/tuba.tga
+	sound/weapons/fireball_fire2.wav
+	sound/weapons/fireball_fire.wav
+	sound/weapons/fireball_fly2.wav
+	sound/weapons/fireball_fly.wav
+	sound/weapons/fireball_impact2.wav
+	sound/weapons/fireball_prefire2.wav
+	models/weapons/g_fireball.md3
+	models/weapons/h_fireball.dpm
+	models/weapons/h_fireball.dpm.framegroups
+	models/weapons/v_fireball.md3
+	textures/fireball_gloss.tga
+	textures/fireball_glow.tga
+	textures/fireball.tga
+	models/sphere/sphere.md3
+	models/sphere/sphere.tga
+	textures/nutsandbolts1_gloss.tga
+	textures/nutsandbolts1.tga
+	textures/nutsandbolts3_gloss.tga
+	textures/nutsandbolts3.tga
+	textures/nutsandbolts4_gloss.tga
+	textures/nutsandbolts4.tga
+	textures/nutsandbolts5_gloss.tga
+	textures/nutsandbolts5.tga
+	models/gibs/robo1.md3
+	models/gibs/robo1.md3_0.skin
+	models/gibs/robo1.md3_1.skin
+	models/gibs/robo2.md3
+	models/gibs/robo2.md3_0.skin
+	models/gibs/robo2.md3_1.skin
+	models/gibs/robo3.md3
+	models/gibs/robo3.md3_0.skin
+	models/gibs/robo3.md3_1.skin
+	models/gibs/robo4.md3
+	models/gibs/robo4.md3_0.skin
+	models/gibs/robo4.md3_1.skin
+	models/gibs/robo5.md3
+	models/gibs/robo6.md3
+	models/gibs/robo7.md3
+	models/gibs/robo7.md3_0.skin
+	models/gibs/robo7.md3_1.skin
+	models/gibs/robo8.md3
+	models/gibs/robo8.md3_0.skin
+	models/gibs/robo8.md3_1.skin
+	models/gibs/robo.md3
+	models/gibs/robo.md3_0.skin
+	models/gibs/robo.md3_1.skin
 "
 
 rm -rf pack

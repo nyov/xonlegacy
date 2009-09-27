@@ -627,21 +627,23 @@ void Ent_ReadPlayerScore()
 	//	RegisterPlayer(o);
 	//playerchecker will do this for us later, if it has not already done so
 
-#if MAX_SCORE <= 3
-	for(i = 0; i < MAX_SCORE; ++i)
-		o.(scores[i]) = ReadShort();
-#else
-	float sf;
+	float sf, lf;
 #if MAX_SCORE <= 8
 	sf = ReadByte();
+	lf = ReadByte();
 #else
 	sf = ReadShort();
+	lf = ReadShort();
 #endif
 	float p;
 	for(i = 0, p = 1; i < MAX_SCORE; ++i, p *= 2)
 		if(sf & p)
-			o.(scores[i]) = ReadShort();
-#endif
+		{
+			if(lf & p)
+				o.(scores[i]) = ReadInt24_t();
+			else
+				o.(scores[i]) = ReadChar();
+		}
 
 	if(o.sort_prev)
 		Sbar_UpdatePlayerPos(o); // if not registered, we cannot do this yet!
@@ -657,21 +659,23 @@ void Ent_ReadTeamScore()
 	self.team = ReadByte();
 	o = self.owner = GetTeam(self.team, true); // these team numbers can always be trusted
 
-#if MAX_TEAMSCORE <= 3
-	for(i = 0; i < MAX_TEAMSCORE; ++i)
-		o.(teamscores[i]) = ReadShort();
-#else
-	float sf;
+	float sf, lf;
 #if MAX_TEAMSCORE <= 8
 	sf = ReadByte();
+	lf = ReadByte();
 #else
 	sf = ReadShort();
+	lf = ReadShort();
 #endif
 	float p;
 	for(i = 0, p = 1; i < MAX_TEAMSCORE; ++i, p *= 2)
 		if(sf & p)
-			o.(teamscores[i]) = ReadShort();
-#endif
+		{
+			if(lf & p)
+				o.(teamscores[i]) = ReadInt24_t();
+			else
+				o.(teamscores[i]) = ReadChar();
+		}
 
 	Sbar_UpdateTeamPos(o);
 }
@@ -792,6 +796,7 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		{
 			print("A CSQC entity changed its type!\n");
 			Ent_Remove();
+			bIsNewEntity = 1;
 		}
 #endif
 	self.enttype = t;
@@ -807,16 +812,16 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		case ENT_CLIENT_WAYPOINT: Ent_WaypointSprite(); break;
 		case ENT_CLIENT_RADARLINK: Ent_RadarLink(); break;
 		case ENT_CLIENT_PROJECTILE: Ent_Projectile(); break;
-		case ENT_CLIENT_GIBSPLASH: Ent_GibSplash(); break;
-		case ENT_CLIENT_DAMAGEINFO: Ent_DamageInfo(); break;
-		case ENT_CLIENT_CASING: Ent_Casing(); break;
+		case ENT_CLIENT_GIBSPLASH: Ent_GibSplash(bIsNewEntity); break;
+		case ENT_CLIENT_DAMAGEINFO: Ent_DamageInfo(bIsNewEntity); break;
+		case ENT_CLIENT_CASING: Ent_Casing(bIsNewEntity); break;
 		case ENT_CLIENT_INIT: Ent_Init(); break;
 		case ENT_CLIENT_SCORES_INFO: Ent_ScoresInfo(); break;
 		case ENT_CLIENT_MAPVOTE: Ent_MapVote(); break;
 		case ENT_CLIENT_CLIENTDATA: Ent_ClientData(); break;
 		case ENT_CLIENT_RANDOMSEED: Ent_RandomSeed(); break;
 		case ENT_CLIENT_WALL: Ent_Wall(); break;
-		case ENT_CLIENT_MODELEFFECT: Ent_ModelEffect(); break;
+		case ENT_CLIENT_MODELEFFECT: Ent_ModelEffect(bIsNewEntity); break;
 		default:
 			error(strcat("unknown entity type in CSQC_Ent_Update: ", ftos(self.enttype), "\n"));
 			break;
@@ -944,8 +949,8 @@ void Net_ReadRace()
 	{
 		case RACE_NET_CHECKPOINT_HIT_QUALIFYING:
 			race_checkpoint = ReadByte();
-			race_time = ReadShort();
-			race_previousbesttime = ReadShort();
+			race_time = ReadInt24_t();
+			race_previousbesttime = ReadInt24_t();
 			if(race_previousbestname)
 				strunzone(race_previousbestname);
 			race_previousbestname = strzone(ColorTranslateRGB(ReadString()));
@@ -972,7 +977,7 @@ void Net_ReadRace()
 		case RACE_NET_CHECKPOINT_NEXT_QUALIFYING:
 			race_nextcheckpoint = ReadByte();
 
-			race_nextbesttime = ReadShort();
+			race_nextbesttime = ReadInt24_t();
 			if(race_nextbestname)
 				strunzone(race_nextbestname);
 			race_nextbestname = strzone(ColorTranslateRGB(ReadString()));
@@ -981,7 +986,7 @@ void Net_ReadRace()
 		case RACE_NET_CHECKPOINT_HIT_RACE:
 			race_mycheckpoint = ReadByte();
 			race_mycheckpointtime = time;
-			race_mycheckpointdelta = ReadShort();
+			race_mycheckpointdelta = ReadInt24_t();
 			race_mycheckpointlapsdelta = ReadByte();
 			if(race_mycheckpointlapsdelta >= 128)
 				race_mycheckpointlapsdelta -= 256;
@@ -993,7 +998,7 @@ void Net_ReadRace()
 		case RACE_NET_CHECKPOINT_HIT_RACE_BY_OPPONENT:
 			race_othercheckpoint = ReadByte();
 			race_othercheckpointtime = time;
-			race_othercheckpointdelta = ReadShort();
+			race_othercheckpointdelta = ReadInt24_t();
 			race_othercheckpointlapsdelta = ReadByte();
 			if(race_othercheckpointlapsdelta >= 128)
 				race_othercheckpointlapsdelta -= 256;
@@ -1004,7 +1009,7 @@ void Net_ReadRace()
 
 		case RACE_NET_PENALTY_RACE:
 			race_penaltyeventtime = time;
-			race_penaltytime = ReadByte();
+			race_penaltytime = ReadShort();
 			//race_penaltyaccumulator += race_penaltytime;
 			if(race_penaltyreason)
 				strunzone(race_penaltyreason);
@@ -1013,7 +1018,7 @@ void Net_ReadRace()
 
 		case RACE_NET_PENALTY_QUALIFYING:
 			race_penaltyeventtime = time;
-			race_penaltytime = ReadByte();
+			race_penaltytime = ReadShort();
 			race_penaltyaccumulator += race_penaltytime;
 			if(race_penaltyreason)
 				strunzone(race_penaltyreason);

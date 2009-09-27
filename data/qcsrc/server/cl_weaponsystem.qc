@@ -126,7 +126,7 @@ vector w_shotdir;
 // this function calculates w_shotorg and w_shotdir based on the weapon model
 // offset, trueaim and antilag, and won't put w_shotorg inside a wall.
 // make sure you call makevectors first (FIXME?)
-void W_SetupShot_ProjectileSize(entity ent, vector mi, vector ma, float antilag, float recoil, string snd, float maxdamage)
+void W_SetupShot_Dir_ProjectileSize(entity ent, vector s_forward, vector mi, vector ma, float antilag, float recoil, string snd, float maxdamage)
 {
 	float nudge = 1; // added to traceline target and subtracted from result
 	local vector trueaimpoint;
@@ -138,10 +138,10 @@ void W_SetupShot_ProjectileSize(entity ent, vector mi, vector ma, float antilag,
 	else
 		ent.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_CORPSE;
 	if(antilag)
-		traceline_antilag(world, ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NORMAL, ent, ANTILAG_LATENCY(ent));
+		traceline_antilag(world, ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + s_forward * MAX_SHOT_DISTANCE, MOVE_NORMAL, ent, ANTILAG_LATENCY(ent));
 		// passing world, because we do NOT want it to touch dphitcontentsmask
 	else
-		traceline(ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + v_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, ent);
+		traceline(ent.origin + ent.view_ofs, ent.origin + ent.view_ofs + s_forward * MAX_SHOT_DISTANCE, MOVE_NOMONSTERS, ent);
 	ent.dphitcontentsmask = DPCONTENTS_SOLID | DPCONTENTS_BODY | DPCONTENTS_CORPSE;
 	trueaimpoint = trace_endpos;
 
@@ -309,10 +309,9 @@ void W_SetupShot_ProjectileSize(entity ent, vector mi, vector ma, float antilag,
 		sound (ent, CHAN_AUTO, "weapons/strength_fire.wav", VOL_BASE, ATTN_NORM);
 };
 
-void W_SetupShot(entity ent, float antilag, float recoil, string snd, float maxdamage)
-{
-	W_SetupShot_ProjectileSize(ent, '0 0 0', '0 0 0', antilag, recoil, snd, maxdamage);
-}
+#define W_SetupShot_ProjectileSize(ent,mi,ma,antilag,recoil,snd,maxdamage) W_SetupShot_Dir_ProjectileSize(ent, v_forward, mi, ma, antilag, recoil, snd, maxdamage)
+#define W_SetupShot_Dir(ent,s_forward,antilag,recoil,snd,maxdamage) W_SetupShot_Dir_ProjectileSize(ent, s_forward, '0 0 0', '0 0 0', antilag, recoil, snd, maxdamage)
+#define W_SetupShot(ent,antilag,recoil,snd,maxdamage) W_SetupShot_ProjectileSize(ent, '0 0 0', '0 0 0', antilag, recoil, snd, maxdamage)
 
 void LaserTarget_Think()
 {
@@ -1023,13 +1022,15 @@ float weapon_prepareattack(float secondary, float attacktime)
 	if(self.switchweapon != self.weapon)
 		return FALSE;
 
-	// don't fire if previous attack is not finished
 	if(attacktime >= 0)
+	{
+		// don't fire if previous attack is not finished
 		if (ATTACK_FINISHED(self) > time + frametime * 0.5)
 			return FALSE;
-	// don't fire while changing weapon
-	if (self.weaponentity.state != WS_READY)
-		return FALSE;
+		// don't fire while changing weapon
+		if (self.weaponentity.state != WS_READY)
+			return FALSE;
+	}
 	self.weaponentity.state = WS_INUSE;
 
 	self.spawnshieldtime = min(self.spawnshieldtime, time); // kill spawn shield when you fire
@@ -1242,7 +1243,7 @@ vector W_CalculateProjectileVelocity(vector pvelocity, vector mvelocity)
 			//dprint("impossible shot, adjusting\n");
 		}
 
-		outspeed = bound(mspeed * 0.7, outspeed, mspeed * 5.0);
+		outspeed = bound(mspeed * cvar("g_projectiles_newton_style_2_minfactor"), outspeed, mspeed * cvar("g_projectiles_newton_style_2_maxfactor"));
 		outvelocity = mdirection * outspeed;
 	}
 	else if(nstyle == 3)

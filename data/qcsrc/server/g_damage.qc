@@ -308,6 +308,8 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 					bprint ("^1",s, "^1 didn't become friends with the Lord of Teamplay\n");
 				else if (deathtype == DEATH_CHEAT)
 					bprint ("^1",s, "^1 unfairly eliminated himself\n");
+				else if (deathtype == DEATH_FIRE)
+					bprint ("^1",s, "^1 burned to death\n");
 				else if (deathtype != DEATH_TEAMCHANGE)
 					bprint ("^1",s, "^1 couldn't resist the urge to self-destruct\n");
 
@@ -420,6 +422,8 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 						bprint ("^1",s, "^1 was pushed into an accident by ^1", a, "\n");
 					else if(deathtype == DEATH_CHEAT)
 						bprint ("^1",s, "^1 was unfairly eliminated by ^1", a, "\n");
+					else if (deathtype == DEATH_FIRE)
+						bprint ("^1",s, "^1 was burnt to death by ^1", a, "\n");
 					else
 						bprint ("^1",s, "^1 was fragged by ", a, "\n");
 				}
@@ -551,6 +555,11 @@ void Obituary (entity attacker, entity inflictor, entity targ, float deathtype)
 				bprint ("^1",s, "^1 died in an accident\n");
 			else if(deathtype == DEATH_CHEAT)
 				bprint ("^1",s, "^1 was unfairly eliminated\n");
+			else if(deathtype == DEATH_FIRE)
+				if(sv_gentle)
+					bprint ("^1",s, "^1 felt a little hot\n");
+				else
+					bprint ("^1",s, "^1 burnt to death\n");
 			else
 				if(sv_gentle)
 					bprint ("^1",s, "^1 needs a restart\n");
@@ -806,56 +815,69 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		if(!targ.deadflag)
 		if(targ.takedamage == DAMAGE_AIM)
 		if(targ != attacker)
-		if(targ.classname == "player")
 		{
-			if(IsDifferentTeam(targ, attacker))
+			if(targ.classname == "player")
 			{
-				if(damage > 0)
+				// HEAD SHOT:
+				// find height of hit on player axis
+				// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
+				vector headmins, headmaxs, org;
+				org = antilag_takebackorigin(targ, time - ANTILAG_LATENCY(attacker));
+				headmins = org + '0.6 0 0' * targ.mins_x + '0 0.6 0' * targ.mins_y + '0 0 1' * (1.3 * targ.view_ofs_z - 0.3 * targ.maxs_z);
+				headmaxs = org + '0.6 0 0' * targ.maxs_x + '0 0.6 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
+				if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
 				{
-					if(targ.BUTTON_CHAT)
-						attacker.typehitsound += 1;
-					else
-						attacker.hitsound += 1;
+					deathtype |= HITTYPE_HEADSHOT;
+				}
+			}
+			else if(targ.classname == "turret_head")
+			{
+				deathtype |= HITTYPE_HEADSHOT;
+			}
+			if(deathtype & HITTYPE_HEADSHOT)
+				damage *= 1 + damage_headshotbonus;
 
-					damage_goodhits += 1;
-					damage_gooddamage += damage;
-
-					if not(DEATH_ISSPECIAL(deathtype))
+			if(targ.classname == "player")
+			{
+				if(IsDifferentTeam(targ, attacker))
+				{
+					if(damage > 0)
 					{
-						if(!g_minstagib)
-						if(IsFlying(targ))
-							yoda = 1;
+						if(targ.BUTTON_CHAT)
+							attacker.typehitsound += 1;
+						else
+							attacker.hitsound += 1;
 
-						if(g_minstagib)
-						if(targ.items & IT_STRENGTH)
-							yoda = 1;
+						damage_goodhits += 1;
+						damage_gooddamage += damage;
 
-						// HEAD SHOT:
-						// find height of hit on player axis
-						// if above view_ofs and below maxs, and also in the middle half of the bbox, it is head shot
-						vector headmins, headmaxs, org;
-						org = antilag_takebackorigin(targ, time - ANTILAG_LATENCY(attacker));
-						headmins = org + '0.7 0 0' * targ.mins_x + '0 0.7 0' * targ.mins_y + '0 0 1' * (1.5 * targ.view_ofs_z - 0.5 * targ.maxs_z);
-						headmaxs = org + '0.7 0 0' * targ.maxs_x + '0 0.7 0' * targ.maxs_y + '0 0 1' * targ.maxs_z;
-						if(trace_hits_box(railgun_start, railgun_end, headmins, headmaxs))
+						if not(DEATH_ISSPECIAL(deathtype))
 						{
-							damage *= 1 + damage_headshotbonus;
-							headshot = 1;
-							deathtype |= HITTYPE_HEADSHOT;
+							if(!g_minstagib)
+							if(IsFlying(targ))
+								yoda = 1;
+
+							if(g_minstagib)
+							if(targ.items & IT_STRENGTH)
+								yoda = 1;
+
+							if(deathtype & HITTYPE_HEADSHOT)
+								headshot = 1;
 						}
 					}
 				}
-			}
-			else
-			{
-				attacker.typehitsound += 1;
-				if(mirrordamage > 0)
-					if(time > attacker.teamkill_complain)
-					{
-						attacker.teamkill_complain = time + 5;
-						attacker.teamkill_soundtime = time + 0.4;
-						attacker.teamkill_soundsource = targ;
-					}
+				else
+				{
+					if(deathtype != DEATH_FIRE)
+						attacker.typehitsound += 1;
+					if(mirrordamage > 0)
+						if(time > attacker.teamkill_complain)
+						{
+							attacker.teamkill_complain = time + 5;
+							attacker.teamkill_soundtime = time + 0.4;
+							attacker.teamkill_soundsource = targ;
+						}
+				}
 			}
 		}
 	}
@@ -958,6 +980,19 @@ vector NearestPointOnBox(entity box, vector org)
 FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(actual_damage);
 FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(max_damage);
 
+void Damage_RecordDamage(entity attacker, float deathtype, float damage)
+{
+	float weaponid;
+	weaponid = DEATH_WEAPONOF(deathtype);
+	if not(inWarmupStage)
+	if(weaponid)
+	if(clienttype(attacker) == CLIENTTYPE_REAL)
+	{
+		// Track damage done and update the stat to be sent later in g_world.qc
+		attacker.actual_damage[weaponid] += damage;
+		attacker.damage_hits = weaponid + 64 * rint(attacker.actual_damage[weaponid]);
+	}
+}
 
 float RadiusDamage_running;
 float RadiusDamage (entity inflictor, entity attacker, float coredamage, float edgedamage, float rad, entity ignore, float forceintensity, float deathtype, entity directhitentity)
@@ -973,7 +1008,6 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 	vector  nearest;
 	float   total_damage_to_creatures;
 	entity  next;
-	float weaponid;
 	float   tfloordmg;
 	float   tfloorforce;
 
@@ -995,8 +1029,8 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 
 	RadiusDamage_running = 1;
 
-	tfloordmg = cvar("g_throughfloor");
-	tfloorforce = cvar("g_throughfloor");
+	tfloordmg = cvar("g_throughfloor_damage");
+	tfloorforce = cvar("g_throughfloor_force");
 
 	blastorigin = (inflictor.origin + (inflictor.mins + inflictor.maxs) * 0.5);
 	total_damage_to_creatures = 0;
@@ -1120,18 +1154,7 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 
 	RadiusDamage_running = 0;
 
-	weaponid = DEATH_WEAPONOF(deathtype);
-
-	// Calculates stats for all RadiusDamage weapons
-	if not(inWarmupStage)
-	if(weaponid)
-	if(clienttype(attacker) == CLIENTTYPE_REAL)
-	{
-		// Track damage done and update the stat to be sent later in g_world.qc
-		float f = min(stat_maxdamage, stat_damagedone);
-		attacker.actual_damage[weaponid] += f; // value temporarily stored in f due to a ftqecc bug
-		attacker.damage_hits = weaponid + 64 * rint(attacker.actual_damage[weaponid]);
-	}
+	Damage_RecordDamage(attacker, deathtype, min(stat_maxdamage, stat_damagedone));
 
 	return total_damage_to_creatures;
 }
@@ -1140,57 +1163,181 @@ float RadiusDamage (entity inflictor, entity attacker, float coredamage, float e
 .float fire_endtime;
 .float fire_deathtype;
 .entity fire_owner;
+.float fire_hitsound;
+.entity fire_burner;
+
+void fireburner_think();
+
+float Fire_IsBurning(entity e)
+{
+	return (time < e.fire_endtime);
+}
+
 float Fire_AddDamage(entity e, entity o, float d, float t, float dt)
 {
 	float dps;
+	float maxtime, mintime, maxdamage, mindamage, maxdps, mindps, totaldamage, totaltime;
+
+	if(e.classname == "player")
+	{
+		if(e.deadflag)
+			return -1;
+	}
+	else
+	{
+		if(!e.fire_burner)
+		{
+			// print("adding a fire burner to ", e.classname, "\n");
+			e.fire_burner = spawn();
+			e.fire_burner.classname = "fireburner";
+			e.fire_burner.think = fireburner_think;
+			e.fire_burner.nextthink = time;
+			e.fire_burner.owner = e;
+		}
+	}
+
+	t = max(t, 0.1);
 	dps = d / t;
-	if(time >= e.fire_endtime)
+	if(Fire_IsBurning(e))
+	{
+		mintime = e.fire_endtime - time;
+		maxtime = max(mintime, t);
+
+		mindps = e.fire_damagepersec;
+		maxdps = max(mindps, dps);
+
+		if(maxtime > mintime || maxdps > mindps)
+		{
+			mindamage = mindps * mintime;
+			maxdamage = mindamage + d;
+
+			// interval [mintime, maxtime] * [mindps, maxdps]
+			// intersected with
+			// [mindamage, maxdamage]
+			// maximum of this!
+
+			if(maxdamage >= maxtime * maxdps)
+			{
+				totaltime = maxtime;
+				totaldamage = maxtime * maxdps;
+
+				// this branch increases totaldamage if either t > mintime, or dps > mindps
+			}
+			else
+			{
+				// maxdamage is inside the interval!
+				// first, try to use mindps; only if this fails, increase dps as needed
+				totaltime = min(maxdamage / mindps, maxtime); // maxdamage / mindps >= mindamage / mindps = mintime
+				totaldamage = maxdamage;
+				// can totaldamage / totaltime be >= maxdps?
+				// max(mindps, maxdamage / maxtime) >= maxdps?
+				// we know maxdamage < maxtime * maxdps
+				// so it cannot be
+
+				// this branch ALWAYS increases totaldamage, but requires maxdamage < maxtime * maxdps
+			}
+
+			// total conditions for increasing:
+			//     maxtime > mintime OR maxdps > mindps OR maxtime * maxdps > maxdamage
+			// however:
+			//     if maxtime = mintime, maxdps = mindps
+			// then:
+			//     maxdamage = mindamage + d
+			//     mindamage = mindps * mintime = maxdps * maxtime < maxdamage!
+			// so the last condition is not needed
+
+			e.fire_damagepersec = totaldamage / totaltime;
+			e.fire_endtime = time + totaltime;
+			if(totaldamage > 1.2 * mindamage)
+			{
+				e.fire_deathtype = dt;
+				if(e.fire_owner != o)
+				{
+					e.fire_owner = o;
+					e.fire_hitsound = FALSE;
+				}
+			}
+			return max(0, totaldamage - mindamage); // can never be negative, but to make sure
+		}
+		else
+			return 0;
+	}
+	else
 	{
 		e.fire_damagepersec = dps;
 		e.fire_endtime = time + t;
 		e.fire_deathtype = dt;
 		e.fire_owner = o;
+		e.fire_hitsound = FALSE;
 		return d;
 	}
-	else
-	{
-		float totaldamage, totaltime, maxdps, olddamage, oldtime;
-		oldtime = e.fire_endtime - time;
-		olddamage = e.fire_damagepersec * oldtime;
-		if(t > oldtime || d > olddamage || dps > e.fire_damagepersec)
-		{
-			maxdps = max(dps, e.fire_damagepersec);
-			totaltime = max(oldtime, t);
-			totaldamage = max(maxdps * totaltime, olddamage + d);
-			e.fire_damagepersec = totaldamage / totaltime;
-			e.fire_endtime = time + totaltime;
-			e.fire_deathtype = dt;
-			e.fire_owner = e;
-			return totaldamage - olddamage; // can never be negative
-		}
-		else
-			return 0;
-	}
 }
+
 void Fire_ApplyDamage(entity e)
 {
-	float t, d;
+	float t, d, hi, ty;
+
+	if not(Fire_IsBurning(e))
+		return;
 
 	// water and slime stop fire
 	if(e.waterlevel)
 	if(e.watertype != CONTENT_LAVA)
 		e.fire_endtime = 0;
 
-	if(time >= e.fire_endtime)
-		return;
 	t = min(frametime, e.fire_endtime - time);
 	d = e.fire_damagepersec * t;
+
+	hi = e.fire_owner.hitsound;
+	ty = e.fire_owner.typehitsound;
 	Damage(e, e, e.fire_owner, d, e.fire_deathtype, e.origin, '0 0 0');
+	if(e.fire_hitsound && e.fire_owner)
+	{
+		e.fire_owner.hitsound = hi;
+		e.fire_owner.typehitsound = ty;
+	}
+	e.fire_hitsound = TRUE;
+
+	Damage_RecordDamage(e.fire_owner, e.fire_deathtype, d);
+
+	if not(IS_INDEPENDENT_PLAYER(e))
+	FOR_EACH_PLAYER(other) if(e != other)
+	{
+		if(other.classname == "player")
+		if(other.deadflag == DEAD_NO)
+		if not(IS_INDEPENDENT_PLAYER(other))
+		if(boxesoverlap(e.absmin, e.absmax, other.absmin, other.absmax))
+		{
+			t = cvar("g_balance_firetransfer_time") * (e.fire_endtime - time);
+			d = cvar("g_balance_firetransfer_damage") * e.fire_damagepersec * t;
+			Fire_AddDamage(other, e, d, t, DEATH_FIRE);
+		}
+	}
 }
+
 void Fire_ApplyEffect(entity e)
 {
-	if(time < e.fire_endtime)
+	if(Fire_IsBurning(e))
 		e.effects |= EF_FLAME;
 	else
 		e.effects &~= EF_FLAME;
+}
+
+void fireburner_think()
+{
+	// for players, this is done in the regular loop
+	if(wasfreed(self.owner))
+	{
+		remove(self);
+		return;
+	}
+	Fire_ApplyEffect(self.owner);
+	if(!Fire_IsBurning(self.owner))
+	{
+		self.owner.fire_burner = world;
+		remove(self);
+		return;
+	}
+	Fire_ApplyDamage(self.owner);
+	self.nextthink = time;
 }

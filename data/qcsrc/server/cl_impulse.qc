@@ -538,20 +538,72 @@ void ImpulseCommands (void)
 					waypoint_saveall();
 					break;
 				case 107:
-					navigation_markroutes();
 					for(e = findchain(classname, "waypoint"); e; e = e.chain)
 					{
-						if(e.wpcost < 10000000)
+						e.colormod_x = 1;
+						e.effects &~= EF_NODEPTHTEST | EF_RED | EF_BLUE;
+					}
+					e2 = navigation_findnearestwaypoint(self, FALSE);
+					navigation_markroutes(e2);
+					i = 0;
+					m = 0;
+					for(e = findchain(classname, "waypoint"); e; e = e.chain)
+					{
+						if(e.wpcost >= 10000000)
 						{
-							e.colormod_x = 1;
+							print("unreachable: ", etos(e), " ", vtos(e.origin), "\n");
+							e.colormod_x = 0.1;
+							e.effects |= EF_NODEPTHTEST | EF_BLUE;
+							++i;
+							++m;
+						}
+					}
+					if(i)
+						print(ftos(i), " waypoints cannot be reached from here in any way (marked with blue light)\n");
+					navigation_markroutes_inverted(e2);
+					i = 0;
+					for(e = findchain(classname, "waypoint"); e; e = e.chain)
+					{
+						if(e.wpcost >= 10000000)
+						{
+							print("cannot reach me: ", etos(e), " ", vtos(e.origin), "\n");
+							e.colormod_x = 0.1;
+							if not(e.effects & EF_NODEPTHTEST) // not already reported before
+								++m;
+							e.effects |= EF_NODEPTHTEST | EF_RED;
+							++i;
+						}
+					}
+					if(i)
+						print(ftos(i), " waypoints cannot walk to here in any way (marked with red light)\n");
+					if(m)
+						print(ftos(m), " waypoints have been marked total\n");
+					i = 0;
+					for(e = findchain(classname, "info_player_deathmatch"); e; e = e.chain)
+					{
+						org = e.origin;
+						tracebox(e.origin, PL_MIN, PL_MAX, e.origin - '0 0 512', MOVE_NOMONSTERS, world);
+						setorigin(e, trace_endpos);
+						if(navigation_findnearestwaypoint(e, FALSE))
+						{
+							setorigin(e, org);
 							e.effects &~= EF_NODEPTHTEST;
+							e.model = "";
 						}
 						else
 						{
-							e.colormod_x = 0.1;
+							setorigin(e, org);
+							print("spawn without waypoint: ", etos(e), " ", vtos(e.origin), "\n");
 							e.effects |= EF_NODEPTHTEST;
+							setmodel(e, self.model);
+							e.frame = self.frame;
+							e.skin = self.skin;
+							setsize(e, '0 0 0', '0 0 0');
+							++i;
 						}
 					}
+					if(i)
+						print(ftos(i), " spawnpoints have no nearest waypoint (marked by player model)\n");
 					break;
 			}
 		}

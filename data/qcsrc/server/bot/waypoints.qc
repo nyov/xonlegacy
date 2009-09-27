@@ -4,7 +4,6 @@
 entity waypoint_spawn(vector m1, vector m2, float f)
 {
 	local entity w;
-	local vector org;
 	w = find(world, classname, "waypoint");
 
 	if not(f & WAYPOINTFLAG_PERSONAL)
@@ -24,70 +23,28 @@ entity waypoint_spawn(vector m1, vector m2, float f)
 	setsize(w, m1 - w.origin, m2 - w.origin);
 	if (vlen(w.size) > 0)
 		w.wpisbox = TRUE;
-
-	if(!(f & WAYPOINTFLAG_GENERATED))
+	
 	if(!w.wpisbox)
 	{
-		traceline(w.origin + '0 0 1', w.origin + PL_MIN_z * '0 0 1' - '0 0 1', MOVE_NOMONSTERS, w);
-		if (trace_fraction < 1)
-			setorigin(w, trace_endpos - PL_MIN_z * '0 0 1');
-
-		// check if the start position is stuck
-		tracebox(w.origin, PL_MIN + '-1 -1 -1', PL_MAX + '1 1 1', w.origin, MOVE_NOMONSTERS, w);
-		if (trace_startsolid)
+		setsize(w, PL_MIN - '1 1 0', PL_MAX + '1 1 0');
+		if(!move_out_of_solid(w))
 		{
-			org = w.origin + '0 0 26';
-			tracebox(org, PL_MIN, PL_MAX, w.origin, MOVE_WORLDONLY, w);
-			if(trace_startsolid)
+			if(!(f & WAYPOINTFLAG_GENERATED))
 			{
-				org = w.origin + '2 2 2';
-				tracebox(org, PL_MIN, PL_MAX, w.origin, MOVE_WORLDONLY, w);
-				if(trace_startsolid)
-				{
-					org = w.origin + '-2 -2 2';
-					tracebox(org, PL_MIN, PL_MAX, w.origin, MOVE_WORLDONLY, w);
-					if(trace_startsolid)
-					{
-						org = w.origin + '-2 2 2';
-						tracebox(org, PL_MIN, PL_MAX, w.origin, MOVE_WORLDONLY, w);
-						if(trace_startsolid)
-						{
-							org = w.origin + '2 -2 2';
-							tracebox(org, PL_MIN, PL_MAX, w.origin, MOVE_WORLDONLY, w);
-							if(trace_startsolid)
-							{
-								// this WP is in solid, refuse it
-								dprint("Killed a waypoint that was stuck in solid at ", vtos(org), "\n");
-								remove(w);
-								return world;
-							}
-						}
-					}
-				}
-			}
-			setorigin(w, org * 0.05 + trace_endpos * 0.95); // don't trust the trace fully
-		}
-
-		tracebox(w.origin, PL_MIN, PL_MAX, w.origin - '0 0 128', MOVE_WORLDONLY, w);
-		if(trace_startsolid)
-		{
-			dprint("Killed a waypoint that was stuck in solid ", vtos(w.origin), "\n");
-			remove(w);
-			return world;
-		}
-		if (!trace_inwater)
-		{
-			if(trace_fraction == 1)
-			{
-				dprint("Killed a waypoint that was stuck in air at ", vtos(w.origin), "\n");
+				dprint("Killed a waypoint that was stuck in solid at ", vtos(w.origin), "\n");
 				remove(w);
 				return world;
 			}
-			trace_endpos_z += 0.1; // don't trust the trace fully
-//			dprint("Moved waypoint at ", vtos(w.origin), " by ", ftos(vlen(w.origin - trace_endpos)));
-//			dprint(" direction: ", vtos((trace_endpos - w.origin)), "\n");
-			setorigin(w, trace_endpos);
+			else
+			{
+				if(cvar("developer"))
+				{
+					print("A generated waypoint is stuck in solid at ", vtos(w.origin), "\n");
+					backtrace("Waypoint stuck");
+				}
+			}
 		}
+		setsize(w, '0 0 0', '0 0 0');
 	}
 
 	waypoint_clearlinks(w);
@@ -765,17 +722,22 @@ float waypoint_loadall()
 	return cwp + cwb;
 };
 
+vector waypoint_fixorigin(vector position)
+{
+	tracebox(position + '0 0 1' * (1 - PL_MIN_z), PL_MIN, PL_MAX, position + '0 0 -512', MOVE_NOMONSTERS, world);
+	if(trace_fraction < 1)
+		position = trace_endpos;
+	//traceline(position, position + '0 0 -512', MOVE_NOMONSTERS, world);
+	//print("position is ", ftos(trace_endpos_z - position_z), " above solid\n");
+	return position;
+}
+
 void waypoint_spawnforitem_force(entity e, vector org)
 {
 	local entity w;
 
 	// Fix the waypoint altitude if necessary
-	traceline(org, org + '0 0 -65535', TRUE, e);
-	if(
-		org_z - trace_endpos_z > PL_MAX_z - PL_MIN_z + 10 // If middle of entiy is above player heigth
-		|| org_z - trace_endpos_z < (PL_MAX_z - PL_MIN_z) * 0.5 // or below half player height
-	)
-		org_z = trace_endpos_z + PL_MAX_z - PL_MIN_z;
+	org = waypoint_fixorigin(org);
 
 	// don't spawn an item spawnfunc_waypoint if it already exists
 	w = findchain(classname, "waypoint");
@@ -832,10 +794,7 @@ entity waypoint_spawnpersonal(vector position)
 	// drop the waypoint to a proper location:
 	//   first move it up by a player height
 	//   then move it down to hit the floor with player bbox size
-	traceline(position, position + '0 0 1' * (PL_MAX_z - PL_MIN_z), MOVE_NOMONSTERS, world);
-	tracebox(trace_endpos, PL_MIN, PL_MAX, trace_endpos + '0 0 -1024', MOVE_NOMONSTERS, world);
-	if(trace_fraction < 1)
-		position = trace_endpos;
+	position = waypoint_fixorigin(position);
 
 	w = waypoint_spawn(position, position, WAYPOINTFLAG_GENERATED | WAYPOINTFLAG_PERSONAL);
 	w.nearestwaypoint = world;

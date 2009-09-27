@@ -249,6 +249,10 @@ void navigation_clearroute()
 
 // add a new goal at the beginning of the stack
 // (in other words: add a new prerequisite before going to the later goals)
+// NOTE: when a waypoint is added, the WP gets pushed first, then the
+// next-closest WP on the shortest path to the WP
+// That means, if the stack overflows, the bot will know how to do the FIRST 32
+// steps to the goal, and then recalculate the path.
 void navigation_pushroute(entity e)
 {
 	//print("bot ", etos(self), " push ", etos(e), "\n");
@@ -332,8 +336,8 @@ entity navigation_findnearestwaypoint(entity ent, float walkfromwp)
 	local entity waylist, w, best;
 	local float dist, bestdist;
 	local vector v, org, pm1, pm2;
-	pm1 = ent.origin + PL_MIN;
-	pm2 = ent.origin + PL_MAX;
+	pm1 = ent.origin + ent.mins;
+	pm2 = ent.origin + ent.maxs;
 	waylist = findchain(classname, "waypoint");
 
 	// do two scans, because box test is cheaper
@@ -347,7 +351,9 @@ entity navigation_findnearestwaypoint(entity ent, float walkfromwp)
 		w = w.chain;
 	}
 
-	org = ent.origin + (ent.mins_z - PL_MIN_z) * '0 0 1';
+	org = ent.origin + 0.5 * (ent.mins + ent.maxs);
+	org_z = ent.origin_z + ent.mins_z - PL_MIN_z; // player height
+	// TODO possibly make other code have the same support for bboxes
 	if(ent.tag_entity)
 		org = org + ent.tag_entity.origin;
 	if (navigation_testtracewalk)
@@ -477,7 +483,7 @@ void navigation_markroutes_checkwaypoint(entity w, entity wp, float cost2, vecto
 };
 
 // queries the entire spawnfunc_waypoint network for pathes leading away from the bot
-void navigation_markroutes()
+void navigation_markroutes(entity fixed_source_waypoint)
 {
 	local entity w, wp, waylist;
 	local float searching, cost, cost2;
@@ -493,21 +499,32 @@ void navigation_markroutes()
 		w = w.chain;
 	}
 
-	// try a short range search for the nearest waypoints, and expand the search repeatedly if none are found
-	// as this search is expensive we will use lower values if the bot is on the air
-	local float i, increment, maxdistance;
-	if(self.flags & FL_ONGROUND)
+	if(fixed_source_waypoint)
 	{
-		increment = 750;
-		maxdistance = 50000;
+		fixed_source_waypoint.wpconsidered = TRUE;
+		fixed_source_waypoint.wpnearestpoint = fixed_source_waypoint.origin + 0.5 * (fixed_source_waypoint.mins + fixed_source_waypoint.maxs);
+		fixed_source_waypoint.wpcost = fixed_source_waypoint.dmg;
+		fixed_source_waypoint.wpfire = 1;
+		fixed_source_waypoint.enemy = world;
 	}
 	else
 	{
-		increment = 500;
-		maxdistance = 1500;
-	}
+		// try a short range search for the nearest waypoints, and expand the search repeatedly if none are found
+		// as this search is expensive we will use lower values if the bot is on the air
+		local float i, increment, maxdistance;
+		if(self.flags & FL_ONGROUND)
+		{
+			increment = 750;
+			maxdistance = 50000;
+		}
+		else
+		{
+			increment = 500;
+			maxdistance = 1500;
+		}
 
-	for(i=increment;!navigation_markroutes_nearestwaypoints(waylist, i)&&i<maxdistance;i+=increment);
+		for(i=increment;!navigation_markroutes_nearestwaypoints(waylist, i)&&i<maxdistance;i+=increment);
+	}
 
 	searching = TRUE;
 	while (searching)
@@ -561,55 +578,68 @@ void navigation_markroutes()
 	}
 };
 
-void navigation_bestgoals_reset()
+// queries the entire spawnfunc_waypoint network for pathes leading to the bot
+void navigation_markroutes_inverted(entity fixed_source_waypoint)
 {
-	local float i;
-
-	bestgoalswindex = 0;
-	bestgoalsrindex = 0;
-
-	for(i=0;i>MAX_BESTGOALS-1;++i)
+	local entity w, wp, waylist;
+	local float searching, cost, cost2;
+	local vector p;
+	w = waylist = findchain(classname, "waypoint");
+	while (w)
 	{
-		navigation_bestgoals[i] = world;
-	}
-}
-
-void navigation_add_bestgoal(entity goal)
-{
-	if(bestgoalsrindex>0)
-	{
-		++bestgoalsrindex;
-
-		if(bestgoalsrindex==MAX_BESTGOALS)
-			bestgoalsrindex = 0;
+		w.wpconsidered = FALSE;
+		w.wpnearestpoint = '0 0 0';
+		w.wpcost = 10000000;
+		w.wpfire = 0;
+		w.enemy = world;
+		w = w.chain;
 	}
 
-	if(bestgoalswindex==MAX_BESTGOALS)
+	if(fixed_source_waypoint)
 	{
-		bestgoalswindex=0;
-		if(bestgoalsrindex==0)
-			bestgoalsrindex=1;
+		fixed_source_waypoint.wpconsidered = TRUE;
+		fixed_source_waypoint.wpnearestpoint = fixed_source_waypoint.origin + 0.5 * (fixed_source_waypoint.mins + fixed_source_waypoint.maxs);
+		fixed_source_waypoint.wpcost = fixed_source_waypoint.dmg; // the cost to get from X to fixed_source_waypoint
+		fixed_source_waypoint.wpfire = 1;
+		fixed_source_waypoint.enemy = world;
+	}
+	else
+	{
+		error("need to start with a waypoint\n");
 	}
 
-	navigation_bestgoals[bestgoalswindex] = goal;
-
-	++bestgoalswindex;
-}
-
-entity navigation_get_bestgoal()
-{
-	local entity ent;
-
-	ent = navigation_bestgoals[bestgoalsrindex];
-	navigation_bestgoals[bestgoalsrindex] = world;
-
-	++bestgoalsrindex;
-
-	if(bestgoalsrindex==MAX_BESTGOALS)
-		bestgoalsrindex = 0;
-
-	return ent;
-}
+	searching = TRUE;
+	while (searching)
+	{
+		searching = FALSE;
+		w = waylist;
+		while (w)
+		{
+			if (w.wpfire)
+			{
+				searching = TRUE;
+				w.wpfire = 0;
+				cost = w.wpcost; // cost to walk from w to home
+				p = w.wpnearestpoint;
+				for(wp = waylist; wp; wp = wp.chain)
+				{
+					if(w != wp.wp00) if(w != wp.wp01) if(w != wp.wp02) if(w != wp.wp03)
+					if(w != wp.wp04) if(w != wp.wp05) if(w != wp.wp06) if(w != wp.wp07)
+					if(w != wp.wp08) if(w != wp.wp09) if(w != wp.wp10) if(w != wp.wp11)
+					if(w != wp.wp12) if(w != wp.wp13) if(w != wp.wp14) if(w != wp.wp15)
+					if(w != wp.wp16) if(w != wp.wp17) if(w != wp.wp18) if(w != wp.wp19)
+					if(w != wp.wp20) if(w != wp.wp21) if(w != wp.wp22) if(w != wp.wp23)
+					if(w != wp.wp24) if(w != wp.wp25) if(w != wp.wp26) if(w != wp.wp27)
+					if(w != wp.wp28) if(w != wp.wp29) if(w != wp.wp30) if(w != wp.wp31)
+						continue;
+					cost2 = cost + wp.dmg;
+					navigation_markroutes_checkwaypoint(w, wp, cost2, p);
+				}
+			}
+			w = w.chain;
+		}
+	}
+};
 
 // updates the best goal according to a weighted calculation of travel cost and item value of a new proposed item
 void navigation_routerating(entity e, float f, float rangebias)
@@ -617,6 +647,8 @@ void navigation_routerating(entity e, float f, float rangebias)
 	entity nwp;
 	if (!e)
 		return;
+
+	//print("routerating ", etos(e), " = ", ftos(f), " - ", ftos(rangebias), "\n");
 
 	// Evaluate path using jetpack
 	if(g_jetpack)
@@ -698,7 +730,7 @@ void navigation_routerating(entity e, float f, float rangebias)
 				{
 			//		dprint("jetpack path: added goal", e.classname, " (with rating ", ftos(f), ")\n");
 					navigation_bestrating = f;
-					navigation_add_bestgoal(e);
+					navigation_bestgoal = e;
 					self.navigation_jetpack_goal = e;
 					self.navigation_jetpack_point = pointb;
 				}
@@ -719,7 +751,11 @@ void navigation_routerating(entity e, float f, float rangebias)
 	{
 		if (time > e.nearestwaypointtimeout)
 		{
-			e.nearestwaypoint = navigation_findnearestwaypoint(e, TRUE);
+			nwp = navigation_findnearestwaypoint(e, TRUE);
+			if(nwp)
+				e.nearestwaypoint = nwp;
+			else
+				dprint("FAILED to find a nearest waypoint to '", e.classname, "' #", etos(e), "\n");
 
 			// TODO: Cleaner solution, probably handling this timeout from ctf.qc
 			if(e.classname=="item_flag_team")
@@ -743,7 +779,7 @@ void navigation_routerating(entity e, float f, float rangebias)
 		{
 		//	dprint("ground path: added goal ", e.classname, " (with rating ", ftos(f), ")\n");
 			navigation_bestrating = f;
-			navigation_add_bestgoal(e);
+			navigation_bestgoal = e;
 		}
 	}
 	//dprint("\n");
@@ -761,6 +797,7 @@ float navigation_routetogoal(entity e, vector startposition)
 	self.navigation_hasgoals = TRUE;
 
 	// put the entity on the goal stack
+	//print("routetogoal ", etos(e), "\n");
 	navigation_pushroute(e);
 
 	if(g_jetpack)
@@ -792,37 +829,6 @@ float navigation_routetogoal(entity e, vector startposition)
 
 	return FALSE;
 };
-
-void navigation_routetogoals()
-{
-	entity g1, g2;
-
-	navigation_clearroute();
-
-	g1 = navigation_get_bestgoal();
-	for(;;)
-	{
-		if(g2==world)
-			g2 = navigation_get_bestgoal();
-
-		if(g2==world)
-		{
-			navigation_routetogoal(g1, self.origin);
-			return;
-		}
-
-		if(navigation_routetogoal(g1, g2.origin))
-		{
-			g1 = g2;
-			g2 = world;
-			continue;
-		}
-
-		navigation_clearroute();
-		g1 = g2;
-		g2 = world;
-	}
-}
 
 // removes any currently touching waypoints from the goal stack
 // (this is how bots detect if they reached a goal)
@@ -885,14 +891,14 @@ void navigation_goalrating_start()
 	self.navigation_jetpack_goal = world;
 	navigation_bestrating = -1;
 	self.navigation_hasgoals = FALSE;
-	navigation_bestgoals_reset();
-	navigation_markroutes();
+	navigation_bestgoal = world;
+	navigation_markroutes(world);
 };
 
 // ends a goal selection session (updates goal stack to the best goal)
 void navigation_goalrating_end()
 {
-	navigation_routetogoals();
+	navigation_routetogoal(navigation_bestgoal, self.origin);
 //	dprint("best goal ", self.goalcurrent.classname , "\n");
 
 	// Hack: if it can't walk to any goal just move blindly to the first visible waypoint
