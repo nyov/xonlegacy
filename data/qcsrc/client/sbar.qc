@@ -23,7 +23,9 @@ float ts_primary, ts_secondary;
 vector color;
 float SCOREBOARD_OFFSET = 50;
 
+void CSQC_kh_hudreset();
 void CSQC_kh_hud();
+void CSQC_ctf_hudreset();
 void CSQC_ctf_hud();
 void CSQC_nb_hud();
 void MapVote_Draw();
@@ -2423,6 +2425,8 @@ void Sbar_Draw (void)
 		}
   		else
 			Sbar_FinaleOverlay();
+
+		goto reset;
 	}
 	else if (sb_showscores_force || getstati(STAT_HEALTH) <= 0 || intermission == 1)
 	{
@@ -2432,6 +2436,8 @@ void Sbar_Draw (void)
 			Sbar_DrawScoreboard();
 		Sbar_Score();
 		Sbar_Timer();
+
+		goto reset;
   	}
 	else
 	{
@@ -2632,15 +2638,30 @@ void Sbar_Draw (void)
 		else if(gametype == GAME_NEXBALL)
 			CSQC_nb_hud();
 	}
+	return;
+
+:reset
+	// draw gametype specific icons
+	if(gametype == GAME_KEYHUNT)
+		CSQC_kh_hudreset();
+	else if(gametype == GAME_CTF)
+		CSQC_ctf_hudreset();
 }
 
 // CTF HUD
 float redflag_prevframe, blueflag_prevframe; // status during previous frame
-float redflag_prevstatus, blueflag_prevstatus; // previous status, not = 0
+float redflag_prevstatus, blueflag_prevstatus; // last remembered status
 float redflag_statuschange_time, blueflag_statuschange_time; // time when the status changed
+
+void CSQC_ctf_hudreset(void)
+{
+	redflag_prevstatus = blueflag_prevstatus = redflag_prevframe = blueflag_prevframe = redflag_statuschange_time = blueflag_statuschange_time = 0;
+}
+
 void CSQC_ctf_hud(void)
 {
 	vector bottomleft, redflag_pos, blueflag_pos, sz;
+	float f; // every function should have that
 	bottomleft_x = 0;
 	bottomleft_y = vid_conheight;
 	bottomleft_z = 0;
@@ -2653,55 +2674,87 @@ void CSQC_ctf_hud(void)
 	redflag = (stat_items/IT_RED_FLAG_TAKEN) & 3;
 	blueflag = (stat_items/IT_BLUE_FLAG_TAKEN) & 3;
 
-	if (redflag != redflag_prevframe) {
+	// when status CHANGES, set old status into prevstatus and current status into status
+	if (redflag != redflag_prevframe)
+	{
 		redflag_statuschange_time = time;
-		if (redflag)
-			redflag_prevstatus = redflag;
+		redflag_prevstatus = redflag_prevframe;
+		redflag_prevframe = redflag;
 	}
-	redflag_prevframe = redflag;
 
-	if (blueflag != blueflag_prevframe) {
+	if (blueflag != blueflag_prevframe)
+	{
 		blueflag_statuschange_time = time;
-		if (blueflag)
-			blueflag_prevstatus = blueflag;
+		blueflag_prevstatus = blueflag_prevframe;
+		blueflag_prevframe = blueflag;
 	}
-	blueflag_prevframe = blueflag;
 	
 	redflag_statuschange_elapsedtime = time - redflag_statuschange_time;
 	blueflag_statuschange_elapsedtime = time - blueflag_statuschange_time;
 
+	float BLINK_FACTOR = 0.15;
+	float BLINK_BASE = 0.85;
+	// note:
+	//   RMS = sqrt(BLINK_BASE^2 + 0.5 * BLINK_FACTOR^2)
+	// thus
+	//   BLINK_BASE = sqrt(RMS^2 - 0.5 * BLINK_FACTOR^2)
+	// ensure RMS == 1
+	float BLINK_FREQ = 5; // circle frequency, = 2*pi*frequency in hertz
+
 	string red_icon, red_icon_prevstatus;
+	float red_alpha, red_alpha_prevstatus;
+	red_alpha = red_alpha_prevstatus = 1;
 	switch(redflag) {
 		case 1: red_icon = "gfx/hud/sb_flag_red_taken"; break;
 		case 2: red_icon = "gfx/hud/sb_flag_red_lost"; break;
-		case 3: red_icon = "gfx/hud/sb_flag_red_carrying"; break;
+		case 3: red_icon = "gfx/hud/sb_flag_red_carrying"; red_alpha = BLINK_BASE + BLINK_FACTOR * cos(time * BLINK_FREQ); break;
 		default:
 			if((stat_items & IT_CTF_SHIELDED) && (myteam == COLOR_TEAM2))
-				red_icon = "gfx/hud/sb_flag_red_shielded"; break;
-	} switch(redflag_prevstatus) {
+				red_icon = "gfx/hud/sb_flag_red_shielded";
+			else
+				red_icon = string_null;
+			break;
+	}
+	switch(redflag_prevstatus) {
 		case 1: red_icon_prevstatus = "gfx/hud/sb_flag_red_taken"; break;
 		case 2: red_icon_prevstatus = "gfx/hud/sb_flag_red_lost"; break;
-		case 3: red_icon_prevstatus = "gfx/hud/sb_flag_red_carrying"; break;
+		case 3: red_icon_prevstatus = "gfx/hud/sb_flag_red_carrying"; red_alpha_prevstatus = BLINK_BASE + BLINK_FACTOR * cos(time * BLINK_FREQ); break;
 		default:
-			if((stat_items & IT_CTF_SHIELDED) && (myteam == COLOR_TEAM2))
-				red_icon_prevstatus = "gfx/hud/sb_flag_red_shielded"; break;
+			if(redflag == 3)
+				red_icon_prevstatus = "gfx/hud/sb_flag_red_carrying"; // make it more visible
+			else if((stat_items & IT_CTF_SHIELDED) && (myteam == COLOR_TEAM2))
+				red_icon_prevstatus = "gfx/hud/sb_flag_red_shielded";
+			else
+				red_icon_prevstatus = string_null;
+			break;
 	}
 
 	string blue_icon, blue_icon_prevstatus;
+	float blue_alpha, blue_alpha_prevstatus;
+	blue_alpha = blue_alpha_prevstatus = 1;
 	switch(blueflag) {
 		case 1: blue_icon = "gfx/hud/sb_flag_blue_taken"; break;
 		case 2: blue_icon = "gfx/hud/sb_flag_blue_lost"; break;
-		case 3: blue_icon = "gfx/hud/sb_flag_blue_carrying"; break;
+		case 3: blue_icon = "gfx/hud/sb_flag_blue_carrying"; blue_alpha = BLINK_BASE + BLINK_FACTOR * cos(time * BLINK_FREQ); break;
 		default:
 			if((stat_items & IT_CTF_SHIELDED) && (myteam == COLOR_TEAM1))
-				blue_icon = "gfx/hud/sb_flag_blue_shielded"; break;
-	} switch(blueflag_prevstatus) {
+				blue_icon = "gfx/hud/sb_flag_blue_shielded";
+			else
+				blue_icon = string_null;
+			break;
+	}
+	switch(blueflag_prevstatus) {
 		case 1: blue_icon_prevstatus = "gfx/hud/sb_flag_blue_taken"; break;
 		case 2: blue_icon_prevstatus = "gfx/hud/sb_flag_blue_lost"; break;
-		case 3: blue_icon_prevstatus = "gfx/hud/sb_flag_blue_carrying"; break;
+		case 3: blue_icon_prevstatus = "gfx/hud/sb_flag_blue_carrying"; blue_alpha_prevstatus = BLINK_BASE + BLINK_FACTOR * cos(time * BLINK_FREQ); break;
 		default:
-			if((stat_items & IT_CTF_SHIELDED) && (myteam == COLOR_TEAM1))
-				blue_icon_prevstatus = "gfx/hud/sb_flag_blue_shielded"; break;
+			if(blueflag == 3)
+				blue_icon_prevstatus = "gfx/hud/sb_flag_blue_carrying"; // make it more visible
+			else if((stat_items & IT_CTF_SHIELDED) && (myteam == COLOR_TEAM1))
+				blue_icon_prevstatus = "gfx/hud/sb_flag_blue_shielded";
+			else
+				blue_icon_prevstatus = string_null;
+			break;
 	}
 
 	if (myteam == COLOR_TEAM1) { // always draw own flag on left
@@ -2714,87 +2767,130 @@ void CSQC_ctf_hud(void)
 	
 	sz = '52 52 0';
 	
-	// draw the icons
-	if (redflag_statuschange_elapsedtime > 1 && red_icon) // red flag status has not changed during the previous second
-		drawpic(redflag_pos, red_icon, sz, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
-	else { // red flag status HAS changed during the previous second
-		if (redflag == 0 && red_icon_prevstatus) // in this case, the status was lost so we have to use the value in prevstatus to determine which icon to fade out
-			drawpic_expanding(redflag_pos, red_icon_prevstatus, sz, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, 
-			bound(0, redflag_statuschange_elapsedtime*2, 1));
-		else if (red_icon)
-			drawpic_expanding_two(redflag_pos, red_icon, sz, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, 
-			bound(0, redflag_statuschange_elapsedtime*2, 1));
-	}
-	
-	if (blueflag_statuschange_elapsedtime > 1 && blue_icon) // blue flag status has not changed during the previous second
-		drawpic(blueflag_pos, blue_icon, sz, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
-	else { // blue flag status HAS changed during the previous second
-		if (blueflag == 0 && blue_icon_prevstatus) // in this case, the status was lost so we have to use the value in prevstatus to determine which icon to fade out
-			drawpic_expanding(blueflag_pos, blue_icon_prevstatus, sz, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, 
-			bound(0, blueflag_statuschange_elapsedtime*2, 1));
-		else if (blue_icon)
-			drawpic_expanding_two(blueflag_pos, blue_icon, sz, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, 
-			bound(0, blueflag_statuschange_elapsedtime*2, 1));
-	}
+	f = bound(0, redflag_statuschange_elapsedtime*2, 1);
+	if(red_icon_prevstatus && f < 1)
+		drawpic_expanding(redflag_pos, red_icon_prevstatus, sz, '1 1 1', sbar_alpha_fg * red_alpha_prevstatus, DRAWFLAG_NORMAL, f);
+	if(red_icon)
+		drawpic(redflag_pos, red_icon, sz, '1 1 1', sbar_alpha_fg * red_alpha * f, DRAWFLAG_NORMAL);
+
+	f = bound(0, blueflag_statuschange_elapsedtime*2, 1);
+	if(blue_icon_prevstatus && f < 1)
+		drawpic_expanding(blueflag_pos, blue_icon_prevstatus, sz, '1 1 1', sbar_alpha_fg * blue_alpha_prevstatus, DRAWFLAG_NORMAL, f);
+	if(blue_icon)
+		drawpic(blueflag_pos, blue_icon, sz, '1 1 1', sbar_alpha_fg * blue_alpha * f, DRAWFLAG_NORMAL);
 }
 
 // Keyhunt HUD
+float kh_runheretime;
+
+void CSQC_kh_hudreset(void)
+{
+	kh_runheretime = 0;
+}
+
 void CSQC_kh_hud(void)
 {
-	float kh_keys, kh_keys_status, kh_teams_set;
-	vector red_pos, blue_pos, yellow_pos, pink_pos, kh_size;
+	float kh_keys;
+	float keyteam;
+	float a, aa;
+	vector p, pa, kh_size, kh_asize;
 
 	vector bottomleft;
 	bottomleft_x = 0;
 	bottomleft_y = vid_conheight;
 	bottomleft_z = 0;
 
-	red_pos_x = 6;
-	red_pos_y = vid_conheight - 35 - 6;
-	red_pos_z = 0;
-
-	blue_pos_x = 6 + (24 * 1);
-	blue_pos_y = vid_conheight - 35 - 6;
-	blue_pos_z = 0;
-
-	yellow_pos_x = 6 + (24 * 2);
-	yellow_pos_y = vid_conheight - 35 - 6;
-	yellow_pos_z = 0;
-
-	pink_pos_x = 6 + (24 * 3);
-	pink_pos_y = vid_conheight - 35 - 6;
-	pink_pos_z = 0;
+	p_x = 6;
+	p_y = vid_conheight - 34 - 3;
+	p_z = 0;
 
 	kh_keys = getstati(STAT_KH_KEYS);
-	kh_keys_status = kh_keys / 256;
-	kh_teams_set = cvar("_teams_available");  // set in keyhunt.qc
 
-	kh_size = '22 35 0';
+	kh_size = '19 34 0';
+	kh_asize = '19 10 0';
+	pa = p + '0 -10 0';
 
-	if (kh_keys_status & 1)  // red
-		drawpic (red_pos, "gfx/hud/sb_kh_red", kh_size, '1 1 1', 0.3, DRAWFLAG_NORMAL);  // show 30% alpha key
-	if (kh_keys & 1)
-		drawpic (red_pos, "gfx/hud/sb_kh_red", kh_size, '1 1 1', 1.0, DRAWFLAG_NORMAL);  // show solid key 100% alpha
+	float i, key;
 
-	if (kh_keys_status & 2)  // blue
-		drawpic (blue_pos, "gfx/hud/sb_kh_blue", kh_size, '1 1 1', 0.3, DRAWFLAG_NORMAL);
-	if (kh_keys & 2)
-		drawpic (blue_pos, "gfx/hud/sb_kh_blue", kh_size, '1 1 1', 1.0, DRAWFLAG_NORMAL);
-
-	if (kh_teams_set & 4)  // yellow
+	float keycount;
+	keycount = 0;
+	for(i = 0; i < 4; ++i)
 	{
-		if (kh_keys_status & 4)
-			drawpic (yellow_pos, "gfx/hud/sb_kh_yellow", kh_size, '1 1 1', 0.3, DRAWFLAG_NORMAL);
-		if (kh_keys & 4)
-			drawpic (yellow_pos, "gfx/hud/sb_kh_yellow", kh_size, '1 1 1', 1.0, DRAWFLAG_NORMAL);
+		key = floor(kh_keys / pow(32, i)) & 31;
+		keyteam = key - 1;
+		if(keyteam == 30 && keycount <= 4)
+			keycount += 4;
+		if(keyteam == myteam || keyteam == -1 || keyteam == 30)
+			keycount += 1;
 	}
+	// this yields 8 exactly if "RUN HERE" shows
 
-	if (kh_teams_set & 8)  // pink
+	if(keycount == 8)
 	{
-		if (kh_keys_status & 8)
-			drawpic (pink_pos, "gfx/hud/sb_kh_pink", kh_size, '1 1 1', 0.3, DRAWFLAG_NORMAL);
-		if (kh_keys & 8)
-			drawpic (pink_pos, "gfx/hud/sb_kh_pink", kh_size, '1 1 1', 1.0, DRAWFLAG_NORMAL);
+		if(!kh_runheretime)
+			kh_runheretime = time;
+		pa_y -= fabs(sin((time - kh_runheretime) * 3.5)) * 6; // make the arrows jump in case of RUN HERE
+	}
+	else
+		kh_runheretime = 0;
+
+	for(i = 0; i < 4; ++i)
+	{
+		key = floor(kh_keys / pow(32, i)) & 31;
+		keyteam = key - 1;
+		switch(keyteam)
+		{
+			case 30: // my key
+				keyteam = myteam;
+				a = 1;
+				aa = 1;
+				break;
+			case -1: // no key
+				a = 0;
+				aa = 0;
+				break;
+			default: // owned or dropped
+				a = 0.2;
+				aa = 0.5;
+				break;
+		}
+		if(a > 0)
+		{
+			switch(keyteam)
+			{
+				case COLOR_TEAM1:
+					drawpic (pa, "gfx/hud/sb_kh_redarrow", kh_asize, '1 1 1', aa, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+				case COLOR_TEAM2:
+					drawpic (pa, "gfx/hud/sb_kh_bluearrow", kh_asize, '1 1 1', aa, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+				case COLOR_TEAM3:
+					drawpic (pa, "gfx/hud/sb_kh_yellowarrow", kh_asize, '1 1 1', aa, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+				case COLOR_TEAM4:
+					drawpic (pa, "gfx/hud/sb_kh_pinkarrow", kh_asize, '1 1 1', aa, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+				default:
+					break;
+			}
+			switch(i)
+			{
+				case 0:
+					drawpic (p, "gfx/hud/sb_kh_red", kh_size, '1 1 1', a, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+				case 1:
+					drawpic (p, "gfx/hud/sb_kh_blue", kh_size, '1 1 1', a, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+				case 2:
+					drawpic (p, "gfx/hud/sb_kh_yellow", kh_size, '1 1 1', a, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+				case 3:
+					drawpic (p, "gfx/hud/sb_kh_pink", kh_size, '1 1 1', a, DRAWFLAG_NORMAL);  // show 30% alpha key
+					break;
+			}
+		}
+		p_x += 24;
+		pa_x += 24;
 	}
 }
 
