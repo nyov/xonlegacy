@@ -382,6 +382,7 @@ void havocbot_movetogoal()
 	maxspeed = cvar("sv_maxspeed");
 
 	// Jetpack navigation
+	if(self.goalcurrent)
 	if(self.navigation_jetpack_goal)
 	if(self.goalcurrent==self.navigation_jetpack_goal)
 	if(self.ammo_fuel)
@@ -806,6 +807,7 @@ void havocbot_movetogoal()
 
 	// Bunnyhop!
 //	if(self.aistatus & AI_STATUS_ROAMING)
+	if(self.goalcurrent)
 	if(skill+self.bot_moveskill >= cvar("bot_ai_bunnyhop_skilloffset"))
 		havocbot_bunnyhop(dir);
 
