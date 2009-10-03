@@ -2527,8 +2527,8 @@ void Sbar_Draw (void)
 					Sbar_DrawXNum_Colored(armor_pos, x, 24, sbar_alpha_fg);
 				}
 				else {
-					drawpic(armor_pos + '78 -4.5 0', "gfx/hud/sb_armor", '32 32 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
-					Sbar_DrawXNum_Colored(armor_pos, x, 24, (x+10)/55 * sbar_alpha_fg);
+					drawpic(armor_pos + '78 -4.5 0', "gfx/hud/sb_armor", '32 32 0', '1 1 1', (x+10)/55 * sbar_alpha_fg, DRAWFLAG_NORMAL);
+					Sbar_DrawXNum_Colored(armor_pos, x, 24, sbar_alpha_fg);
 				}
 			}
 
@@ -2536,19 +2536,6 @@ void Sbar_Draw (void)
 			x = health;
 			drawpic(health_pos + '78 -4.5 0', "gfx/hud/sb_health", '32 32 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 			Sbar_DrawXNum_Colored(health_pos, x, 24, sbar_alpha_fg);
-		}
-
-		// weapon icons
-		x = 1.0;
-		Sbar_DrawWeapon_Clear();
-		for(i = 1; i <= 24; ++i)
-		{
-			if(weaponimpulse[i-1] >= 0)
-			if(stat_weapons & x)
-			{
-				Sbar_DrawWeapon(i-1, fade, (i == activeweapon), i);
-			}
-			x *= 2;
 		}
 
 		// ammo
@@ -2638,7 +2625,20 @@ void Sbar_Draw (void)
 
 		// draw strength/invincibility icon and timer
 		CSQC_Strength_Timer();
-		
+
+		// weapon icons
+                if(cvar("sbar_showweaponicons")) {
+			x = 1.0;
+               		Sbar_DrawWeapon_Clear();
+                	for(i = 1; i <= 24; ++i)
+                	{
+                        	if(weaponimpulse[i-1] >= 0)
+                       		if(stat_weapons & x)
+					Sbar_DrawWeapon(i-1, fade, (i == activeweapon), i);
+                	        x *= 2;
+                	}
+		}
+
 		// draw gametype specific icons
 		if(gametype == GAME_KEYHUNT)
 			CSQC_kh_hud();
@@ -2856,6 +2856,8 @@ void CSQC_kh_hud(void)
 				aa = 0.5;
 				break;
 		}
+		a = a * sbar_alpha_fg;
+		aa = aa * sbar_alpha_fg;
 		if(a > 0)
 		{
 			switch(keyteam)
