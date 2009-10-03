@@ -885,6 +885,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 	// apply push
 	if (self.damageforcescale)
 	if (vlen(force))
+	if (self.classname != "player" || time >= self.spawnshieldtime || g_midair)
 	{
 		self.velocity = self.velocity + self.damageforcescale * force;
 		self.flags &~= FL_ONGROUND;
@@ -901,7 +902,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 		// Savage: vampire mode
 		if (g_vampire)
 		if (!g_minstagib)
-		if (time > self.spawnshieldtime)
+		if (time >= self.spawnshieldtime)
 		{
 			attacker.health += damage;
 		}
