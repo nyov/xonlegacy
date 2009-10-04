@@ -40,9 +40,9 @@ void() m_init =
 	}
 }
 
+float conwidth_s, conheight_s;
 void UpdateConWidthHeight()
 {
-	float conwidth_s, conheight_s;
 	conwidth_s = conwidth;
 	conheight_s = conheight;
 	conwidth = cvar("vid_conwidth");
@@ -788,4 +788,12 @@ void() m_goto_skin_selector =
 		return;
 	// TODO add code to switch back to the skin selector (no idea how to do it now)
 	m_goto("skinselector");
+}
+
+void() m_goto_video_settings =
+{
+	if(!menuInitialized)
+		return;
+	// TODO add code to switch back to the skin selector (no idea how to do it now)
+	m_goto("videosettings");
 }
