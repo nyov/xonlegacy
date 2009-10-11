@@ -340,7 +340,7 @@ void checkpoint_passed()
 	/*
 	 * Trigger targets
 	 */
-	if not(self.spawnflags & 2)
+	if not((self.spawnflags & 2) && (other.classname == "player"))
 	{
 		activator = other;
 		oldmsg = self.message;
