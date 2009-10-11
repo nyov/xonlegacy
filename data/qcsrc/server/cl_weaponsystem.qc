@@ -737,6 +737,7 @@ void CL_Weaponentity_Think()
 void CL_ExteriorWeaponentity_Think()
 {
 	float tag_found;
+	vector ang;
 	self.nextthink = time;
 	if (self.owner.exteriorweaponentity != self)
 	{
@@ -776,6 +777,29 @@ void CL_ExteriorWeaponentity_Think()
 		self.alpha = self.owner.alpha;
 	else
 		self.alpha = 1;
+
+	ang_x = bound(sv_pitch_min, self.owner.v_angle_x, sv_pitch_max);
+	ang_y = 0;
+	ang_z = 0;
+
+	if(sv_pitch_fixyaw) // workaround for stupid player models that don't aim forward
+	{
+		ang_y = self.owner.v_angle_y;
+		makevectors(ang);
+		var vector v = v_forward;
+		gettaginfo(self.tag_entity, self.tag_index);
+		// untransform v according to this coordinate space
+		vector w;
+		w_x = v_forward * v;
+		w_y = -v_right * v;
+		w_z = v_up * v;
+		self.angles = vectoangles(w);
+	}
+	else
+	{
+		ang_x = -/* don't ask */ang_x;
+		self.angles = ang;
+	}
 
 	self.colormap = self.owner.colormap;
 };
