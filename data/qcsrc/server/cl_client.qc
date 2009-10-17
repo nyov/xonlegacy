@@ -1,3 +1,5 @@
+void race_send_recordtime(float t, float msg);
+
 float ClientData_Send(entity to, float sf)
 {
 	if(to != self.owner)
@@ -1015,6 +1017,7 @@ float ClientInit_SendEntity(entity to, float sf)
 	else
 		WriteString(MSG_ENTITY, "");
 	WriteByte(MSG_ENTITY, cvar("g_balance_armor_blockpercent") * 255.0);
+	WriteByte(MSG_ENTITY, cvar("g_balance_weaponswitchdelay") * 255.0);
 	return TRUE;
 }
 
@@ -1454,6 +1457,22 @@ void ClientConnect (void)
 	}
 	else
 		self.hitplotfh = -1;
+
+	if(g_race || g_cts) {
+		string rr;
+		if(g_cts)
+			rr = CTS_RECORD;
+		else
+			rr = RACE_RECORD;
+		t = stof(db_get(ServerProgsDB, strcat(GetMapname(), rr, "time")));
+
+		race_send_recordtime(t, MSG_ONE);
+		race_send_speedaward(MSG_ONE);
+
+		speedaward_alltimebest = stof(db_get(ServerProgsDB, strcat(GetMapname(), rr, "speed/speed")));
+		speedaward_alltimebest_holder = db_get(ServerProgsDB, strcat(GetMapname(), rr, "speed/netname"));
+		race_send_speedaward_alltimebest(MSG_ONE);
+	}
 }
 
 /*

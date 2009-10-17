@@ -33,6 +33,7 @@ void CSQC_kh_hud();
 void CSQC_ctf_hudreset();
 void CSQC_ctf_hud();
 void CSQC_nb_hud();
+void CSQC_race_hud();
 void MapVote_Draw();
 void Sbar_FinaleOverlay()
 {
@@ -838,27 +839,28 @@ string Sbar_FixScoreboardColumnWidth(float i, string str)
 
 void Sbar_PrintScoreboardItem(vector pos, entity pl, float is_self, float pl_number)
 {
-	vector tmp, plteamrgb;
-	plteamrgb = GetTeamRGB(pl.team); 
+	vector tmp, rgb;
+	rgb = GetTeamRGB(pl.team);
 	string str;
 	float i, field;
 	float is_spec;
 	is_spec = (GetPlayerColor(pl.sv_entnum) == COLOR_SPECTATOR);
-
+	
+	if((rgb == '1 1 1') && (!is_spec)) {
+		rgb_x = cvar("sbar_color_bg_r") + 0.5;
+		rgb_y = cvar("sbar_color_bg_g") + 0.5;
+		rgb_z = cvar("sbar_color_bg_b") + 0.5; }
+		
 	// Layout:
 	tmp_x = sbwidth;
 	tmp_y = sbar_fontsize_y * 1.25;
 	tmp_z = 0;
 
 	// alternated rows highlighting
-	if (is_self)
-		drawfill(pos - '1 1 0', tmp + '2 0 0', plteamrgb, sbar_scoreboard_highlight_alpha_self, DRAWFLAG_NORMAL);
-	else
-	{
-		if (sbar_scoreboard_highlight)
-			if(!mod(pl_number,2))
-				drawfill(pos - '1 1 0', tmp + '2 0 0', plteamrgb, sbar_scoreboard_highlight_alpha, DRAWFLAG_NORMAL);
-	}
+	if(is_self)
+		drawfill(pos - '1 1 0', tmp + '2 0 0', rgb, sbar_scoreboard_highlight_alpha_self, DRAWFLAG_NORMAL);
+	else if((sbar_scoreboard_highlight) && (!mod(pl_number,2)))
+		drawfill(pos - '1 1 0', tmp + '2 0 0', rgb, sbar_scoreboard_highlight_alpha, DRAWFLAG_NORMAL);
 
 	tmp_y = 0;
 
@@ -981,7 +983,7 @@ vector Sbar_Scoreboard_MakeTable(vector pos, entity tm, vector rgb, vector bg_si
 	tmp_y = 1.25 * sbar_fontsize_y;
 
 	// rounded header
-	drawpic(pos, "gfx/hud/sb_scoreboard_tableheader", tmp, '0.5 0.5 0.5', sbar_scoreboard_alpha_bg, DRAWFLAG_NORMAL);
+	drawpic(pos, "gfx/hud/sb_scoreboard_tableheader", tmp, (rgb * sbar_color_bg_team) + '0.5 0.5 0.5', sbar_scoreboard_alpha_bg, DRAWFLAG_NORMAL);
 
 	// table border
 	tmp_y += sbar_border_thickness;
@@ -1209,9 +1211,20 @@ void Sbar_DrawScoreboard()
 		}
 	}
 
+	if(gametype == GAME_CTS || gametype == GAME_RACE) {
+		if(race_speedaward) {
+			drawcolorcodedstring(pos, strcat("Speed award: ", ftos(race_speedaward), " (", race_speedaward_holder, ")"), sbar_fontsize, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
+			pos_y += 1.25 * sbar_fontsize_y;
+		}
+		if(race_speedaward_alltimebest) {
+			drawcolorcodedstring(pos, strcat("All-time fastest: ", ftos(race_speedaward_alltimebest), " (", race_speedaward_alltimebest_holder, ")"), sbar_fontsize, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
+			pos_y += 1.25 * sbar_fontsize_y;
+		}
+	}
+
 	tmp = pos + '0 1.5 0' * sbar_fontsize_y;
 	pos_y += 3 * sbar_fontsize_y;
-	
+
 	// List spectators
 	float specs;
 	specs = 0;
@@ -2074,9 +2087,6 @@ void Sbar_DrawAccuracyStats_Description_Splash(vector position)
 	drawstring(position + '0 9 0' * sbar_fontsize_y, "Damage wasted:", sbar_fontsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 }
 
-float sbar_accuracystats_fade_alpha;
-float sbar_woulddrawscoreboard_prev;
-float sbar_woulddrawscoreboard_change; // "time" at which Sbar_WouldDrawScoreboard() changed
 void Sbar_DrawAccuracyStats()
 {
 	float i, count_hitscan, count_splash, row;  // count is the number of 'colums'
@@ -2436,7 +2446,7 @@ void Sbar_Draw (void)
 	}
 	if(vote_waiting)
 	{
-		s = strcat("^2A vote has been called for ^1", vote_called_vote);
+		s = strcat("^2A vote has been called for ^1",  textShortenToWidth(vote_called_vote, vid_conwidth/2/sbar_fontsize_x, stringwidth_colors));
 		o = Sbar_DrawNoteLine(o, s);
 
 		if(vote_waiting_for_me)
@@ -2712,6 +2722,8 @@ void Sbar_Draw (void)
 			CSQC_ctf_hud();
 		else if(gametype == GAME_NEXBALL)
 			CSQC_nb_hud();
+		else if(gametype == GAME_CTS || gametype == GAME_RACE)
+			CSQC_race_hud();
 	}
 	return;
 }
@@ -3013,4 +3025,76 @@ void CSQC_nb_hud(void)
 
 	if (stat_items & IT_KEY1)
 		drawpic(pos, "gfx/hud/sb_nexball_carrying", '80 34 0', '1 1 1', 1, DRAWFLAG_NORMAL);
+}
+
+float crecordtime_prev; // last remembered crecordtime
+float crecordtime_change_time; // time when crecordtime last changed
+float srecordtime_prev; // last remembered srecordtime
+float srecordtime_change_time; // time when srecordtime last changed
+void CSQC_race_hud(void) 
+{
+	entity me;
+	me = playerslots[player_localentnum - 1];
+	float t, score;
+	float f; // yet another function has this
+	score = me.(scores[ps_primary]);
+
+	if not((scores_flags[ps_primary] & SFL_TIME) && !teamplay) // race/cts record display on HUD
+		return; // no records in the actual race
+
+	drawfont = sbar_bigfont;
+	vector pos;
+	pos_x = 2;
+	pos_y = vid_conheight - 48;
+
+	// clientside personal record
+	string rr;
+	if(gametype == GAME_CTS)
+		rr = CTS_RECORD;
+	else
+		rr = RACE_RECORD;
+	t = stof(db_get(ClientProgsDB, strcat(shortmapname, rr, "time")));
+
+	if(score && score < t || !t)
+		db_put(ClientProgsDB, strcat(shortmapname, rr, "time"), ftos(score));
+
+	if(t != crecordtime_prev) {
+		crecordtime_prev = t;
+		crecordtime_change_time = time;
+	}
+	f = time - crecordtime_change_time;
+
+	if (f > 1) {
+		drawstring(pos, "Personal best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawstring(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+	} else {
+		drawstring(pos, "Personal best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawstring(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+
+		// expanding
+		drawstring(pos - '0 50 0' * f, "Personal best ", '10 10 0' + '30 30 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
+		drawstring(pos + '0 10 0' - '0 30 0' * f, TIME_ENCODED_TOSTRING(t),'14 14 0' + '42 42 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
+	}
+
+	// server record
+	pos_y += 26;
+	t = race_server_record;
+	if(t != srecordtime_prev) {
+		srecordtime_prev = t;
+		srecordtime_change_time = time;
+	}
+	f = time - srecordtime_change_time;
+
+	if (f > 1) {
+		drawstring(pos, "Server best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawstring(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+	} else {
+		drawstring(pos, "Server best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawstring(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
+
+		// expanding
+		drawstring(pos - '0 50 0' * f, "Server best ", '10 10 0' + '30 30 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
+		drawstring(pos + '0 10 0' - '0 30 0' * f, TIME_ENCODED_TOSTRING(t),'14 14 0' + '42 42 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
+	}
+	drawfont = sbar_font;
 }

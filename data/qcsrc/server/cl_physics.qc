@@ -512,6 +512,33 @@ void SpecialCommand()
 #endif
 }
 
+float speedaward_speed;
+string speedaward_holder;
+void race_send_speedaward(float msg)
+{
+	// send the best speed of the round
+	WriteByte(msg, SVC_TEMPENTITY);
+	WriteByte(msg, TE_CSQC_RACE);
+	WriteByte(msg, RACE_NET_SPEED_AWARD);
+	WriteShort(msg, floor(speedaward_speed+0.5));
+	WriteString(msg, speedaward_holder);
+}
+
+float speedaward_alltimebest;
+string speedaward_alltimebest_holder;
+void race_send_speedaward_alltimebest(float msg)
+{
+	// send the best speed
+	WriteByte(msg, SVC_TEMPENTITY);
+	WriteByte(msg, TE_CSQC_RACE);
+	WriteByte(msg, RACE_NET_SPEED_AWARD_BEST);
+	WriteShort(msg, floor(speedaward_alltimebest+0.5));
+	WriteString(msg, speedaward_alltimebest_holder);
+}
+
+string GetMapname(void);
+float speedaward_lastupdate;
+float speedaward_lastsent;
 void SV_PlayerPhysics()
 {
 	local vector wishvel, wishdir, v;
@@ -1157,6 +1184,29 @@ void SV_PlayerPhysics()
 		}
 	}
 
+	if((g_cts || g_race) && self.classname != "observer") {
+		if(vlen(self.velocity - self.velocity_z * '0 0 1') > speedaward_speed) {
+			speedaward_speed = vlen(self.velocity - self.velocity_z * '0 0 1');
+			speedaward_holder = self.netname;
+			speedaward_lastupdate = time;
+		}
+		if(speedaward_speed > speedaward_lastsent && time - speedaward_lastupdate > 1) {
+			string rr;
+			if(g_cts)
+				rr = CTS_RECORD;
+			else
+				rr = RACE_RECORD;
+			race_send_speedaward(MSG_ALL);
+			speedaward_lastsent = speedaward_speed;
+			if (speedaward_speed > speedaward_alltimebest) {
+				speedaward_alltimebest = speedaward_speed;
+				speedaward_alltimebest_holder = speedaward_holder;
+				db_put(ServerProgsDB, strcat(GetMapname(), rr, "speed/speed"), ftos(speedaward_alltimebest));
+				db_put(ServerProgsDB, strcat(GetMapname(), rr, "speed/netname"), speedaward_alltimebest_holder);
+				race_send_speedaward_alltimebest(MSG_ALL);
+			}
+		}
+	}
 :end
 	if(self.flags & FL_ONGROUND)
 		self.lastground = time;

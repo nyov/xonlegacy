@@ -65,6 +65,7 @@ void CSQC_Init(void)
 
 	binddb = db_create();
 	tempdb = db_create();
+	ClientProgsDB = db_load("client.db");
 	compressShortVector_init();
 
 	drawfont = 0;
@@ -167,6 +168,8 @@ void CSQC_Shutdown(void)
 	remove(players);
 	db_close(binddb);
 	db_close(tempdb);
+	db_save(ClientProgsDB, "client.db");
+	db_close(ClientProgsDB);
 
 	cvar_clientsettemp_restore();
 
@@ -935,6 +938,8 @@ void Ent_Init()
 
 	armorblockpercent = ReadByte() / 255.0;
 
+	g_weaponswitchdelay = ReadByte() / 255.0;
+
 	if(!postinit)
 		PostInit();
 }
@@ -1023,6 +1028,18 @@ void Net_ReadRace()
 			if(race_penaltyreason)
 				strunzone(race_penaltyreason);
 			race_penaltyreason = strzone(ReadString());
+			break;
+
+		case RACE_NET_SERVER_RECORD:
+			race_server_record = ReadInt24_t();
+			break;
+		case RACE_NET_SPEED_AWARD:
+			race_speedaward = ReadShort();
+			race_speedaward_holder = strzone(ReadString());
+			break;
+		case RACE_NET_SPEED_AWARD_BEST:
+			race_speedaward_alltimebest = ReadShort();
+			race_speedaward_alltimebest_holder = strzone(ReadString());
 			break;
 	}
 }

@@ -192,6 +192,11 @@ float race_penaltyaccumulator; // qualifying: total penalty time in tenths
 float race_penaltyeventtime; // time when the player got the penalty
 float race_penaltytime; // duration of penalty time, in tenths
 string race_penaltyreason; // reason for penalty
+float race_server_record; // server record
+float race_speedaward;
+string race_speedaward_holder;
+float race_speedaward_alltimebest;
+string race_speedaward_alltimebest_holder;
 
 // RACE
 float race_mycheckpoint;
@@ -221,6 +226,7 @@ float announcer_5min;
 
 // database for misc stuff
 float tempdb;
+float ClientProgsDB;
 vector hook_shotorigin;
 
 #ifdef BLURTEST

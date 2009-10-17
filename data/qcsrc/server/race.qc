@@ -93,6 +93,15 @@ void race_InitSpectator()
 			race_SendNextCheckpoint(msg_entity.enemy, 1);
 }
 
+void race_send_recordtime(float t, float msg)
+{
+	// send the server best time
+	WriteByte(msg, SVC_TEMPENTITY);
+	WriteByte(msg, TE_CSQC_RACE);
+	WriteByte(msg, RACE_NET_SERVER_RECORD);
+	WriteInt24_t(msg, t);
+}
+
 void race_SendTime(entity e, float cp, float t, float tvalid)
 {
 	float snew, l;
@@ -138,7 +147,6 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 
 	float recordtime;
 	string recordholder;
-
 	if(g_race_qualifying)
 	{
 		if(tvalid)
@@ -158,7 +166,7 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 				if(cp == race_timed_checkpoint)
 				{
 					float grecordtime;
-					string grecordholder;
+					string grecordholder, recorddifference;
 					string rr;
 					if(g_cts)
 						rr = CTS_RECORD;
@@ -174,23 +182,27 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 						db_put(ServerProgsDB, strcat(GetMapname(), rr, "time"), ftos(t));
 						db_put(ServerProgsDB, strcat(GetMapname(), rr, "netname"), e.netname);
 						write_recordmarker(e, time - TIME_DECODE(t), TIME_DECODE(t));
+						race_send_recordtime(t, MSG_ALL);
 					}
 					else if(t < grecordtime)
 					{
+						recorddifference = strcat("^2", " [-", TIME_ENCODED_TOSTRING(grecordtime-t), "]");
 						if(grecordholder == "")
-							bprint(e.netname, "^7 broke his all-time fastest lap record with ", TIME_ENCODED_TOSTRING(t), "\n");
+							bprint(e.netname, strcat("^7 broke their all-time fastest lap record ", TIME_ENCODED_TOSTRING(grecordtime), " with ", TIME_ENCODED_TOSTRING(t), recorddifference), "\n");
 						else
-							bprint(e.netname, "^7 broke ", grecordholder, "^7's all-time fastest lap record with ", TIME_ENCODED_TOSTRING(t), "\n");
+							bprint(e.netname, strcat("^7 broke ", grecordholder, "^7's all-time fastest lap record ", TIME_ENCODED_TOSTRING(grecordtime), " with ", TIME_ENCODED_TOSTRING(t), recorddifference), "\n");
 						db_put(ServerProgsDB, strcat(GetMapname(), rr, "time"), ftos(t));
 						db_put(ServerProgsDB, strcat(GetMapname(), rr, "netname"), e.netname);
 						write_recordmarker(e, time - TIME_DECODE(t), TIME_DECODE(t));
+						race_send_recordtime(t, MSG_ALL);
 					}
 					else
 					{
+						recorddifference = strcat("^1", " [+", TIME_ENCODED_TOSTRING(t-grecordtime), "]");
 						if(grecordholder == "")
-							bprint(e.netname, "^7's new fastest lap could not break his all-time fastest lap record of ", TIME_ENCODED_TOSTRING(grecordtime), "\n");
+							bprint(e.netname, strcat("^7's new fastest lap ", TIME_ENCODED_TOSTRING(t), " could not break their all-time fastest lap record of ", TIME_ENCODED_TOSTRING(grecordtime), recorddifference), "\n");
 						else
-							bprint(e.netname, "^7's new fastest lap could not break ", grecordholder, "^7's all-time fastest lap record of ", TIME_ENCODED_TOSTRING(grecordtime), "\n");
+							bprint(e.netname, strcat("^7's new fastest lap ", TIME_ENCODED_TOSTRING(t), " could not break ", grecordholder, "^7's all-time fastest lap record of ", TIME_ENCODED_TOSTRING(grecordtime), recorddifference), "\n");
 					}
 				}
 
