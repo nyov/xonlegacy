@@ -92,7 +92,7 @@ void spawnfunc_info_player_deathmatch (void)
 void spawnpoint_use()
 {
 	if(teams_matter)
-	if(have_team_spawns)
+	if(have_team_spawns > 0)
 	{
 		self.team = activator.team;
 		some_spawn_has_been_used = 1;
@@ -293,7 +293,7 @@ entity SelectSpawnPoint (float anypoint)
 
 	teamcheck = 0;
 
-	if(!anypoint && have_team_spawns)
+	if(!anypoint && have_team_spawns > 0)
 		teamcheck = self.team;
 
 	// get the list of players
@@ -718,9 +718,9 @@ void FixPlayermodel()
 		oldskin = self.skinindex;
 		self.skinindex = defaultskin;
 	} else {
-		if (self.playermodel != self.model)
+		if (self.playermodel != self.model || self.playermodel == "")
 		{
-			self.playermodel = CheckPlayerModel(self.playermodel);
+			self.playermodel = CheckPlayerModel(self.playermodel); // this is never "", so no endless loop
 			m1 = self.mins;
 			m2 = self.maxs;
 			setmodel_lod (self, self.playermodel);

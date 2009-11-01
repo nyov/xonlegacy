@@ -263,7 +263,7 @@ void relocate_spawnpoint()
     if (!self.cnt)
         self.cnt = 1;
 
-    if (g_ctf || g_assault || g_onslaught || g_domination || g_nexball)
+    if (have_team_spawns != 0)
         if (self.team)
             have_team_spawns = 1;
 
@@ -491,6 +491,10 @@ string formatmessage(string msg)
             else
                 replacement = "(nobody)";
         }
+	else if (escape == "s")
+		replacement = ftos(vlen(self.velocity - self.velocity_z * '0 0 1'));
+	else if (escape == "S")
+		replacement = ftos(vlen(self.velocity));
         msg = strcat(substring(msg, 0, p), replacement, substring(msg, p+2, strlen(msg) - (p+2)));
         p = p + strlen(replacement);
     }

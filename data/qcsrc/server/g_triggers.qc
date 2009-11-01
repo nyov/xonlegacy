@@ -1410,10 +1410,14 @@ void spawnfunc_trigger_multivibrator()
 void follow_init()
 {
 	entity src, dst;
-	src = find(world, targetname, self.killtarget);
-	dst = find(world, targetname, self.target);
+	src = world;
+	dst = world;
+	if(self.killtarget != "")
+		src = find(world, targetname, self.killtarget);
+	if(self.target != "")
+		dst = find(world, targetname, self.target);
 
-	if(!src || !dst)
+	if(!src && !dst)
 	{
 		objerror("follow: could not find target/killtarget");
 		return;
@@ -1422,6 +1426,13 @@ void follow_init()
 	if(self.jointtype)
 	{
 		// already done :P entity must stay
+		self.aiment = src;
+		self.enemy = dst;
+	}
+	else if(!src || !dst)
+	{
+		objerror("follow: could not find target/killtarget");
+		return;
 	}
 	else if(self.spawnflags & 1)
 	{
