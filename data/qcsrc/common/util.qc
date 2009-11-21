@@ -1,3 +1,43 @@
+// checkextension wrapper for log
+float sqrt(float f); // declared later
+float exp(float f); // declared later
+float pow(float f, float e); // declared later
+float checkextension(string s); // declared later
+float log_synth(float f)
+{
+	float p, l;
+	if(f < 0)
+		return sqrt(-1); // nan? -inf?
+	if(f == 0)
+		return sqrt(-1); // ACTUALLY this should rather be -inf, but we cannot create a +inf in QC
+	if(f + f == f)
+		return l; // +inf
+	if(f < 1)
+	{
+		f = 1 / f;
+		p = -1;
+	}
+	else
+		p = 1;
+	while(f > 2)
+	{
+		f = sqrt(f);
+		p *= 2;
+	}
+	// two steps are good enough
+	l = ((6-f) * f - 5) / 4.32808512266689022212;
+	l += exp(-l) * f - 1;
+	l += exp(-l) * f - 1;
+	return l * p;
+}
+float log(float f)
+{
+	if(checkextension("DP_QC_LOG"))
+		return log_builtin(f);
+	else
+		return log_synth(f);
+}
+
 string wordwrap_buffer;
 
 void wordwrap_buffer_put(string s)
@@ -422,6 +462,7 @@ string GametypeNameFromType(float g)
 	else if (g == GAME_RUNEMATCH) return "rune";
 	else if (g == GAME_LMS) return "lms";
 	else if (g == GAME_ARENA) return "arena";
+	else if (g == GAME_CA) return "ca";
 	else if (g == GAME_KEYHUNT) return "kh";
 	else if (g == GAME_ONSLAUGHT) return "ons";
 	else if (g == GAME_ASSAULT) return "as";
@@ -1490,11 +1531,20 @@ float compressShotOrigin(vector v)
 	y = rint(v_y * 4) + 128;
 	z = rint(v_z * 4) + 128;
 	if(x > 255 || x < 0)
-		error("shot origin x out of bounds");
+	{
+		print("shot origin ", vtos(v), " x out of bounds\n");
+		x = bound(0, x, 255);
+	}
 	if(y > 255 || y < 0)
-		error("shot origin y out of bounds");
+	{
+		print("shot origin ", vtos(v), " y out of bounds\n");
+		y = bound(0, y, 255);
+	}
 	if(z > 255 || z < 0)
-		error("shot origin z out of bounds");
+	{
+		print("shot origin ", vtos(v), " z out of bounds\n");
+		z = bound(0, z, 255);
+	}
 	return x * 0x10000 + y * 0x100 + z;
 }
 vector decompressShotOrigin(float f)
@@ -1661,4 +1711,25 @@ float float2range01(float f)
 {
 	// continuous function mapping all reals into 0..1
 	return 0.5 + 0.5 * float2range11(f);
+}
+
+// from the GNU Scientific Library
+float gsl_ran_gaussian_lastvalue;
+float gsl_ran_gaussian_lastvalue_set;
+float gsl_ran_gaussian(float sigma)
+{
+	float a, b;
+	if(gsl_ran_gaussian_lastvalue_set)
+	{
+		gsl_ran_gaussian_lastvalue_set = 0;
+		return sigma * gsl_ran_gaussian_lastvalue;
+	}
+	else
+	{
+		a = random() * 2 * M_PI;
+		b = sqrt(-2 * log(random()));
+		gsl_ran_gaussian_lastvalue = cos(a) * b;
+		gsl_ran_gaussian_lastvalue_set = 1;
+		return sigma * sin(a) * b;
+	}
 }

@@ -1,6 +1,8 @@
 void drawstringright(vector, string, vector, vector, float, float);
 void drawstringcenter(vector, string, vector, vector, float, float);
 
+float teamnagger;
+
 float weapon_hits[WEP_COUNT];
 float weapon_fired[WEP_COUNT];
 float weapon_number;
@@ -12,13 +14,14 @@ float sbar_alpha_fg;
 float sbar_alpha_bg;
 float sbar_color_bg_team;
 float sbar_border_thickness;
+float sbar_accuracy_border_thickness;
 float sbar_scoreboard_alpha_bg;
 float sbar_scoreboard_alpha_fg;
 float sbar_scoreboard_highlight;
 float sbar_scoreboard_highlight_alpha;
 float sbar_scoreboard_highlight_alpha_self;
 float sbar_hudselector;
-float sbar_hud_accuracy;
+float sbar_accuracy_hud;
 float sbar_scoreboard_alpha_name;
 float sbar_scoreboard_alpha_name_self;
 
@@ -46,6 +49,26 @@ void Sbar_FinaleOverlay()
 
 	//drawstring(pos, "END", sbar_fontsize, '1 1 1', 1, DRAWFLAG_NORMAL);
 	MapVote_Draw();
+}
+
+vector Sbar_AccuracyColor(float accuracy)
+{
+	vector color;
+	float yellow_accuracy = cvar("sbar_accuracy_yellow"); // value at which this function returns yellow
+	if(accuracy >= 100) {
+		color_x = 0;
+		color_y = 1;
+	}
+	else if(accuracy > yellow_accuracy) {
+		color_x = 1 - (accuracy-yellow_accuracy)/(100-yellow_accuracy); // red value between 1 -> 0
+		color_y = 1;
+	}
+	else {
+		color_x = 1;
+		color_y = accuracy/yellow_accuracy; // green value between 0 -> 1
+	}
+	color_z = 0;
+	return color;
 }
 
 float weaponspace[10];
@@ -84,7 +107,7 @@ void Sbar_DrawWeapon(float nr, float fade, float active, float wc)
 	color_x = color_y = color_z = value;
 
 	// width = 300, height = 100
-	const float w_width = 24, w_height = 12, w_space = 2, font_size = 8;
+	const float w_width = 24, w_height = 12, w_space = 2, font_size = 8, accuracybar_height = 3;
 
 	sp = weaponspace[idx] + 1;
 	weaponspace[idx] = sp;
@@ -106,12 +129,14 @@ void Sbar_DrawWeapon(float nr, float fade, float active, float wc)
 	drawstring(pos, ftos(imp), vsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 
 	// draw the weapon accuracy on the HUD
-	if(sbar_hud_accuracy)
+	if(sbar_accuracy_hud)
  	{
- 		weapon_stats = rint(100*weapon_hit/weapon_damage);
- 		fill_colour_x = 1 - 0.015 * weapon_stats;
- 		fill_colour_y = 1 - 0.015 * (100 - weapon_stats);
- 		drawstringright(pos + '22 0 0', strcat(ftos(weapon_stats),"%"), '6 6 0', fill_colour, sbar_alpha_fg, 0);
+		if(weapon_damage)
+ 			weapon_stats = floor(100 * weapon_hit / weapon_damage);
+
+		fill_colour = Sbar_AccuracyColor(weapon_stats);
+		if(weapon_damage)
+			drawpic(pos - '2 0 0' + '0 1 0' * (w_height - accuracybar_height), "gfx/hud/sb_accuracy_bar.tga", '1 0 0' * w_width + '0 1 0' * accuracybar_height, fill_colour, sbar_alpha_fg, DRAWFLAG_NORMAL);
  	}
 }
 
@@ -1028,7 +1053,7 @@ vector Sbar_Scoreboard_MakeTable(vector pos, entity tm, vector rgb, vector bg_si
 			if (mod(i,2))
 				drawfill(pos - '0 1 0' - sbar_fontsize_x / 2 * '1 0 0', column_dim, '0 0 0', sbar_scoreboard_alpha_bg * 0.2, DRAWFLAG_NORMAL);
 		}
-		drawstring(pos, sbar_title[i], sbar_fontsize, rgb, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
+		drawstring(pos, sbar_title[i], sbar_fontsize, rgb * 1.5, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
 		pos_x += column_dim_x;
 	}
 	if(sbar_field[i] == SP_SEPARATOR)
@@ -1056,7 +1081,7 @@ vector Sbar_Scoreboard_MakeTable(vector pos, entity tm, vector rgb, vector bg_si
 
 			tmp_x = stringwidth(sbar_title[i], FALSE);
 			tmp_x = (sbar_size[i] - tmp_x) * sbar_fontsize_x;
-			drawstring(pos + tmp, sbar_title[i], sbar_fontsize, rgb, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
+			drawstring(pos + tmp, sbar_title[i], sbar_fontsize, rgb * 1.5, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
 			pos_x -= sbar_fontsize_x;
 		}
 	}
@@ -1105,6 +1130,109 @@ float Sbar_WouldDrawScoreboard() {
 	else if(sb_showscores_force)
 		return 1;
 	return 0;
+}
+
+float g_minstagib;
+float average_accuracy;
+vector Sbar_DrawScoreboardAccuracyStats(vector pos, vector rgb, vector bg_size)
+{
+	float i;
+	float weapon_hit, weapon_damage, weapon_stats;
+	float fontsize = 40 * 1/3;
+	float weapon_cnt = 12;
+	float rows;
+	if(cvar("sbar_accuracy_doublerows"))
+		rows = 2;
+	else
+		rows = 1;
+	float height = 40;
+
+	if(warmup_stage)
+	{
+		return pos;
+	}
+
+	drawstring(pos, strcat("Accuracy stats (average ", ftos(average_accuracy), "%)"), sbar_fontsize, '1 1 1', sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
+	pos_y += 18;
+	vector tmp;
+	tmp_x = sbwidth;
+	tmp_y = height * rows;
+
+	drawpic_tiled(pos, "gfx/hud/sb_scoreboard_bg", bg_size, tmp, rgb * sbar_color_bg_team, sbar_scoreboard_alpha_bg, DRAWFLAG_NORMAL);
+	drawborderlines(sbar_accuracy_border_thickness, pos, tmp, '0 0 0', sbar_scoreboard_alpha_bg * 0.75, DRAWFLAG_NORMAL);
+
+	// column highlighting
+	for(i = 0; i < weapon_cnt/rows; ++i)
+	{
+		if(!mod(i, 2))
+			drawfill(pos + '1 0 0' * (sbwidth/weapon_cnt) * rows * i, '0 1 0' * height * rows + '1 0 0' * (sbwidth/weapon_cnt) * rows, '0 0 0', sbar_scoreboard_alpha_bg * 0.2, DRAWFLAG_NORMAL);
+	}
+
+	// row highlighting
+	for(i = 0; i < rows; ++i)
+	{
+		drawfill(pos + '0 1 0' * height * (2/3) + '0 1 0' * height * i, '1 0 0' * sbwidth + '0 1 0' * fontsize, '1 1 1', sbar_scoreboard_highlight_alpha, DRAWFLAG_NORMAL);	
+	}
+
+	drawfont = sbar_bigfont;
+	average_accuracy = 0;
+	float weapons_with_stats;
+	weapons_with_stats = 0;
+	if(rows == 2)
+		pos_x += sbwidth/weapon_cnt / 2;
+
+	if(getstati(STAT_SWITCHWEAPON) == WEP_MINSTANEX)
+		g_minstagib = 1; // TODO: real detection for minstagib?
+
+	for(i = WEP_FIRST; i <= WEP_LAST; ++i)
+	{
+		if ((i == WEP_NEX && g_minstagib) || i == WEP_PORTO || (i == WEP_MINSTANEX && !g_minstagib) || i == WEP_TUBA || i == WEP_FIREBALL) // skip port-o-launch, nex || minstanex, tuba and fireball
+			continue;
+		weapon_hit = weapon_hits[i];
+		weapon_damage = weapon_fired[i];
+		if(weapon_damage)
+			weapon_stats = bound(0, floor(100 * weapon_hit / weapon_damage), 100);
+		self = get_weaponinfo(i);
+		float weapon_alpha;
+
+		if(weapon_damage)
+			weapon_alpha = sbar_scoreboard_alpha_fg;
+		else
+			weapon_alpha = 0.2 * sbar_scoreboard_alpha_fg;
+
+		// weapon icon
+		drawpic(pos, strcat("gfx/hud/inv_weapon", ftos(i-1)), '1 0 0' * sbwidth * (1/weapon_cnt) + '0 1 0' * height * (2/3), '1 1 1', weapon_alpha, DRAWFLAG_NORMAL);
+		// the accuracy
+		if(weapon_damage) {
+			weapons_with_stats += 1;
+			average_accuracy += weapon_stats; // store sum of all accuracies in average_accuracy
+
+			string s;
+			s = strcat(ftos(weapon_stats),"%");
+
+			float padding;
+			padding = ((sbwidth/weapon_cnt) - stringwidth(s, FALSE) * fontsize) / 2; // center the accuracy value
+
+			vector color;
+			color = Sbar_AccuracyColor(weapon_stats);
+			drawstring(pos + '1 0 0' * padding + '0 1 0' * height * (2/3), s, '1 1 0' * fontsize, color, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
+		}
+		pos_x += sbwidth/weapon_cnt * rows;
+		if(rows == 2 && i == 6) {
+			pos_x -= sbwidth;
+			pos_y += height;
+		}
+	}
+	drawfont = sbar_font;
+
+	if(weapons_with_stats)
+		average_accuracy = floor(average_accuracy / weapons_with_stats);
+
+	if(rows == 2)
+		pos_x -= sbwidth/weapon_cnt / 2;
+	pos_x -= sbwidth;
+	pos_y += height;
+	return pos;
 }
 
 float lastpingstime;
@@ -1175,7 +1303,7 @@ void Sbar_DrawScoreboard()
 	pos_y += sbar_fontsize_y;
 
 	drawfont = sbar_font;
-	
+
 	// Draw the scoreboard
 	vector bg_size;
 	bg_size = drawgetimagesize("gfx/hud/sb_scoreboard_bg");
@@ -1220,6 +1348,12 @@ void Sbar_DrawScoreboard()
 			drawcolorcodedstring(pos, strcat("All-time fastest: ", ftos(race_speedaward_alltimebest), " (", race_speedaward_alltimebest_holder, ")"), sbar_fontsize, sbar_scoreboard_alpha_fg, DRAWFLAG_NORMAL);
 			pos_y += 1.25 * sbar_fontsize_y;
 		}
+	}
+	else if(cvar("sbar_accuracy")) {
+		if(teamplay)
+			pos = Sbar_DrawScoreboardAccuracyStats(pos, GetTeamRGB(myteam), bg_size);
+		else
+			pos = Sbar_DrawScoreboardAccuracyStats(pos, rgb, bg_size);
 	}
 
 	tmp = pos + '0 1.5 0' * sbar_fontsize_y;
@@ -1616,6 +1750,8 @@ void Sbar_Timer()
 	topright = '0 0 0';
 	topright_x = vid_conwidth;
 	
+	float scale;
+	scale = cvar("sbar_timer_scale");
 	timelimit = getstatf(STAT_TIMELIMIT);
 	
 	timeleft = max(0, timelimit * 60 + getstatf(STAT_GAMESTARTTIME) - time);
@@ -1640,45 +1776,45 @@ void Sbar_Timer()
 			seconds = elapsedTime - minutes*60;
 		}
 		if (minutes < 10)
-			bgpos_x = topright_x - 54 - 17 - 12;
+			bgpos_x = topright_x - (54 + 17 + 12) * scale;
 		else if (minutes < 100)	// nudge the timer background left if more digits are drawn
-			bgpos_x = topright_x - 72 - 17 - 12;
+			bgpos_x = topright_x - (72 + 17 + 12) * scale;
 		else
-			bgpos_x = topright_x - 90 - 17 - 12;
+			bgpos_x = topright_x - (90 + 17 + 12) * scale;
 		bgpos_y = 0;
 		bgpos_z = 0;
 	} else {
 		minutes = minutesLeft;
 		seconds = secondsLeft;
 		if (minutes == 0)
-		bgpos_x = topright_x - 36 - 7 - 12;
+			bgpos_x = topright_x - (36 + 7 + 12) * scale;
 		else if (minutes < 10) // nudge the timer background left if more digits are drawn
-			bgpos_x = topright_x - 54 - 17 - 12;
+			bgpos_x = topright_x - (54 + 17 + 12) * scale;
 		else if (minutes < 100)
-			bgpos_x = topright_x - 72 - 17 - 12;
+			bgpos_x = topright_x - (72 + 17 + 12) * scale;
 		else
-			bgpos_x = topright_x - 90 - 17 - 12;
+			bgpos_x = topright_x - (90 + 17 + 12) * scale;
 		bgpos_y = 0;
 		bgpos_z = 0;
 	}
 
 	if (cvar("viewsize") <= 100) { // draw timer background when viewsize <= 100
 		if (teamplay)
-			drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', GetTeamRGB(myteam) * sbar_color_bg_team, sbar_alpha_bg, DRAWFLAG_NORMAL); // timer bg color = myteam color
+			drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0' * scale, GetTeamRGB(myteam) * sbar_color_bg_team, sbar_alpha_bg, DRAWFLAG_NORMAL); // timer bg color = myteam color
 		else {
 			color_x = cvar("sbar_color_bg_r");
 			color_y = cvar("sbar_color_bg_g");
 			color_z = cvar("sbar_color_bg_b");
 
-			drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0', color, sbar_alpha_bg, DRAWFLAG_NORMAL);
+			drawpic(bgpos, "gfx/hud/sb_timerbg", '120 30 0' * scale, color, sbar_alpha_bg, DRAWFLAG_NORMAL);
 		}
 	}
 
 	if(minutesLeft >= 1 || cvar("sbar_increment_maptime") || timelimit == 0 || warmup_stage) {
-		Sbar_DrawXNum(topright - '103 0 0' + '0 2 0', minutes, 3, 0, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
-		drawpic(topright - '53 0 0' + '0 1 0', "gfx/hud/num_colon", '18 18 0', timer_color, sbar_alpha_fg, DRAWFLAG_NORMAL);
+		Sbar_DrawXNum(topright - ('103 0 0' - '0 2 0') * scale, minutes, 3, 0, 18 * scale, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+		drawpic(topright - ('53 0 0' - '0 1 0') * scale, "gfx/hud/num_colon", '18 18 0' * scale, timer_color, sbar_alpha_fg, DRAWFLAG_NORMAL);
 	}
-	Sbar_DrawXNum(topright - '36 0 0' - '3 0 0' + '0 2 0', seconds, -2, 0, 18, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
+	Sbar_DrawXNum(topright - ('36 0 0' + '3 0 0' - '0 2 0') * scale, seconds, -2, 0, 18 * scale, timer_color, 0, 0, sbar_alpha_fg, DRAWFLAG_NORMAL);
 }
 
 void CSQC_Strength_Timer() {
@@ -2094,6 +2230,7 @@ void Sbar_DrawAccuracyStats()
 	float left_border;  // position where the weapons start, the description is in the border
 	vector fill_colour, fill_size;
 	vector pos;
+	vector border_colour;
 
 	float col_margin = 20;  // pixels between the columns
 	float row_margin = 20;  // pixels between the rows
@@ -2131,11 +2268,11 @@ void Sbar_DrawAccuracyStats()
 		weapon_hit = weapon_hits[i];
 		weapon_damage = weapon_fired[i];
 		self = get_weaponinfo(i);
+		border_colour = (i == activeweapon) ? '1 1 1' : '0 0 0';  // white or black border
 
-		//if ((weapon_number != 42))  // print them all :)
 		if (weapon_damage) {
 			if (self.weapon_type == WEP_TYPE_SPLASH) {
-				weapon_stats = bound(0, rint(100 * weapon_hit / weapon_damage), 100);
+				weapon_stats = bound(0, floor(100 * weapon_hit / weapon_damage), 100);
 
 				fill_colour_x = 1 - 0.015 * weapon_stats;
 				fill_colour_y = 1 - 0.015 * (100 - weapon_stats);
@@ -2166,7 +2303,7 @@ void Sbar_DrawAccuracyStats()
 
 				// background
 				drawpic(pos, "gfx/hud/sb_accuracy", fill_size , fill_colour, sbar_alpha_bg, DRAWFLAG_NORMAL);
-				drawborderlines(sbar_border_thickness, pos, fill_size, '0 0 0', sbar_alpha_bg, DRAWFLAG_NORMAL);
+				drawborderlines(sbar_border_thickness, pos, fill_size, border_colour, sbar_alpha_bg, DRAWFLAG_NORMAL);
 
 				// the weapon
 				drawpic(pos, strcat("gfx/hud/inv_weapon", ftos(i-1)), '1 0.5 0' * fill_size_x , '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
@@ -2184,8 +2321,8 @@ void Sbar_DrawAccuracyStats()
 				drawstringright(pos + '4.5 0 0' * sbar_fontsize_x + '0 9 0' * sbar_fontsize_y, ftos(max(0, weapon_damage - weapon_hit)), sbar_fontsize, '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 
 				++count_splash;
-			} else if ((self.weapon_type == WEP_TYPE_HITSCAN) && (weapon_damage)) {
-				weapon_stats = bound(0, rint(100 * weapon_hit / weapon_damage), 100);
+			} else if (self.weapon_type == WEP_TYPE_HITSCAN) {
+				weapon_stats = bound(0, floor(100 * weapon_hit / weapon_damage), 100);
 
 				fill_colour_x = 1 - 0.015 * weapon_stats;
 				fill_colour_y = 1 - 0.015 * (100 - weapon_stats);
@@ -2216,7 +2353,7 @@ void Sbar_DrawAccuracyStats()
 
 				// background
 				drawpic(pos, "gfx/hud/sb_accuracy", fill_size , fill_colour, sbar_alpha_bg, DRAWFLAG_NORMAL);
-				drawborderlines(sbar_border_thickness, pos, fill_size, '0 0 0', sbar_alpha_bg, DRAWFLAG_NORMAL);
+				drawborderlines(sbar_border_thickness, pos, fill_size, border_colour, sbar_alpha_bg, DRAWFLAG_NORMAL);
 
 				// the weapon
 				drawpic(pos, strcat("gfx/hud/inv_weapon", ftos(i-1)), '1 0.5 0' * fill_size_x , '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
@@ -2325,6 +2462,7 @@ void Sbar_Draw (void)
 
 	sbar_alpha_bg = cvar("sbar_alpha_bg") * (1 - cvar("_menu_alpha"));
 	sbar_border_thickness = bound(0, cvar("sbar_border_thickness"), 5);
+	sbar_accuracy_border_thickness = bound(0, cvar_or("sbar_accuracy_border_thickness", 1), 5);
 	sbar_color_bg_team = cvar("sbar_color_bg_team");
 
 	float i;
@@ -2333,12 +2471,12 @@ void Sbar_Draw (void)
 	float stat_items, stat_weapons;
 
 	weapon_stats = getstati(STAT_DAMAGE_HITS);
- 	weapon_number = weapon_stats & 63;
- 	weapon_hits[weapon_number] = rint(weapon_stats / 64);
+	weapon_number = weapon_stats & 63;
+	weapon_hits[weapon_number] = floor(weapon_stats / 64);
 
- 	weapon_stats = getstati(STAT_DAMAGE_FIRED);
- 	weapon_number = weapon_stats & 63;
- 	weapon_fired[weapon_number] = rint(weapon_stats / 64);
+	weapon_stats = getstati(STAT_DAMAGE_FIRED);
+	weapon_number = weapon_stats & 63;
+	weapon_fired[weapon_number] = floor(weapon_stats / 64);
 
 	vector o; o = '1 0 0' * vid_conwidth;
 	o_y = 28; // move spectator text slightly down to prevent overlapping the timer
@@ -2466,7 +2604,7 @@ void Sbar_Draw (void)
 			o = Sbar_DrawNoteLine(o, s);
 		}
 	}
-	if(teamplay && !intermission && !spectatee_status)
+	if(teamplay && !intermission && !spectatee_status && gametype != GAME_CA && teamnagger)
 	{
 		entity tm;
 		float ts_min, ts_max;

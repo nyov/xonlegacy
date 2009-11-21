@@ -6,7 +6,7 @@
 //#define PROFILESTRZONE
 //#define FIXEDFOPEN
 
-void 	checkextension(string ext) = #1;
+float 	checkextension(string ext) = #1;
 
 // error cmds
 void 	error(string err,...) 	= #2;
@@ -347,3 +347,4 @@ float(float i) argv_end_index = #516;
 string(float, float) getgamedirinfo = #626;
 #define GETGAMEDIRINFO_NAME 0
 #define GETGAMEDIRINFO_DESCRIPTION 1
+float log(float f) = #532;

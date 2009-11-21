@@ -72,10 +72,9 @@ void W_Laser_Attack (float issecondary)
 	setsize(missile, '0 0 0', '0 0 0');
 
 	if (issecondary == 1)
-		missile.velocity = w_shotdir * cvar("g_balance_laser_secondary_speed");
+		W_SETUPPROJECTILEVELOCITY(missile, g_balance_laser_secondary);
 	else
-		missile.velocity = w_shotdir * cvar("g_balance_laser_primary_speed");
-	W_SetupProjectileVelocity(missile);
+		W_SETUPPROJECTILEVELOCITY(missile, g_balance_laser_primary);
 	missile.angles = vectoangles (missile.velocity);
 	//missile.glow_color = 250; // 244, 250
 	//missile.glow_size = 120;
@@ -96,6 +95,18 @@ void W_Laser_Attack (float issecondary)
 		self.think();
 		self = oldself;
 	}
+}
+
+void W_Laser_Attack2 (void) // gauntlet
+{
+	W_SetupShot (self, TRUE, 0, "weapons/gauntlet_fire.wav", cvar("g_balance_laser_primary_damage"));
+
+	traceline_antilag(self, w_shotorg, w_shotorg + w_shotdir * cvar("g_balance_laser_primary_radius"), FALSE, self, ANTILAG_LATENCY(self));
+
+	pointparticles(particleeffectnum("laser_gauntlet"), w_shotorg + w_shotdir * cvar("g_balance_laser_primary_radius"), '0 0 0', 1);
+
+	if (trace_fraction < 1)
+		Damage(trace_ent, self, self, cvar("g_balance_laser_primary_damage"), WEP_LASER | HITTYPE_SECONDARY, trace_endpos, cvar("g_balance_laser_primary_force") * w_shotdir);
 }
 
 void spawnfunc_weapon_laser (void)
@@ -126,7 +137,10 @@ float w_laser(float req)
 		if (self.BUTTON_ATCK)
 		if (weapon_prepareattack(0, cvar("g_balance_laser_primary_refire")))
 		{
-			W_Laser_Attack(0);
+			if(cvar("g_balance_laser_gauntlet"))
+				W_Laser_Attack2();
+			else
+				W_Laser_Attack(0);
 			weapon_thinkf(WFRAME_FIRE1, cvar("g_balance_laser_primary_animtime"), w_ready);
 		}
 		if (self.BUTTON_ATCK2)
@@ -152,6 +166,7 @@ float w_laser(float req)
 		precache_model ("models/weapons/v_laser.md3");
 		precache_model ("models/weapons/h_laser.dpm");
 		precache_sound ("weapons/lasergun_fire.wav");
+		precache_sound ("weapons/gauntlet_fire.wav");
 	}
 	else if (req == WR_SETUP)
 		weapon_setup(WEP_LASER);

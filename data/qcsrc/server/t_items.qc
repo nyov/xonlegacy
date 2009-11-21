@@ -64,7 +64,7 @@ float Item_Customize()
 
 void Item_Show (entity e, float mode)
 {
-	e.effects &~= EF_ADDITIVE | EF_STARDUST | EF_FULLBRIGHT;
+	e.effects &~= EF_ADDITIVE | EF_STARDUST | EF_FULLBRIGHT | EF_NODEPTHTEST;
 	if (mode > 0)
 	{
 		// make the item look normal, and be touchable
@@ -124,6 +124,8 @@ void Item_Show (entity e, float mode)
 
 	if (e.strength_finished || e.invincible_finished)
 		e.effects |= EF_ADDITIVE | EF_FULLBRIGHT;
+	if (cvar("g_nodepthtestitems"))
+		e.effects |= EF_NODEPTHTEST;
 	if (cvar("g_fullbrightitems"))
 		e.effects |= EF_FULLBRIGHT;
 
@@ -786,7 +788,7 @@ void StartItem (string itemmodel, string pickupsound, float defaultrespawntime, 
 
 		weaponsInMap |= weaponid;
 
-		if(g_lms)
+		if(g_lms || g_ca)
 		{
 			startitem_failed = TRUE;
 			remove(self);
@@ -1268,7 +1270,7 @@ void spawnfunc_item_health_mega (void) {
 	if(!cvar("g_powerup_superhealth"))
 		return;
 
-	if(g_arena && !cvar("g_arena_powerups"))
+	if((g_arena || g_ca) && !cvar("g_arena_powerups"))
 		return;
 
 	if(g_minstagib) {
@@ -1293,7 +1295,7 @@ void spawnfunc_item_strength (void) {
 	if(!cvar("g_powerup_strength"))
 		return;
 
-	if(g_arena && !cvar("g_arena_powerups"))
+	if((g_arena || g_ca) && !cvar("g_arena_powerups"))
 		return;
 
 	if(g_minstagib) {
@@ -1309,7 +1311,7 @@ void spawnfunc_item_invincible (void) {
 	if(!cvar("g_powerup_shield"))
 		return;
 
-	if(g_arena && !cvar("g_arena_powerups"))
+	if((g_arena || g_ca) && !cvar("g_arena_powerups"))
 		return;
 
 	if(g_minstagib) {

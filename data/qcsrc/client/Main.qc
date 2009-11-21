@@ -134,6 +134,7 @@ void CSQC_Init(void)
 	Casings_Precache();
 	DamageInfo_Precache();
 	Announcer_Precache();
+	Tuba_Precache();
 
 	get_mi_min_max_texcoords(1); // try the CLEVER way first
 	minimapname = strcat("gfx/", mi_shortname, "_radar.tga");
@@ -719,6 +720,13 @@ void Ent_ClientData()
 
 	if(newspectatee_status != spectatee_status)
 	{
+		float i;
+		// clear the weapon accuracy stats
+		for(i = WEP_FIRST; i <= WEP_LAST; ++i) {
+			weapon_hits[i] = 0;
+			weapon_fired[i] = 0;
+		}
+
 		// clear race stuff
 		race_laptime = 0;
 		race_checkpointtime = 0;
@@ -825,6 +833,7 @@ void(float bIsNewEntity) CSQC_Ent_Update =
 		case ENT_CLIENT_RANDOMSEED: Ent_RandomSeed(); break;
 		case ENT_CLIENT_WALL: Ent_Wall(); break;
 		case ENT_CLIENT_MODELEFFECT: Ent_ModelEffect(bIsNewEntity); break;
+		case ENT_CLIENT_TUBANOTE: Ent_TubaNote(bIsNewEntity); break;
 		default:
 			error(strcat("unknown entity type in CSQC_Ent_Update: ", ftos(self.enttype), "\n"));
 			break;
@@ -1050,6 +1059,11 @@ void Net_ReadSpawn()
 	current_viewzoom = 0.6;
 }
 
+void Net_TeamNagger()
+{
+	teamnagger = 1;
+}
+
 // CSQC_Parse_TempEntity : Handles all temporary entity network data in the CSQC layer.
 // You must ALWAYS first acquire the temporary ID, which is sent as a byte.
 // Return value should be 1 if CSQC handled the temporary entity, otherwise return 0 to have the engine process the event.
@@ -1086,6 +1100,10 @@ float CSQC_Parse_TempEntity()
 			break;
 		case TE_CSQC_NEXGUNBEAMPARTICLE:
 			Net_ReadNexgunBeamParticle();
+			bHandled = true;
+			break;
+		case TE_CSQC_TEAMNAGGER:
+			Net_TeamNagger();
 			bHandled = true;
 			break;
         case TE_CSQC_LIGHTNINGARC:

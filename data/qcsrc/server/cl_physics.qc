@@ -436,13 +436,13 @@ void PM_Accelerate(vector wishdir, float wishspeed, float wishspeed0, float acce
 
 	if(sidefric < 0 && (vel_perpend*vel_perpend))
 	{
-		float f, fmin;
+		float f, fminimum;
 		f = (1 + frametime * wishspeed * sidefric);
-		fmin = (savespeed - vel_straight*vel_straight) / (vel_perpend*vel_perpend);
-		if(fmin <= 0)
+		fminimum = (savespeed - vel_straight*vel_straight) / (vel_perpend*vel_perpend);
+		if(fminimum <= 0)
 			vel_perpend = vel_perpend * f;
 		else
-			vel_perpend = vel_perpend * min(1, max(fmin, f));
+			vel_perpend = vel_perpend * min(1, max(fminimum, f));
 	}
 	else
 		vel_perpend = vel_perpend * (1 - frametime * wishspeed * sidefric);
@@ -587,13 +587,13 @@ void SV_PlayerPhysics()
 			{
 				// diagonal
 				if(self.movement_x > 0)
-					self.movement_x = 0.70710678118654752440 * wishspeed;
+					self.movement_x = M_SQRT1_2 * wishspeed;
 				else
-					self.movement_x = -0.70710678118654752440 * wishspeed;
+					self.movement_x = -M_SQRT1_2 * wishspeed;
 				if(self.movement_y > 0)
-					self.movement_y = 0.70710678118654752440 * wishspeed;
+					self.movement_y = M_SQRT1_2 * wishspeed;
 				else
-					self.movement_y = -0.70710678118654752440 * wishspeed;
+					self.movement_y = -M_SQRT1_2 * wishspeed;
 			}
 		}
 	}

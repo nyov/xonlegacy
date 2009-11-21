@@ -469,6 +469,15 @@ void(entity e, entity tagentity, string tagname) setattachment = #443; // attach
 //self.button7 = (bits & 64) != 0;
 //self.button8 = (bits & 128) != 0;
 
+// DP_LIGHTSTYLE_STATICVALUE
+// idea: VorteX
+// darkplaces implementation: VorteX
+// description: allows alternative 'static' lightstyle syntax : "=value"
+// examples: "=0.5", "=2.0", "=2.75"
+// could be used to control switchable lights or making styled lights with brightness > 2
+// Warning: this extension is experimental. It safely works in CSQC, but SVQC use is limited by the fact 
+// that other engines (which do not support this extension) could connect to a game and misunderstand this kind of lightstyle syntax
+
 //DP_LITSPRITES
 //idea: LordHavoc
 //darkplaces implementation: LordHavoc
@@ -647,6 +656,17 @@ string(entity ent) etos = #65;
 //description:
 //prints "entity 1" or similar into a string. (this was a Q2 builtin)
 
+//DP_QC_EXTRESPONSEPACKET
+//idea: div0
+//darkplaces implementation: div0
+//builtin definitions:
+string(void) getextresponse = #624;
+//description:
+//returns a string of the form "\"ipaddress:port\" data...", or the NULL string
+//if no packet was found. Packets can be queued into the client/server by
+//sending a packet starting with "\xFF\xFF\xFF\xFFextResponse " to the
+//listening port.
+
 //DP_QC_FINDCHAIN
 //idea: LordHavoc
 //darkplaces implementation: LordHavoc
@@ -799,6 +819,13 @@ float(float tmr) gettime = #519;
 float GETTIME_CDTRACK = 4;
 //description:
 //returns the playing time of the current cdtrack when passed to gettime()
+
+//DP_QC_LOG
+//darkplaces implementation: div0
+//builtin definitions:
+float log(float f) = #532;
+//description:
+//logarithm
 
 //DP_QC_MINMAXBOUND
 //idea: LordHavoc

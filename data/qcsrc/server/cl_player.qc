@@ -475,8 +475,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 	else
 		Violence_GibSplash_At(hitloc, force, 2, bound(0, damage, 200) / 16, self, attacker);
 
-	if(g_arena)
-	if(numspawned < 2)
+	if((g_arena && numspawned < 2) || (g_ca && player_cnt < 2))
 		return;
 
 	if (!g_minstagib)
@@ -731,7 +730,7 @@ void PlayerDamage (entity inflictor, entity attacker, float damage, float deatht
 		if(defer_ClientKill_Now_TeamChange)
 			ClientKill_Now_TeamChange();
 
-		if(sv_gentle > 0) {
+		if(sv_gentle > 0 || cvar("ekg")) {
 			// remove corpse
 			PlayerCorpseDamage (inflictor, attacker, 100.0, deathtype, hitloc, force);
 		}

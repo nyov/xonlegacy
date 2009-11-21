@@ -17,7 +17,7 @@ float require_spawnfunc_prefix; // if this float exists, only functions with spa
 
 float ctf_score_value(string parameter);
 
-float g_dm, g_domination, g_ctf, g_tdm, g_keyhunt, g_onslaught, g_assault, g_arena, g_lms, g_runematch, g_race, g_nexball, g_cts;
+float g_dm, g_domination, g_ctf, g_tdm, g_keyhunt, g_onslaught, g_assault, g_arena, g_ca, g_lms, g_runematch, g_race, g_nexball, g_cts;
 float g_cloaked, g_footsteps, g_jump_grunt, g_grappling_hook, g_laserguided_missile, g_midair, g_minstagib, g_nixnex, g_nixnex_with_laser, g_pinata, g_norecoil, g_vampire, g_minstagib_invis_alpha, g_bloodloss;
 float g_warmup_limit;
 float g_warmup_allguns;
@@ -389,7 +389,7 @@ void centerprint(entity e, string s);
 
 float bot_waypoints_for_items;
 
-.float	attack_finished_for[WEP_COUNT];
+.float attack_finished_for[WEP_COUNT];
 .float attack_finished_single;
 #ifdef INDEPENDENT_ATTACK_FINISHED
 #define ATTACK_FINISHED_FOR(ent,w) ((ent).(attack_finished_for[(w) - WEP_FIRST]))
@@ -598,7 +598,16 @@ string matchid;
 .float hitplotfh;
 .string noise4;
 
-.float damage_hits, maxdamage_fired;
+.float stat_hit;
+.float stat_fired;
+.float stat_count;
+
+.float stats_hit[WEP_LAST - WEP_FIRST + 1];  // for hitscan bullets hit
+.float stats_fired[WEP_LAST - WEP_FIRST + 1];  // for hitscan bullets fired
+
+FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(stats_hit);
+FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(stats_fired);
+
 .float maycheat;
 .float stat_leadlimit;
 
@@ -624,3 +633,8 @@ float client_cefc_accumulatortime;
 .entity personal;
 
 string deathmessage;
+
+
+
+.float cvar_cl_accuracy_data_share;
+.float cvar_cl_accuracy_data_receive;

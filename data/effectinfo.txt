@@ -4506,3 +4506,20 @@ liquidfriction 0.8
 velocityoffset 0 0 80
 velocityjitter 256 256 256
 velocitymultiplier -0.1
+
+
+// gauntlet laser
+// based off morphed's cl_gentle
+// used in qcsrc/server/w_laser.qc
+effect laser_gauntlet
+tex 43 43
+count 3
+type spark
+color 0xff00ff 0xff0000
+size 4 8
+sizeincrease 34
+alpha 128 128 292
+gravity 0
+airfriction 5
+liquidfriction 10
+velocityjitter 50 50 50

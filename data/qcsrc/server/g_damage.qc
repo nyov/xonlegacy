@@ -121,7 +121,7 @@ void GiveFrags (entity attacker, entity targ, float f)
 
 	PlayerScore_Add(targ, SP_DEATHS, 1);
 
-	if(g_arena)
+	if(g_arena || g_ca)
 		if(cvar("g_arena_roundbased"))
 			return;
 
@@ -702,7 +702,7 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 						{
 							teamdamage0 = max(attacker.dmg_team, cvar("g_teamdamage_threshold"));
 							attacker.dmg_team = attacker.dmg_team + damage;
-							if(attacker.dmg_team > teamdamage0)
+							if(attacker.dmg_team > teamdamage0 && !g_ca)
 								mirrordamage = cvar("g_mirrordamage") * (attacker.dmg_team - teamdamage0);
 							mirrorforce = cvar("g_mirrordamage") * vlen(force);
 							if(g_minstagib)
@@ -710,6 +710,8 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 								if(cvar("g_friendlyfire") == 0)
 									damage = 0;
 							}
+							else if(g_ca)
+								damage = 0;
 							else
 								damage = cvar("g_friendlyfire") * damage;
 							// mirrordamage will be used LATER
@@ -792,7 +794,12 @@ void Damage (entity targ, entity inflictor, entity attacker, float damage, float
 			damage = damage * cvar("g_balance_powerup_invincible_takedamage");
 
 		if (targ == attacker)
-			damage = damage * cvar("g_balance_selfdamagepercent");	// Partial damage if the attacker hits himself
+		{
+			if(g_ca)
+				damage = 0;
+			else
+				damage = damage * cvar("g_balance_selfdamagepercent");	// Partial damage if the attacker hits himself
+		}
 
 		// CTF: reduce damage/force
 		if(g_ctf)
@@ -1002,23 +1009,16 @@ vector NearestPointOnBox(entity box, vector org)
 	return nearest;
 }
 
-.float actual_damage[WEP_COUNT]; //amount of damage done
-.float max_damage[WEP_COUNT]; //the maximum damage of the weapon
-
-FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(actual_damage);
-FTEQCC_YOU_SUCK_THIS_IS_NOT_UNREFERENCED(max_damage);
-
 void Damage_RecordDamage(entity attacker, float deathtype, float damage)
 {
 	float weaponid;
 	weaponid = DEATH_WEAPONOF(deathtype);
+
 	if not(inWarmupStage)
-	if(weaponid)
-	if(clienttype(attacker) == CLIENTTYPE_REAL)
-	{
-		// Track damage done and update the stat to be sent later in g_world.qc
-		attacker.actual_damage[weaponid] += damage;
-		attacker.damage_hits = weaponid + 64 * rint(attacker.actual_damage[weaponid]);
+	if (weaponid)
+	if ((clienttype(attacker) == CLIENTTYPE_REAL) | (clienttype(attacker) == CLIENTTYPE_BOT)) {
+		attacker.stats_hit[weaponid - 1] += damage;
+		attacker.stat_hit = weaponid + 64 * floor(attacker.stats_hit[weaponid - 1]);
 	}
 }
 

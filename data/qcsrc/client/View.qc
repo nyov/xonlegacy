@@ -122,18 +122,6 @@ void Porto_Init()
 }
 
 float drawtime;
-
-float tan(float x)
-{
-	return sin(x) / cos(x);
-}
-float atan2(float y, float x)
-{
-	vector v;
-	v = '1 0 0' * x + '0 1 0' * y;
-	v = vectoangles(v);
-	return v_y * 0.01745329251994329576;
-}
 float avgspeed;
 vector GetCurrentFov(float fov)
 {
@@ -199,15 +187,15 @@ vector GetCurrentFov(float fov)
 		
 	velocityzoom = bound(0, drawframetime / max(0.000000001, cvar_or("cl_velocityzoomtime", 0.3)), 1);
 	avgspeed = avgspeed * (1 - velocityzoom) + (vlen(pmove_vel) / 1000) * velocityzoom;
-	velocityzoom = pow(2.718281828459, float2range11(avgspeed * -cvar_or("cl_velocityzoom", 0) / 1) * 1);
+	velocityzoom = exp(float2range11(avgspeed * -cvar_or("cl_velocityzoom", 0) / 1) * 1);
 	
 	//print(ftos(avgspeed), " avgspeed, ", ftos(cvar_or("cl_velocityzoom", 0)), " cvar, ", ftos(velocityzoom), " return\n"); // for debugging
 	
 	float frustumx, frustumy, fovx, fovy;
-	frustumy = tan(fov * 0.00872664625997164788) * 0.75 * current_viewzoom * velocityzoom;
+	frustumy = tan(fov * M_PI / 360.0) * 0.75 * current_viewzoom * velocityzoom;
 	frustumx = frustumy * vid_width / vid_height / vid_pixelheight;
-	fovx = atan2(frustumx, 1) / 0.00872664625997164788;
-	fovy = atan2(frustumy, 1) / 0.00872664625997164788;
+	fovx = atan2(frustumx, 1) / M_PI * 360.0;
+	fovy = atan2(frustumy, 1) / M_PI * 360.0;
 
 	return '1 0 0' * fovx + '0 1 0' * fovy;
 }
@@ -448,7 +436,7 @@ void CSQC_UpdateView(float w, float h)
 	sbar_alpha_fg = cvar("sbar_alpha_fg" ) * (1 - cvar("_menu_alpha"));
 	sbar_currentammo = cvar("sbar_showcurrentammo");
 	sbar_hudselector = cvar("sbar_hudselector");
-	sbar_hud_accuracy = cvar("sbar_hud_accuracy");
+	sbar_accuracy_hud = cvar_or("sbar_accuracy_hud", 1);
 	ColorTranslateMode = cvar("cl_stripcolorcodes");
 	activeweapon = getstati(STAT_SWITCHWEAPON);
 	f = cvar("teamplay");
@@ -922,8 +910,7 @@ void CSQC_WAKIZASHI_HUD()
 	// 0--1 floats. 1 = 100%, 0.6 = 50%.
 	float health, shield, energy, rockets;
 
-    float i;
-	vector p, pp;
+	vector p;
 
     p = drawgetimagesize(SPIDER_CROSS);
     p_x *= cvar_or("cl_vehicle_spiderbot_cross_size", 1);
