@@ -1501,6 +1501,8 @@ void ClientConnect (void)
 	}
 	else if(cvar("sv_teamnagger") && !g_ca) // teamnagger is currently bad for ca
 		send_CSQC_teamnagger();
+
+	CheatInitClient();
 }
 
 /*
@@ -1520,6 +1522,8 @@ void ClientDisconnect (void)
 		print("Warning: ClientDisconnect without ClientConnect\n");
 		return;
 	}
+
+	CheatShutdownClient();
 
 	if(self.hitplotfh >= 0)
 	{
