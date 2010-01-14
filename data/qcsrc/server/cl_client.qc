@@ -1442,7 +1442,7 @@ void ClientConnect (void)
 		ctf_clientconnect();
 	}*/
 
-	if(teams_matter || sv_cheats)
+	if(teams_matter || radar_showennemies)
 		attach_entcs();
 
 	bot_relinkplayerlist();
