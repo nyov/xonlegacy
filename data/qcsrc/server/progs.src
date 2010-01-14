@@ -26,6 +26,7 @@ csqcprojectile.qh
 csqceffects.qc
 
 anticheat.qh
+cheats.qh
 
 portals.qh
 
@@ -178,3 +179,4 @@ csqcprojectile.qc
 playerdemo.qc
 
 anticheat.qc
+cheats.qc
