@@ -197,3 +197,26 @@ string cdr(string s); // returns all but first word
 float matchacl(string acl, string str); // matches str against ACL acl (with entries +foo*, +foo, +*foo, +*foo*, and same with - for forbidding)
 float startsWith(string haystack, string needle);
 float startsWithNocase(string haystack, string needle);
+
+#ifndef MENUQC
+float movement_frametime; // in
+vector movement_movement; // in
+float movement_jump; // in
+vector movement_mins; // in
+vector movement_maxs; // in
+vector movement_angles; // in, possibly out
+float movement_onground; // in out
+float movement_waterlevel; // in out
+vector movement_origin; // in out
+vector movement_velocity; // in out
+
+// these must be provided separately
+void Movement_ReadPlayerStatus(); // player status -> movement_ globals
+void Movement_WritePlayerStatus(); // movement_ globals -> player status
+float Movement_GetStat(float paramstat);
+float Movement_PushEntityTrace(vector push);
+
+// these are shared
+void Movement_StepVelocity();
+void Movement_StepOrigin();
+#endif

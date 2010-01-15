@@ -1789,3 +1789,27 @@ float startsWithNocase(string haystack, string needle)
 {
 	return strcasecmp(substring(haystack, 0, strlen(needle)), needle) == 0;
 }
+
+#ifndef MENUQC
+void Movement_StepVelocity()
+{
+	// IN: movement_frametime movement_movement movement_jump movement_angles movement_onground movement_waterlevel
+	// INOUT: movement_velocity
+	// TODO
+}
+
+void Movement_StepOrigin()
+{
+	// IN: movement_frametime movement_mins movement_maxs
+	// INOUT: movement_velocity movement_origin
+	// TODO
+}
+
+void Movement_Step()
+{
+	Movement_ReadPlayerStatus();
+	Movement_StepVelocity();
+	Movement_StepOrigin();
+	Movement_WritePlayerStatus();
+}
+#endif
