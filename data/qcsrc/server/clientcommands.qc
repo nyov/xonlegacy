@@ -221,6 +221,16 @@ void SV_ParseClientCommand(string s) {
 			tokens = tokenize_console(s);
 		}
 		GetCvars(1);
+#ifdef UID
+	} else if(cmd == "uid") {
+		if not(self.uid)
+		{
+			self.uid = strzone(argv(1));
+			self.uid_kicktime = 0;
+			print("Client ", etos(self), " has UID ", self.uid, "\n");
+			Ban_MaybeEnforceBan(self);
+		}
+#endif
 	} else if(cmd == "sentcvar") { // new system
 		if(tokens == 2) // undefined cvar: use the default value on the server then
 		{
@@ -340,6 +350,8 @@ void SV_ParseClientCommand(string s) {
 		sprint(self, lsmaps_reply);
 	} else if(cmd == "records") {
 		sprint(self, records_reply);
+	} else if(cmd == "rankings") {
+		sprint(self, rankings_reply);
 	} else if(cmd == "voice") {
 		if(tokens >= 3)
 			VoiceMessage(argv(1), substring(s, argv_start_index(2), argv_end_index(-1) - argv_start_index(2)));
