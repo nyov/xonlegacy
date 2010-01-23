@@ -1575,13 +1575,21 @@ string MakeRaceString(float cp, float mytime, float histime, float lapdelta, str
 		return strcat(col, cpname, " (", timestr, " ", strcat(hisname, col, lapstr), ")");
 }
 
+float race_CheckName(string net_name) { // Does the name already exist in rankings? In that case, where? (otherwise 0)
+	float i;
+	for (i=RANKINGS_CNT-1;i>=0;--i)
+		if(grecordholder[i] == net_name)
+			return i+1;
+	return 0;
+}
+
 float race_status_time;
 float race_status_prev;
 string race_status_name_prev;
 void Sbar_DrawRaceStatus(vector pos)
 {
 	if (race_status != race_status_prev || race_status_name != race_status_name_prev) {
-		race_status_time = time + 3;
+		race_status_time = time + 5;
 		race_status_prev = race_status;
 		if (race_status_name_prev)
 			strunzone(race_status_name_prev);
@@ -1594,15 +1602,29 @@ void Sbar_DrawRaceStatus(vector pos)
 	string s;
 	s = textShortenToWidth(race_status_name, 120/10, stringwidth_colors);
 
-	if(race_status == 0)
-		drawpic(pos, "gfx/hud/race/newtime", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
-	else if(race_status == 1) {
-		drawpic(pos, "gfx/hud/race/newrank", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);	
-		drawcolorcodedstring(pos + '40 80 0' - '5 0 0' * stringwidth(s, TRUE), s, '10 10 0', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+	float rank;
+	if(race_status > 0)
+		rank = race_CheckName(race_status_name);
+	string rankname;
+	rankname = race_PlaceName(rank);
 
-	} else if(race_status == 2) {
-		drawpic(pos, "gfx/hud/race/newrecord", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+	if(race_status == 0)
+		drawpic(pos, "gfx/hud/race/newfail", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+	else if(race_status == 1) {
+		drawpic(pos, "gfx/hud/race/newtime", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);	
 		drawcolorcodedstring(pos + '40 80 0' - '5 0 0' * stringwidth(s, TRUE), s, '10 10 0', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+		drawstring(pos + '40 20 0' - '7 0 0' * stringwidth(rankname, TRUE), rankname, '14 14 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+	} else if(race_status == 2) {
+		if(race_status_name == GetPlayerName(player_localentnum -1) || !race_myrank || race_myrank < rank)
+			drawpic(pos, "gfx/hud/race/newrankgreen", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+		else
+			drawpic(pos, "gfx/hud/race/newrankyellow", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+		drawcolorcodedstring(pos + '40 80 0' - '5 0 0' * stringwidth(s, TRUE), s, '10 10 0', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+		drawstring(pos + '40 20 0' - '7 0 0' * stringwidth(rankname, TRUE), rankname, '14 14 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+	} else if(race_status == 3) {
+		drawpic(pos, "gfx/hud/race/newrecordserver", '80 80 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+		drawcolorcodedstring(pos + '40 80 0' - '5 0 0' * stringwidth(s, TRUE), s, '10 10 0', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
+		drawstring(pos + '40 20 0' - '7 0 0' * stringwidth(rankname, TRUE), rankname, '14 14 0', '1 1 1', sbar_alpha_fg * a, DRAWFLAG_NORMAL);
 	}
 
 	if (race_status_time - time <= 0) {
@@ -3325,10 +3347,8 @@ void CSQC_race_hud(void)
 	} else {
 		drawstring(pos, "Personal best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 		drawstring(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
-
-		// expanding
-		drawstring(pos - '0 50 0' * f, "Personal best ", '10 10 0' + '30 30 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
-		drawstring(pos + '0 10 0' - '0 30 0' * f, TIME_ENCODED_TOSTRING(t),'14 14 0' + '42 42 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
+		drawstring_expanding(pos, "Personal best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, f);
+		drawstring_expanding(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, f);
 	}
 
 	// server record
@@ -3346,10 +3366,8 @@ void CSQC_race_hud(void)
 	} else {
 		drawstring(pos, "Server best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
 		drawstring(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL);
-
-		// expanding
-		drawstring(pos - '0 50 0' * f, "Server best ", '10 10 0' + '30 30 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
-		drawstring(pos + '0 10 0' - '0 30 0' * f, TIME_ENCODED_TOSTRING(t),'14 14 0' + '42 42 0' * f, '1 1 1', sbar_alpha_fg * (1 - f), DRAWFLAG_NORMAL);
+		drawstring_expanding(pos, "Server best ", '10 10 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, f);
+		drawstring_expanding(pos + '0 10 0', TIME_ENCODED_TOSTRING(t),'14 14 0', '1 1 1', sbar_alpha_fg, DRAWFLAG_NORMAL, f);
 	}
 	drawfont = sbar_font;
 }

@@ -221,30 +221,28 @@ string race_PlaceName(float pos) {
 		return strcat(ftos(pos), "th");
 }
 
-void race_SetTime(entity e, float t) {
-	if (worst_time && t > worst_time)
-		return;
+void race_SetTime(entity e, float t, float match_rec) {
+	float pos, prevpos;
+	pos = race_GetPos(t);
+#ifdef UID
+	prevpos = race_CheckUID(e.uid, e.netname);
+#else
+	prevpos = race_CheckName(e.netname);
+#endif
 
 	float oldrec;
 	string recorddifference;
-	float pos;
-	pos = race_GetPos(t);
-	float prevpos;
-
-	prevpos = race_CheckName(e.netname);
-#ifdef UID
-	prevpos = race_CheckUID(e.uid, e.netname);
-#endif
 	if (prevpos && (prevpos < pos || !pos))
 	{
 		oldrec = race_GetTime(prevpos);
 		recorddifference = strcat(" ^1[+", TIME_ENCODED_TOSTRING(t - oldrec), "]");
 		bprint(e.netname, "^7 couldn't break their ", race_PlaceName(prevpos), " place record of ", TIME_ENCODED_TOSTRING(oldrec), recorddifference, "\n");
-
+		race_SendStatus(0, e); // "fail"
 		return;
 	} else if (!pos) { // no ranking, time worse than the worst ranked
 		recorddifference = strcat(" ^1[+", TIME_ENCODED_TOSTRING(t - grecordtime[RANKINGS_CNT-1]), "]");
 		bprint(e.netname, "^7 couldn't break the ", race_PlaceName(RANKINGS_CNT), " place record of ", TIME_ENCODED_TOSTRING(grecordtime[RANKINGS_CNT-1]), recorddifference, "\n");
+		race_SendStatus(0, e); // "fail"
 		return;
 	}
 
@@ -343,24 +341,24 @@ void race_SetTime(entity e, float t) {
 		if(pos == prevpos) {
 			recorddifference = strcat(" ^2[-", TIME_ENCODED_TOSTRING(oldrec - t), "]");
 			bprint(e.netname, "^1 improved their 1st place record with ", TIME_ENCODED_TOSTRING(t), recorddifference, "\n");
-			race_SendStatus(2, e); // "new record"
+			race_SendStatus(3, e); // "new server record"
 		} else {
 			recorddifference = strcat(" ^2[-", TIME_ENCODED_TOSTRING(oldrec - t), "]");
 			bprint(e.netname, "^1 broke ", grecordholder[pos], "^1's 1st place record with ", strcat(TIME_ENCODED_TOSTRING(t), recorddifference, "\n"));
-			race_SendStatus(2, e); // "new record"
+			race_SendStatus(3, e); // "new server record"
 		}
 	} else {
 		if(pos == prevpos) {
 			recorddifference = strcat(" ^2[-", TIME_ENCODED_TOSTRING(oldrec - t), "]");
-			bprint(e.netname, "^3 improved their ", race_PlaceName(pos), " ^3place record with ", TIME_ENCODED_TOSTRING(t), recorddifference, "\n");
-			race_SendStatus(0, e); // "new time"
+			bprint(e.netname, "^5 improved their ", race_PlaceName(pos), " ^5place record with ", TIME_ENCODED_TOSTRING(t), recorddifference, "\n");
+			race_SendStatus(1, e); // "new time"
 		} else if (oldrec == 0) {
 			bprint(e.netname, "^2 set the ", race_PlaceName(pos), " ^2place record with ", TIME_ENCODED_TOSTRING(t), "\n");
-			race_SendStatus(1, e); // "new rank"
+			race_SendStatus(2, e); // "new rank"
 		} else {
 			recorddifference = strcat(" ^2[-", TIME_ENCODED_TOSTRING(oldrec - t), "]");
 			bprint(e.netname, "^2 broke ", grecordholder[pos], "^2's ", race_PlaceName(pos), " ^2place record with ", strcat(TIME_ENCODED_TOSTRING(t), recorddifference, "\n"));
-			race_SendStatus(1, e); // "new rank"
+			race_SendStatus(2, e); // "new rank"
 		}
 	}
 }
@@ -487,13 +485,9 @@ void race_SendTime(entity e, float cp, float t, float tvalid)
 			if(recordholder == e.netname)
 				recordholder = "";
 
-			if(t != 0)
-			if(t < worst_time || worst_time == 0)
-			{
+			if(t != 0) {
 				if(cp == race_timed_checkpoint)
-				{
-					race_SetTime(e, t);
-				}
+					race_SetTime(e, t, recordtime);
 
 				if(t < recordtime || recordtime == 0)
 				{
@@ -1246,4 +1240,65 @@ void spawnfunc_trigger_race_penalty()
 		self.race_penalty_reason = "missing a checkpoint";
 	if (!self.race_penalty)
 		self.race_penalty = 5;
+}
+
+float race_GetFractionalLapCount(entity e)
+{
+	// interesting metrics (idea by KrimZon) to maybe sort players in the
+	// scoreboard, immediately updates when overtaking
+	//
+	// requires the track to be built so you never get farther away from the
+	// next checkpoint, though, and current Nexuiz race maps are not built that
+	// way
+	//
+	// also, this code is slow and would need optimization (i.e. "next CP"
+	// links on CP entities)
+
+	float l;
+	l = PlayerScore_Add(e, SP_RACE_LAPS, 0);
+	if(e.race_completed)
+		return l; // not fractional
+	
+	vector o0, o1;
+	float bestfraction, fraction;
+	entity lastcp, cp0, cp1;
+	float nextcpindex, lastcpindex;
+
+	nextcpindex = max(e.race_checkpoint, 0);
+	lastcpindex = e.race_respawn_checkpoint;
+	lastcp = e.race_respawn_spotref;
+
+	if(nextcpindex == lastcpindex)
+		return l; // finish
+	
+	bestfraction = 1;
+	for(cp0 = world; (cp0 = find(cp0, classname, "trigger_race_checkpoint")); )
+	{
+		if(cp0.race_checkpoint != lastcpindex)
+			continue;
+		if(lastcp)
+			if(cp0 != lastcp)
+				continue;
+		o0 = (cp0.absmin + cp0.absmax) * 0.5;
+		for(cp1 = world; (cp1 = find(cp1, classname, "trigger_race_checkpoint")); )
+		{
+			if(cp1.race_checkpoint != nextcpindex)
+				continue;
+			o1 = (cp1.absmin + cp1.absmax) * 0.5;
+			if(o0 == o1)
+				continue;
+			fraction = bound(0.0001, vlen(e.origin - o1) / vlen(o0 - o1), 1);
+			if(fraction < bestfraction)
+				bestfraction = fraction;
+		}
+	}
+
+	// we are at CP "nextcpindex - bestfraction"
+	// race_timed_checkpoint == 4: then nextcp==4 means 0.9999x, nextcp==0 means 0.0000x
+	// race_timed_checkpoint == 0: then nextcp==0 means 0.9999x
+	float c, nc;
+	nc = race_highest_checkpoint + 1;
+	c = (mod(nextcpindex - race_timed_checkpoint + nc + nc - 1, nc) + 1) - bestfraction;
+
+	return l + c / nc;
 }
