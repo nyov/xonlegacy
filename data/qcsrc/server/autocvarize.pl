@@ -7,12 +7,15 @@ my @files = @ARGV;
 
 my %cvars = ();
 my %old = ();
+my %menu = ();
 
 sub found($$$)
 {
 	my ($name, $type, $force) = @_;
 	$old{$name} = 1
 		if $force;
+	$menu{$name} = 1
+		if $force > 1;
 	if(exists $cvars{$name} and $type ne $cvars{$name})
 	{
 		warn "cvar $name used with different types";
@@ -57,12 +60,12 @@ for my $f(@files)
 		}
 		if(/^#define autocvar_(.*) cvar("\1")$/)
 		{
-			found $1, 'cvar', 1;
+			found $1, 'cvar', 2;
 			next;
 		}
 		if(/^#define autocvar_(.*) cvar_string("\1")$/)
 		{
-			found $1, 'cvar_string', 1;
+			found $1, 'cvar_string', 2;
 			next;
 		}
 		while(/\b(cvar|cvar_string)\s*\(\s*"([^"]+)"\s*\)/g)
@@ -72,21 +75,55 @@ for my $f(@files)
 	}
 }
 
+for my $f(<../menu/nexuiz/*.c>)
+{
+	print STDERR "In file $f\n";
+	open my $fh, "<", $f;
+	while(<$fh>)
+	{
+		for(/"([^"]*)"/g)
+		{
+			$menu{$1} = 1;
+		}
+	}
+}
+
+for my $f(<../../maps/campaign*.txt>)
+{
+	print STDERR "In file $f\n";
+	open my $fh, "<", $f;
+	while(<$fh>)
+	{
+		for(/\b(.+?)\b/g)
+		{
+			$menu{$1} = 1;
+		}
+	}
+}
+
 for my $name(sort keys %cvars)
 {
 	my $type = $cvars{$name};
-	next if $old{$name};
-	if($type eq 'unknown')
+	my $menu = $menu{$name};
+	if(not defined $type)
 	{
 		print "// cannot declare $name, it is used with different types\n";
 	}
-	if($type eq 'cvar')
+	if($type eq 'cvar' and not $menu)
 	{
 		print "float autocvar_$name;\n";
 	}
-	if($type eq 'cvar_string')
+	if($type eq 'cvar_string' and not $menu)
 	{
 		print "string autocvar_$name;\n";
+	}
+	if($type eq 'cvar' and $menu)
+	{
+		print "#define autocvar_$name cvar(\"$name\")\n";
+	}
+	if($type eq 'cvar_string' and $menu)
+	{
+		print "#define autocvar_$name cvar_string(\"$name\")\n";
 	}
 }
 
