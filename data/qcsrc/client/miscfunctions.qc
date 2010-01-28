@@ -502,52 +502,142 @@ void PolyDrawModel(entity e)
 .vector movedir; // for clipping planes
 .vector texcoord;
 entity winding_pool;
+.entity aiment, enemy;
 void Draw_CylindricLine(vector from, vector to, float thickness, string texture, float aspect, float shift, vector rgb, float alpha, float drawflag);
 void PolyDrawModel_Point_Interpolate(entity w, entity dst, entity src0, entity src1, float lerp)
 {
 	dst.texcoord = src0.texcoord * (1 - lerp) + src1.texcoord * lerp;
 }
-void PolyDrawCycles(entity edges, entity planes, float epsilon, string tex, vector c, float a, float f)
+void PolyDrawCycles(entity edges, entity p, float epsilon, string tex, vector c, float a, float f)
 {
-	entity e, p;
-	vector pc; float pcn;
-	vector o, t;
-	for(p = planes; p; p = p.sort_next)
+}
+#define EPSILON 0.5
+
+vector PolyDraw_CutPlaneTransform(entity cutplanes, vector v)
+{
+	return v + cutplanes.origin; // TODO rotation
+}
+
+void PolyDrawTriangle_Cut_Recursive(entity cutplanes, entity winding, string tex)
+{
+	entity wf, wb, p, edge;
+	//           front               back
+	if(cutplanes.aiment || cutplanes.enemy) // this is a node
 	{
-		makevectors(p.angles);
-		pc = '0 0 0';
-		pcn = 0;
-		for(e = edges; e; e = e.sort_next)
+		ClipWindingEpsilon(winding, cutplanes.movedir, cutplanes.origin * cutplanes.movedir, EPSILON, (!(cutplanes.enemy)) - (!(cutplanes.aiment)));
+		wf = clipwinding_front;
+		wb = clipwinding_back;
+		if(cutplanes.aiment)
 		{
-			if(fabs((e.origin - p.origin) * p.movedir) <= epsilon)
-			if(fabs((e.movedir - p.origin) * p.movedir) <= epsilon)
-			{
-				pcn += 2;
-				pc = pc + e.origin + e.movedir;
-			}
+			cutplanes.aiment.sort_prev = cutplanes;
+			PolyDrawTriangle_Cut_Recursive(cutplanes.aiment, wf, tex);
+			if(wf != winding)
+				FreeWinding(wf);
 		}
-		pc *= (1 / pcn);
-		for(e = edges; e; e = e.sort_next)
+		if(cutplanes.enemy)
 		{
-			if(fabs((e.origin - p.origin) * p.movedir) <= epsilon)
-			if(fabs((e.movedir - p.origin) * p.movedir) <= epsilon)
-			{
-				R_BeginPolygon(tex, f);
-				o = e.origin - v_forward * epsilon;
-				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
-				R_PolygonVertex(o, t, c, a);
-				o = e.movedir - v_forward * epsilon;
-				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
-				R_PolygonVertex(o, t, c, a);
-				o = pc - v_forward * epsilon;
-				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
-				R_PolygonVertex(o, t, c, a);
-				R_EndPolygon();
-			}
+			cutplanes.enemy.sort_prev = cutplanes;
+			PolyDrawTriangle_Cut_Recursive(cutplanes.enemy, wb, tex);
+			if(wb != winding)
+				FreeWinding(wb);
+		}
+	}
+	else // this is a leaf
+	{
+		if(winding.cnt >= 3)
+		{
+			R_BeginPolygon(tex, 0);
+			for(p = winding.sort_next; p != winding; p = p.sort_next)
+				R_PolygonVertex(PolyDraw_CutPlaneTransform(cutplanes, p.origin), p.texcoord, '1 1 1', 1);
+			R_EndPolygon();
+		}
+		if(winding.cnt >= 2)
+		{
+			for(p = winding.sort_next; p != winding; p = p.sort_next)
+				if(p.winding_cutpoint)
+				{
+					edge = Pool_spawn(winding_pool);
+					edge.classname = "winding";
+					edge.origin = p.origin;
+					edge.movedir = ((p.sort_next == winding) ? winding : p).sort_next.origin;
+					edge.sort_next = cutplanes.sort_next;
+					cutplanes.sort_next = edge;
+				}
 		}
 	}
 }
-#define EPSILON 0.5
+void PolyDrawTriangle_Cut_Finish_Recursive(entity cutplanes, string tex, vector c, float a, float f)
+{
+	entity edge, en;
+	entity p, pp;
+	vector pc; float pcn;
+	vector o, t;
+	vector offset;
+	//           front               back
+	if(cutplanes.aiment || cutplanes.enemy) // this is a node
+	{
+		if(cutplanes.aiment)
+			PolyDrawTriangle_Cut_Finish_Recursive(cutplanes.aiment, tex, c, a, f);
+		if(cutplanes.enemy)
+			PolyDrawTriangle_Cut_Finish_Recursive(cutplanes.enemy, tex, c, a, f);
+	}
+	else // this is a leaf
+	{
+		PolyDrawCycles(cutplanes.sort_next, cutplanes, EPSILON * 2, "", '1 0 0', 1, 0);
+
+		for(pp = cutplanes; (p = pp.sort_prev); pp = p)
+		{
+			makevectors(p.angles);
+			pc = '0 0 0';
+			pcn = 0;
+			offset = EPSILON * p.movedir;
+			if(p.enemy == pp)
+			{
+				offset = -1 * offset;
+				v_forward = -1 * v_forward;
+				v_right = -1 * v_right;
+				v_up = -1 * v_up;
+			}
+			for(edge = cutplanes.sort_next; edge; edge = edge.sort_next)
+			{
+				if(fabs((edge.origin - p.origin) * p.movedir) <= EPSILON)
+				if(fabs((edge.movedir - p.origin) * p.movedir) <= EPSILON)
+				{
+					pcn += 2;
+					pc = pc + edge.origin + edge.movedir;
+				}
+			}
+			pc = pc * (1 / pcn);
+			for(edge = cutplanes.sort_next; edge; edge = edge.sort_next)
+			{
+				if(fabs((edge.origin - p.origin) * p.movedir) <= EPSILON)
+				if(fabs((edge.movedir - p.origin) * p.movedir) <= EPSILON)
+				{
+					R_BeginPolygon(tex, f);
+					o = edge.origin - offset;
+					t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
+					R_PolygonVertex(PolyDraw_CutPlaneTransform(cutplanes, o), t, c, a);
+					o = edge.movedir - offset;
+					t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
+					R_PolygonVertex(PolyDraw_CutPlaneTransform(cutplanes, o), t, c, a);
+					o = pc - offset;
+					t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
+					R_PolygonVertex(PolyDraw_CutPlaneTransform(cutplanes, o), t, c, a);
+					R_EndPolygon();
+				}
+			}
+		}
+
+		for(edge = cutplanes.sort_next; edge; )
+		{
+			en = edge.sort_next;
+			Pool_remove(winding_pool, edge);
+			edge = en;
+		}
+		cutplanes.sort_next = world;
+	}
+}
+
 void PolyDrawModel_Cut(entity e, entity cutplanes)
 {
 	float i_s, i_t;
@@ -572,45 +662,11 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_x)); p.texcoord = getsurfacepointattribute(e, i_s, tri_x, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
 			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_y)); p.texcoord = getsurfacepointattribute(e, i_s, tri_y, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
 			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_z)); p.texcoord = getsurfacepointattribute(e, i_s, tri_z, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
-			for(p = cutplanes; p && w.sort_next != w; p = p.sort_next)
-			{
-				ClipWindingEpsilon(w, p.movedir, p.origin * p.movedir, EPSILON, +1);
-				if(clipwinding_front != w)
-				{
-					FreeWinding(w);
-					w = clipwinding_front;
-				}
-			}
-			if(w.cnt >= 3)
-			{
-				R_BeginPolygon(tex, 0);
-				for(p = w.sort_next; p != w; p = p.sort_next)
-					R_PolygonVertex(p.origin, p.texcoord, '1 1 1', 1);
-				R_EndPolygon();
-			}
-			if(w.cnt >= 2)
-			{
-				for(p = w.sort_next; p != w; p = p.sort_next)
-					if(p.winding_cutpoint)
-					{
-						edge = Pool_spawn(winding_pool);
-						edge.origin = p.origin;
-						edge.movedir = ((p.sort_next == w) ? w : p).sort_next.origin;
-						edge.sort_next = edges;
-						edges = edge;
-					}
-			}
+			PolyDrawTriangle_Cut_Recursive(cutplanes, w, tex);
 			ClearWinding(w);
 		}
 	}
+	PolyDrawTriangle_Cut_Finish_Recursive(cutplanes, "", '1 0 0', 1, 0);
 
 	FreeWinding(w);
-
-	PolyDrawCycles(edges, cutplanes, EPSILON * 2, "", '1 0 0', 1, 0);
-	for(edge = edges; edge; )
-	{
-		en = edge.sort_next;
-		Pool_remove(winding_pool, edge);
-		edge = en;
-	}
 }

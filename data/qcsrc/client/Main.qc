@@ -602,10 +602,10 @@ void GameCommand(string msg)
 		cutplane.origin = e.origin;
 		fixedmakevectors((cutplane.angles = '0 90 0'));
 		cutplane.movedir = v_forward;
-		cutplane.sort_next = spawn();
-		cutplane.sort_next.origin = e.origin;
-		fixedmakevectors((cutplane.sort_next.angles = '90 0 0'));
-		cutplane.sort_next.movedir = v_forward;
+		cutplane.enemy = spawn();
+		cutplane.aiment = spawn();
+		cutplane.enemy.origin = '16 0 8';
+		cutplane.aiment.origin = '-16 0 -8';
 	}
 	else
 	{
