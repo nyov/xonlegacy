@@ -1,0 +1,18 @@
+.float winding_cutpoint; // if set, this point to the next point was a cut
+.vector origin;
+
+.void(entity w, entity dst, entity src0, entity src1, float lerp) winding_point_interpolate; // only needed for extra fields, origin is interpolated and provided before calling this
+.entity owner; // always points to the winding
+.entity sort_next, sort_prev; // they point to the winding if there is none; on the winding, sort_next is the first, and sort_prev the last point
+
+entity AllocPoint(entity w, vector o);
+entity AllocWinding(entity w);
+void InsertIntoWinding(entity w, entity p); // w is insertion point, or w to insert at the end
+void DeleteFromWinding(entity p);
+void FreeWinding(entity w);
+entity CopyWinding(entity w);
+void ClearWinding(entity w);
+
+entity clipwinding_front;
+entity clipwinding_back;
+void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float want_sides);
