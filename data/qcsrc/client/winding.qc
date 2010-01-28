@@ -1,26 +1,9 @@
 entity winding_pool;
-entity Winding_AllocFromPool()
-{
-	if(winding_pool)
-	{
-		entity e;
-		e = winding_pool;
-		winding_pool = winding_pool.sort_next;
-		return e;
-	}
-	else
-		return spawn();
-}
-entity Winding_FreeIntoPool(entity e)
-{
-	e.sort_next = winding_pool;
-	winding_pool = e;
-}
 
 entity entdup(entity e)
 {
 	entity e2;
-	e2 = Winding_AllocFromPool();
+	e2 = Pool_spawn(winding_pool);
 	copyentity(e, e2);
 	return e2;
 }
@@ -28,7 +11,9 @@ entity entdup(entity e)
 entity AllocWinding(entity base)
 {
 	entity e;
-	e = Winding_AllocFromPool();
+	if(!winding_pool)
+		winding_pool = Pool_Alloc();
+	e = Pool_spawn(winding_pool);
 	e.classname = "winding";
 	e.sort_next = e;
 	e.sort_prev = e;
@@ -51,13 +36,15 @@ void DeleteFromWinding(entity p)
 {
 	p.sort_next.sort_prev = p.sort_prev;
 	p.sort_prev.sort_next = p.sort_next;
-	Winding_FreeIntoPool(p);
+	Pool_remove(winding_pool, p);
 }
 
 entity AllocPoint(entity w, vector o)
 {
 	entity e;
-	e = Winding_AllocFromPool();
+	if(!winding_pool)
+		winding_pool = Pool_Alloc();
+	e = Pool_spawn(winding_pool);
 	e.classname = "winding_point";
 	e.origin = o;
 	e.owner = w;
@@ -70,7 +57,7 @@ void ClearWinding(entity w)
 	for(e = w.sort_next; e != w; )
 	{
 		e = e.sort_next;
-		Winding_FreeIntoPool(e.sort_prev);
+		Pool_remove(winding_pool, e.sort_prev);
 	}
 	// now only w is left
 	w.sort_next = w.sort_prev = w;
@@ -79,7 +66,7 @@ void ClearWinding(entity w)
 void FreeWinding(entity w)
 {
 	ClearWinding(w);
-	Winding_FreeIntoPool(w);
+	Pool_remove(winding_pool, w);
 }
 
 entity CopyWinding(entity w)
@@ -150,6 +137,8 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 		d2 = p2.origin * norm - dist;
 		if(d > epsilon) // front
 		{
+			// if the point started a cut, the new point starts
+			// an edge too as it's a front-point
 			if(want_sides >= 0)
 				InsertIntoWinding(clipwinding_front, entdup(p));
 			if not(d2 < -epsilon) // only if switching side
@@ -157,6 +146,8 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 		}
 		else if(d < -epsilon) // back
 		{
+			// if the point started a cut, the new point starts
+			// an edge too as it's a back-point
 			if(want_sides <= 0)
 				InsertIntoWinding(clipwinding_back, entdup(p));
 			if not(d2 > epsilon) // only if switching side
@@ -164,11 +155,25 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 		}
 		else // on
 		{
+			// if the point started a cut and it is ON the current
+			// cut, then it only starts a cut on the side on which
+			// the edge continues
+
 			// point is for both windings
 			if(want_sides >= 0)
-				InsertIntoWinding(clipwinding_front, entdup(p));
+			{
+				pnew = entdup(p);
+				if not(d2 > epsilon) // next point isn't FRONT?
+					pnew.winding_cutpoint = 0; // no cut
+				InsertIntoWinding(clipwinding_front, entdup(pnew));
+			}
 			if(want_sides <= 0)
-				InsertIntoWinding(clipwinding_back, entdup(p));
+			{
+				pnew = entdup(p);
+				if not(d2 < -epsilon) // next point isn't BACK?
+					pnew.winding_cutpoint = 0; // no cut
+				InsertIntoWinding(clipwinding_back, entdup(pnew));
+			}
 			continue;
 		}
 		// must... make... split... point

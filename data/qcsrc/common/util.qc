@@ -1916,3 +1916,54 @@ float startsWithNocase(string haystack, string needle)
 {
 	return strcasecmp(substring(haystack, 0, strlen(needle)), needle) == 0;
 }
+
+// entity pools
+.entity pool_next;
+entity Pool_Alloc()
+{
+	entity e;
+	e = spawn();
+	e.classname = "pool";
+	e.pool_next = world;
+	return e;
+}
+
+void Pool_Destroy(entity pool)
+{
+	Pool_Clear(pool);
+	remove(pool);
+}
+
+void Pool_Clear(entity pool)
+{
+	entity e, f;
+	for(e = pool.pool_next; e; )
+	{
+		f = e.pool_next;
+		remove(e);
+		e = f;
+	}
+	pool.pool_next = world;
+}
+
+entity Pool_spawn(entity pool)
+{
+	entity e;
+	if(pool && pool.pool_next)
+	{
+		e = pool.pool_next;
+		pool.pool_next = e.pool_next;
+		return e;
+	}
+	return spawn();
+}
+
+void Pool_remove(entity pool, entity e)
+{
+	if(pool)
+	{
+		e.pool_next = pool.pool_next;
+		pool.pool_next = e;
+	}
+	remove(e);
+}

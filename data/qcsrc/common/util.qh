@@ -210,3 +210,10 @@ string cdr(string s); // returns all but first word
 float matchacl(string acl, string str); // matches str against ACL acl (with entries +foo*, +foo, +*foo, +*foo*, and same with - for forbidding)
 float startsWith(string haystack, string needle);
 float startsWithNocase(string haystack, string needle);
+
+// entity pools
+entity Pool_Alloc();
+void Pool_Destroy(entity pool);
+void Pool_Clear(entity pool);
+entity Pool_spawn(entity pool);
+void Pool_remove(entity pool, entity e);

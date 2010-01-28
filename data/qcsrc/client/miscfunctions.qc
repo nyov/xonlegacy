@@ -501,6 +501,8 @@ void PolyDrawModel(entity e)
 
 .vector movedir; // for clipping planes
 .vector texcoord;
+entity winding_pool;
+void Draw_CylindricLine(vector from, vector to, float thickness, string texture, float aspect, float shift, vector rgb, float alpha, float drawflag);
 void PolyDrawModel_Point_Interpolate(entity w, entity dst, entity src0, entity src1, float lerp)
 {
 	dst.texcoord = src0.texcoord * (1 - lerp) + src1.texcoord * lerp;
@@ -511,7 +513,8 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 	float n_t;
 	vector tri;
 	string tex;
-	entity w, p;
+	entity w, p, edge, en;
+	entity edges;
 	w = AllocWinding(world);
 	w.winding_point_interpolate = PolyDrawModel_Point_Interpolate;
 
@@ -540,9 +543,26 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 			for(p = w.sort_next; p != w; p = p.sort_next)
 				R_PolygonVertex(p.origin, p.texcoord, '1 1 1', 1);
 			R_EndPolygon();
+			for(p = w.sort_next; p != w; p = p.sort_next)
+				if(p.winding_cutpoint)
+				{
+					e = Pool_spawn(winding_pool);
+					e.origin = p.origin;
+					e.movedir = ((p.sort_next == w) ? w : p).sort_next.origin;
+					e.sort_next = edges;
+					edges = e;
+				}
 			ClearWinding(w);
 		}
 	}
 
 	FreeWinding(w);
+
+	for(edge = edges; edge; )
+	{
+		Draw_CylindricLine(edge.origin, edge.movedir, 3, "", 1, 0, '1 0 0', 1, 0);
+		en = edge.sort_next;
+		Pool_remove(winding_pool, edge);
+		edge = en;
+	}
 }
