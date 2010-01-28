@@ -117,8 +117,10 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 		return;
 	}
 	
-	clipwinding_front = AllocWinding(w);
-	clipwinding_back = AllocWinding(w);
+	if(want_sides >= 0)
+		clipwinding_front = AllocWinding(w);
+	if(want_sides <= 0)
+		clipwinding_back = AllocWinding(w);
 
 	for(i = 0, p = w.sort_next; p != w; ++i, p = p.sort_next)
 	{
