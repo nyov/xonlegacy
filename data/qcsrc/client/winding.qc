@@ -48,6 +48,7 @@ entity AllocPoint(entity w, vector o)
 	e.classname = "winding_point";
 	e.origin = o;
 	e.owner = w;
+	e.winding_cutpoint = 0;
 	return e;
 }
 
@@ -100,10 +101,10 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 	for(i = 0, p = w.sort_next; p != w; ++i, p = p.sort_next)
 	{
 		dot = p.origin * norm - dist;
-		if(dot > epsilon)
-			++counts_f;
-		else if(dot < -epsilon)
+		if not(dot > epsilon) // we include the center case in both, as it IS simple, if it weren't for the is-this-a-cut-vertex distinction
 			++counts_b;
+		if not(dot < -epsilon)
+			++counts_f;
 	}
 
 	if not(counts_f)
@@ -163,16 +164,40 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 			if(want_sides >= 0)
 			{
 				pnew = entdup(p);
-				if not(d2 > epsilon) // next point isn't FRONT?
-					pnew.winding_cutpoint = 0; // no cut
-				InsertIntoWinding(clipwinding_front, entdup(pnew));
+				if(d2 > epsilon) // next point is FRONT?
+				{
+					// then this point does not need to be a cut, unless it already was
+					//pnew.winding_cutpoint = 0;
+				}
+				else if(d2 < -epsilon) // next point is BACK? then it's a cut until the point where it comes back
+				{
+					pnew.winding_cutpoint = 1;
+				}
+				else
+				{
+					// next point is SAME? the evil case, this may or may not be a cut
+					//pnew.winding_cutpoint = 1;
+				}
+				InsertIntoWinding(clipwinding_front, pnew);
 			}
 			if(want_sides <= 0)
 			{
 				pnew = entdup(p);
-				if not(d2 < -epsilon) // next point isn't BACK?
-					pnew.winding_cutpoint = 0; // no cut
-				InsertIntoWinding(clipwinding_back, entdup(pnew));
+				if(d2 > epsilon) // next point is FRONT? then it's a cut until the point where it comes back
+				{
+					pnew.winding_cutpoint = 1;
+				}
+				else if(d2 < -epsilon) // next point is BACK?
+				{
+					// then this point does not need to be a cut, unless it already was
+					//pnew.winding_cutpoint = 0;
+				}
+				else
+				{
+					// next point is SAME?
+					//pnew.winding_cutpoint = 1;
+				}
+				InsertIntoWinding(clipwinding_back, pnew);
 			}
 			continue;
 		}
@@ -180,16 +205,17 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 		dot = d / (d - d2);
 		mid = (1 - dot) * p.origin + dot * p2.origin;
 		pnew = AllocPoint(w, mid);
-		pnew.winding_cutpoint = 1;
 		if(w.winding_point_interpolate)
 			w.winding_point_interpolate(w, pnew, p, p2, dot);
 
+		pnew.winding_cutpoint = (d > epsilon);
 		if(want_sides >= 0)
 			InsertIntoWinding(clipwinding_front, pnew);
 		if(want_sides <= 0)
 		{
 			if(want_sides >= 0)
 				pnew = entdup(pnew);
+			pnew.winding_cutpoint = (d < -epsilon);
 			InsertIntoWinding(clipwinding_back, pnew);
 		}
 	}

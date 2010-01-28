@@ -507,6 +507,7 @@ void PolyDrawModel_Point_Interpolate(entity w, entity dst, entity src0, entity s
 {
 	dst.texcoord = src0.texcoord * (1 - lerp) + src1.texcoord * lerp;
 }
+#define EPSILON 1
 void PolyDrawModel_Cut(entity e, entity cutplanes)
 {
 	float i_s, i_t;
@@ -533,7 +534,7 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_z)); p.texcoord = getsurfacepointattribute(e, i_s, tri_z, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
 			for(p = cutplanes; p && w.sort_next != w; p = p.sort_next)
 			{
-				ClipWindingEpsilon(w, p.movedir, p.origin * p.movedir, 0.01, +1);
+				ClipWindingEpsilon(w, p.movedir, p.origin * p.movedir, EPSILON, +1);
 				FreeWinding(w);
 				w = clipwinding_front;
 			}
@@ -546,11 +547,11 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 			for(p = w.sort_next; p != w; p = p.sort_next)
 				if(p.winding_cutpoint)
 				{
-					e = Pool_spawn(winding_pool);
-					e.origin = p.origin;
-					e.movedir = ((p.sort_next == w) ? w : p).sort_next.origin;
-					e.sort_next = edges;
-					edges = e;
+					edge = Pool_spawn(winding_pool);
+					edge.origin = p.origin;
+					edge.movedir = ((p.sort_next == w) ? w : p).sort_next.origin;
+					edge.sort_next = edges;
+					edges = edge;
 				}
 			ClearWinding(w);
 		}
@@ -560,7 +561,7 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 
 	for(edge = edges; edge; )
 	{
-		Draw_CylindricLine(edge.origin, edge.movedir, 3, "", 1, 0, '1 0 0', 1, 0);
+		Draw_CylindricLine(edge.origin, edge.movedir, 1, "", 1, 0, '1 0 0', 1, DRAWFLAG_ADDITIVE);
 		en = edge.sort_next;
 		Pool_remove(winding_pool, edge);
 		edge = en;

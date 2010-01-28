@@ -1965,5 +1965,6 @@ void Pool_remove(entity pool, entity e)
 		e.pool_next = pool.pool_next;
 		pool.pool_next = e;
 	}
-	remove(e);
+	else
+		remove(e);
 }

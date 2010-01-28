@@ -596,11 +596,15 @@ void GameCommand(string msg)
 		e.angles = view_angles;
 		e.draw = DrawDebugModel;
 		e.classname = "debugmodel";
+		e.frame = 7;
 		if(!cutplane)
 			cutplane = spawn();
 		makevectors(e.angles);
 		cutplane.origin = e.origin;
-		cutplane.movedir = v_right;
+		cutplane.movedir = v_forward;
+		cutplane.sort_next = spawn();
+		cutplane.sort_next.origin = e.origin;
+		cutplane.sort_next.movedir = v_up;
 	}
 	else
 	{
