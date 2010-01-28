@@ -1,6 +1,7 @@
 entity entdup(entity e)
 {
 	entity e2;
+	e2 = spawn();
 	copyentity(e, e2);
 	return e2;
 }
