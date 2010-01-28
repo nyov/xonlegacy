@@ -524,16 +524,17 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 		for(i_t = 0; i_t < n_t; ++i_t)
 		{
 			tri = getsurfacetriangle(e, i_s, i_t);
+			ClearWinding(w); // do we NEED this?
 			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_x)); p.texcoord = getsurfacepointattribute(e, i_s, tri_x, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
 			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_y)); p.texcoord = getsurfacepointattribute(e, i_s, tri_y, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
 			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_z)); p.texcoord = getsurfacepointattribute(e, i_s, tri_z, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
-			for(p = cutplanes; p && w.sort_next != w.sort_prev; p = p.sort_next)
+			for(p = cutplanes; p && w.sort_next != w; p = p.sort_next)
 			{
 				ClipWindingEpsilon(w, p.movedir, p.origin * p.movedir, 0.01, +1);
 				FreeWinding(w);
 				w = clipwinding_front;
 			}
-			if(w.sort_next == w.sort_prev)
+			if(w.sort_next == w)
 				continue; // empty winding
 			R_BeginPolygon(tex, 0);
 			for(p = w.sort_next; p != w; p = p.sort_next)

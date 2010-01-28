@@ -124,7 +124,7 @@ void ClipWindingEpsilon(entity w, vector norm, float dist, float epsilon, float 
 	{
 		p2 = p.sort_next;
 		if(p2 == w)
-			p2 = p.sort_next;
+			p2 = p2.sort_next;
 		d = p.origin * norm - dist;
 		d2 = p2.origin * norm - dist;
 		if(d > epsilon) // front
