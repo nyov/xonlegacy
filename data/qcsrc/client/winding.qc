@@ -1,7 +1,26 @@
+entity winding_pool;
+entity Winding_AllocFromPool()
+{
+	if(winding_pool)
+	{
+		entity e;
+		e = winding_pool;
+		winding_pool = winding_pool.sort_next;
+		return e;
+	}
+	else
+		return spawn();
+}
+entity Winding_FreeIntoPool(entity e)
+{
+	e.sort_next = winding_pool;
+	winding_pool = e;
+}
+
 entity entdup(entity e)
 {
 	entity e2;
-	e2 = spawn();
+	e2 = Winding_AllocFromPool();
 	copyentity(e, e2);
 	return e2;
 }
@@ -9,7 +28,7 @@ entity entdup(entity e)
 entity AllocWinding(entity base)
 {
 	entity e;
-	e = spawn();
+	e = Winding_AllocFromPool();
 	e.classname = "winding";
 	e.sort_next = e;
 	e.sort_prev = e;
@@ -32,13 +51,13 @@ void DeleteFromWinding(entity p)
 {
 	p.sort_next.sort_prev = p.sort_prev;
 	p.sort_prev.sort_next = p.sort_next;
-	remove(p);
+	Winding_FreeIntoPool(p);
 }
 
 entity AllocPoint(entity w, vector o)
 {
 	entity e;
-	e = spawn();
+	e = Winding_AllocFromPool();
 	e.classname = "winding_point";
 	e.origin = o;
 	e.owner = w;
@@ -51,7 +70,7 @@ void ClearWinding(entity w)
 	for(e = w.sort_next; e != w; )
 	{
 		e = e.sort_next;
-		remove(e.sort_prev);
+		Winding_FreeIntoPool(e.sort_prev);
 	}
 	// now only w is left
 	w.sort_next = w.sort_prev = w;
@@ -60,7 +79,7 @@ void ClearWinding(entity w)
 void FreeWinding(entity w)
 {
 	ClearWinding(w);
-	remove(w);
+	Winding_FreeIntoPool(w);
 }
 
 entity CopyWinding(entity w)
