@@ -1,3 +1,5 @@
+var void remove(entity e);
+
 #define INDEPENDENT_ATTACK_FINISHED
 
 float require_spawnfunc_prefix; // if this float exists, only functions with spawnfunc_ name prefix qualify as spawn functions

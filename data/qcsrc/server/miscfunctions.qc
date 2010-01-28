@@ -1,4 +1,3 @@
-var void remove(entity e);
 void objerror(string s);
 void droptofloor();
 .vector dropped_origin;
