@@ -474,7 +474,7 @@ entity cutplane; // user can prvm_edictset its fields
 void DrawDebugModel()
 {
 	float t;
-	t = mod(floor(time), 3);
+	t = mod(floor(time / 3), 3);
 	switch(t)
 	{
 		case 0:
@@ -599,12 +599,13 @@ void GameCommand(string msg)
 		e.frame = 7;
 		if(!cutplane)
 			cutplane = spawn();
-		makevectors(e.angles);
 		cutplane.origin = e.origin;
+		fixedmakevectors((cutplane.angles = '0 90 0'));
 		cutplane.movedir = v_forward;
 		cutplane.sort_next = spawn();
 		cutplane.sort_next.origin = e.origin;
-		cutplane.sort_next.movedir = v_up;
+		fixedmakevectors((cutplane.sort_next.angles = '90 0 0'));
+		cutplane.sort_next.movedir = v_forward;
 	}
 	else
 	{

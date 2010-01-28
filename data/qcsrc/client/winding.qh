@@ -4,6 +4,7 @@
 .void(entity w, entity dst, entity src0, entity src1, float lerp) winding_point_interpolate; // only needed for extra fields, origin is interpolated and provided before calling this
 .entity owner; // always points to the winding
 .entity sort_next, sort_prev; // they point to the winding if there is none; on the winding, sort_next is the first, and sort_prev the last point
+.float cnt; // number of points
 
 entity AllocPoint(entity w, vector o);
 entity AllocWinding(entity w);

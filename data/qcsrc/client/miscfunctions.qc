@@ -514,7 +514,7 @@ void PolyDrawCycles(entity edges, entity planes, float epsilon, string tex, vect
 	vector o, t;
 	for(p = planes; p; p = p.sort_next)
 	{
-		makevectors(vectoangles(p.movedir));
+		makevectors(p.angles);
 		pc = '0 0 0';
 		pcn = 0;
 		for(e = edges; e; e = e.sort_next)
@@ -533,13 +533,13 @@ void PolyDrawCycles(entity edges, entity planes, float epsilon, string tex, vect
 			if(fabs((e.movedir - p.origin) * p.movedir) <= epsilon)
 			{
 				R_BeginPolygon(tex, f);
-				o = e.origin;
+				o = e.origin - v_forward * epsilon;
 				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
 				R_PolygonVertex(o, t, c, a);
-				o = e.movedir;
+				o = e.movedir - v_forward * epsilon;
 				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
 				R_PolygonVertex(o, t, c, a);
-				o = pc;
+				o = pc - v_forward * epsilon;
 				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
 				R_PolygonVertex(o, t, c, a);
 				R_EndPolygon();
@@ -575,31 +575,38 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 			for(p = cutplanes; p && w.sort_next != w; p = p.sort_next)
 			{
 				ClipWindingEpsilon(w, p.movedir, p.origin * p.movedir, EPSILON, +1);
-				FreeWinding(w);
-				w = clipwinding_front;
-			}
-			if(w.sort_next == w)
-				continue; // empty winding
-			R_BeginPolygon(tex, 0);
-			for(p = w.sort_next; p != w; p = p.sort_next)
-				R_PolygonVertex(p.origin, p.texcoord, '1 1 1', 1);
-			R_EndPolygon();
-			for(p = w.sort_next; p != w; p = p.sort_next)
-				if(p.winding_cutpoint)
+				if(clipwinding_front != w)
 				{
-					edge = Pool_spawn(winding_pool);
-					edge.origin = p.origin;
-					edge.movedir = ((p.sort_next == w) ? w : p).sort_next.origin;
-					edge.sort_next = edges;
-					edges = edge;
+					FreeWinding(w);
+					w = clipwinding_front;
 				}
+			}
+			if(w.cnt >= 3)
+			{
+				R_BeginPolygon(tex, 0);
+				for(p = w.sort_next; p != w; p = p.sort_next)
+					R_PolygonVertex(p.origin, p.texcoord, '1 1 1', 1);
+				R_EndPolygon();
+			}
+			if(w.cnt >= 2)
+			{
+				for(p = w.sort_next; p != w; p = p.sort_next)
+					if(p.winding_cutpoint)
+					{
+						edge = Pool_spawn(winding_pool);
+						edge.origin = p.origin;
+						edge.movedir = ((p.sort_next == w) ? w : p).sort_next.origin;
+						edge.sort_next = edges;
+						edges = edge;
+					}
+			}
 			ClearWinding(w);
 		}
 	}
 
 	FreeWinding(w);
 
-	PolyDrawCycles(edges, cutplanes, EPSILON * 2, "", '1 0 0', 0.5, 0);
+	PolyDrawCycles(edges, cutplanes, EPSILON * 2, "", '1 0 0', 1, 0);
 	for(edge = edges; edge; )
 	{
 		en = edge.sort_next;
