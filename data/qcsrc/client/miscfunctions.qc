@@ -507,7 +507,47 @@ void PolyDrawModel_Point_Interpolate(entity w, entity dst, entity src0, entity s
 {
 	dst.texcoord = src0.texcoord * (1 - lerp) + src1.texcoord * lerp;
 }
-#define EPSILON 1
+void PolyDrawCycles(entity edges, entity planes, float epsilon, string tex, vector c, float a, float f)
+{
+	entity e, p;
+	vector pc; float pcn;
+	vector o, t;
+	for(p = planes; p; p = p.sort_next)
+	{
+		makevectors(vectoangles(p.movedir));
+		pc = '0 0 0';
+		pcn = 0;
+		for(e = edges; e; e = e.sort_next)
+		{
+			if(fabs((e.origin - p.origin) * p.movedir) <= epsilon)
+			if(fabs((e.movedir - p.origin) * p.movedir) <= epsilon)
+			{
+				pcn += 2;
+				pc = pc + e.origin + e.movedir;
+			}
+		}
+		pc *= (1 / pcn);
+		for(e = edges; e; e = e.sort_next)
+		{
+			if(fabs((e.origin - p.origin) * p.movedir) <= epsilon)
+			if(fabs((e.movedir - p.origin) * p.movedir) <= epsilon)
+			{
+				R_BeginPolygon(tex, f);
+				o = e.origin;
+				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
+				R_PolygonVertex(o, t, c, a);
+				o = e.movedir;
+				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
+				R_PolygonVertex(o, t, c, a);
+				o = pc;
+				t = '1 0 0' * (o * v_right) + '0 1 0' * (o * v_up);
+				R_PolygonVertex(o, t, c, a);
+				R_EndPolygon();
+			}
+		}
+	}
+}
+#define EPSILON 0.5
 void PolyDrawModel_Cut(entity e, entity cutplanes)
 {
 	float i_s, i_t;
@@ -559,9 +599,9 @@ void PolyDrawModel_Cut(entity e, entity cutplanes)
 
 	FreeWinding(w);
 
+	PolyDrawCycles(edges, cutplanes, EPSILON * 2, "", '1 0 0', 0.5, 0);
 	for(edge = edges; edge; )
 	{
-		Draw_CylindricLine(edge.origin, edge.movedir, 1, "", 1, 0, '1 0 0', 1, DRAWFLAG_ADDITIVE);
 		en = edge.sort_next;
 		Pool_remove(winding_pool, edge);
 		edge = en;
