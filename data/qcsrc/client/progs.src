@@ -14,6 +14,8 @@ csqc_builtins.qc
 
 autocvars.qh
 
+winding.qh
+
 interpolate.qh
 teamradar.qh
 waypointsprites.qh
@@ -54,6 +56,8 @@ waypointsprites.qc
 movetypes.qc
 prandom.qc
 bgmscript.qc
+
+winding.qc
 
 ../common/util.qc
 ../common/gamecommand.qc

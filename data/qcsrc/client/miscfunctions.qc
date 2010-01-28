@@ -498,3 +498,50 @@ void PolyDrawModel(entity e)
 		}
 	}
 }
+
+.vector movedir; // for clipping planes
+.vector texcoord;
+void PolyDrawModel_Point_Interpolate(entity w, entity dst, entity src0, entity src1, float lerp)
+{
+	dst.texcoord = src0.texcoord * (1 - lerp) + src1.texcoord * lerp;
+}
+void PolyDrawModel_Cut(entity e, entity cutplanes)
+{
+	float i_s, i_t;
+	float n_t;
+	vector tri;
+	string tex;
+	entity w, p;
+	w = AllocWinding(world);
+	w.winding_point_interpolate = PolyDrawModel_Point_Interpolate;
+
+	for(i_s = 0; ; ++i_s)
+	{
+		tex = getsurfacetexture(e, i_s);
+		if not(tex)
+			break; // this is beyond the last one
+		n_t = getsurfacenumtriangles(e, i_s);
+		for(i_t = 0; i_t < n_t; ++i_t)
+		{
+			tri = getsurfacetriangle(e, i_s, i_t);
+			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_x)); p.texcoord = getsurfacepointattribute(e, i_s, tri_x, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
+			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_y)); p.texcoord = getsurfacepointattribute(e, i_s, tri_y, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
+			p = AllocPoint(w, getsurfacepoint(e, i_s, tri_z)); p.texcoord = getsurfacepointattribute(e, i_s, tri_z, SPA_TEXCOORDS0); InsertIntoWinding(w, p);
+			for(p = cutplanes; p && w.sort_next != w.sort_prev; p = p.sort_next)
+			{
+				ClipWindingEpsilon(w, p.movedir, p.origin * p.movedir, 0.01, +1);
+				FreeWinding(w);
+				w = clipwinding_front;
+			}
+			if(w.sort_next == w.sort_prev)
+				continue; // empty winding
+			R_BeginPolygon(tex, 0);
+			for(p = w.sort_next; p != w; p = p.sort_next)
+				R_PolygonVertex(p.origin, p.texcoord, '1 1 1', 1);
+			R_EndPolygon();
+			ClearWinding(w);
+		}
+	}
+
+	FreeWinding(w);
+}

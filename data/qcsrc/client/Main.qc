@@ -470,16 +470,23 @@ void ShotOrg_Spawn()
 	debug_shotorg.view_ofs = '25 8 -8';
 }
 
+entity cutplane; // user can prvm_edictset its fields
 void DrawDebugModel()
 {
-	if(time - floor(time) > 0.5)
+	float t;
+	t = mod(floor(time), 3);
+	switch(t)
 	{
-		PolyDrawModel(self);
-	}
-	else
-	{
-		self.renderflags = 0;
-		R_AddEntity(self);
+		case 0:
+			self.renderflags = 0;
+			R_AddEntity(self);
+			break;
+		case 1:
+			PolyDrawModel(self);
+			break;
+		case 2:
+			PolyDrawModel_Cut(self, cutplane);
+			break;
 	}
 }
 
@@ -589,6 +596,11 @@ void GameCommand(string msg)
 		e.angles = view_angles;
 		e.draw = DrawDebugModel;
 		e.classname = "debugmodel";
+		if(!cutplane)
+			cutplane = spawn();
+		makevectors(e.angles);
+		cutplane.origin = e.origin;
+		cutplane.movedir = v_right;
 	}
 	else
 	{

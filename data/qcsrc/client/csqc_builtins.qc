@@ -297,6 +297,8 @@ float(string s) tokenize_console = #514;
 float(float i) argv_start_index = #515;
 float(float i) argv_end_index = #516;
 
+void(entity from, entity to) copyentity = #400;
+
 float(float s) asin = #471; // returns angle in radians for a given sin() value, the result is in the range -PI*0.5 to PI*0.5
 float(float c) acos = #472; // returns angle in radians for a given cos() value, the result is in the range 0 to PI
 float(float t) atan = #473; // returns angle in radians for a given tan() value, the result is in the range -PI*0.5 to PI*0.5
