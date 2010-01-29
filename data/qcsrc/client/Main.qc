@@ -603,9 +603,21 @@ void GameCommand(string msg)
 		fixedmakevectors((cutplane.angles = '0 90 0'));
 		cutplane.movedir = v_forward;
 		cutplane.enemy = spawn();
+		cutplane.enemy.origin = e.origin + '16 0 8';
+		fixedmakevectors((cutplane.enemy.angles = '45 90 0'));
+		cutplane.enemy.movedir = v_forward;
+		cutplane.enemy.aiment = spawn();
+		cutplane.enemy.aiment.origin = '-64 0 -64';
+		cutplane.enemy.enemy = spawn();
+		cutplane.enemy.enemy.origin = '64 0 64';
 		cutplane.aiment = spawn();
-		cutplane.enemy.origin = '16 0 8';
-		cutplane.aiment.origin = '-16 0 -8';
+		cutplane.aiment.origin = e.origin + '-16 -12 0';
+		fixedmakevectors((cutplane.aiment.angles = '27 41 9'));
+		cutplane.aiment.movedir = v_forward;
+		cutplane.aiment.aiment = spawn();
+		cutplane.aiment.aiment.origin = '-64 0 64';
+		cutplane.aiment.enemy = spawn();
+		cutplane.aiment.enemy.origin = '64 0 -64';
 	}
 	else
 	{

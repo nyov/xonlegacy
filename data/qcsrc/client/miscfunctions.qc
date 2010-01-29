@@ -530,14 +530,16 @@ void PolyDrawTriangle_Cut_Recursive(entity cutplanes, entity winding, string tex
 		if(cutplanes.aiment)
 		{
 			cutplanes.aiment.sort_prev = cutplanes;
-			PolyDrawTriangle_Cut_Recursive(cutplanes.aiment, wf, tex);
+			if(wf.cnt >= 2)
+				PolyDrawTriangle_Cut_Recursive(cutplanes.aiment, wf, tex);
 			if(wf != winding)
 				FreeWinding(wf);
 		}
 		if(cutplanes.enemy)
 		{
 			cutplanes.enemy.sort_prev = cutplanes;
-			PolyDrawTriangle_Cut_Recursive(cutplanes.enemy, wb, tex);
+			if(wb.cnt >= 2)
+				PolyDrawTriangle_Cut_Recursive(cutplanes.enemy, wb, tex);
 			if(wb != winding)
 				FreeWinding(wb);
 		}
@@ -551,19 +553,16 @@ void PolyDrawTriangle_Cut_Recursive(entity cutplanes, entity winding, string tex
 				R_PolygonVertex(PolyDraw_CutPlaneTransform(cutplanes, p.origin), p.texcoord, '1 1 1', 1);
 			R_EndPolygon();
 		}
-		if(winding.cnt >= 2)
-		{
-			for(p = winding.sort_next; p != winding; p = p.sort_next)
-				if(p.winding_cutpoint)
-				{
-					edge = Pool_spawn(winding_pool);
-					edge.classname = "winding";
-					edge.origin = p.origin;
-					edge.movedir = ((p.sort_next == winding) ? winding : p).sort_next.origin;
-					edge.sort_next = cutplanes.sort_next;
-					cutplanes.sort_next = edge;
-				}
-		}
+		for(p = winding.sort_next; p != winding; p = p.sort_next)
+			if(p.winding_cutpoint)
+			{
+				edge = Pool_spawn(winding_pool);
+				edge.classname = "winding";
+				edge.origin = p.origin;
+				edge.movedir = ((p.sort_next == winding) ? winding : p).sort_next.origin;
+				edge.sort_next = cutplanes.sort_next;
+				cutplanes.sort_next = edge;
+			}
 	}
 }
 void PolyDrawTriangle_Cut_Finish_Recursive(entity cutplanes, string tex, vector c, float a, float f)
