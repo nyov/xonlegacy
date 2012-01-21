@@ -11,7 +11,7 @@ dlname='../bin/SDL.dll'
 library_names='libSDL.dll.a'
 
 # The name of the static archive.
-old_library='libSDL.a'
+old_library=''
 
 # Linker flags that can not go in dependency_libs.
 inherited_linker_flags=''
@@ -25,7 +25,7 @@ weak_library_names=''
 # Version information for libSDL.
 current=11
 age=11
-revision=3
+revision=4
 
 # Is this an already installed library?
 installed=yes
@@ -38,4 +38,4 @@ dlopen=''
 dlpreopen=''
 
 # Directory that this library needs to be installed in:
-libdir='/usr/local/lib'
+libdir='/usr/local/cross-tools/i686-w64-mingw32/lib'
