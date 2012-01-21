@@ -1,7 +1,7 @@
 /* include/SDL_config.h.  Generated from SDL_config.h.in by configure.  */
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2009 Sam Lantinga
+    Copyright (C) 1997-2012 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -132,11 +132,13 @@
 #define HAVE_VSNPRINTF 1
 /* #undef HAVE_ICONV */
 /* #undef HAVE_SIGACTION */
+/* #undef HAVE_SA_SIGACTION */
 #define HAVE_SETJMP 1
 /* #undef HAVE_NANOSLEEP */
 /* #undef HAVE_CLOCK_GETTIME */
 /* #undef HAVE_GETPAGESIZE */
 /* #undef HAVE_MPROTECT */
+/* #undef HAVE_SEM_TIMEDWAIT */
 
 #else
 /* We may need some replacement for stdarg.h here */
